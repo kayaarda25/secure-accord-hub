@@ -749,13 +749,34 @@ export default function Opex() {
                     required
                   >
                     <option value="">Select organization</option>
-                    {costCenters
-                      .filter((cc) => !cc.name.includes("Allgemein") && !cc.name.includes("Projekte"))
-                      .map((cc) => (
-                        <option key={cc.id} value={cc.id}>
-                          {cc.code.startsWith('MGIM') ? 'MGI Media' : cc.code.startsWith('MGIC') ? 'MGI Communications' : 'Gateway'}
-                        </option>
-                      ))}
+                    {(() => {
+                      // Group cost centers by organization and take first one per org
+                      const orgMap = new Map<string, typeof costCenters[0]>();
+                      costCenters.forEach(cc => {
+                        const orgKey = cc.code.startsWith('MGIM') ? 'mgi-media' 
+                          : cc.code.startsWith('MGIC') ? 'mgi-communications' 
+                          : 'gateway';
+                        if (!orgMap.has(orgKey)) {
+                          orgMap.set(orgKey, cc);
+                        }
+                      });
+                      
+                      const orgs = [
+                        { key: 'mgi-media', label: 'MGI Media' },
+                        { key: 'mgi-communications', label: 'MGI Communications' },
+                        { key: 'gateway', label: 'Gateway' },
+                      ];
+                      
+                      return orgs.map(org => {
+                        const cc = orgMap.get(org.key);
+                        if (!cc) return null;
+                        return (
+                          <option key={cc.id} value={cc.id}>
+                            {org.label}
+                          </option>
+                        );
+                      });
+                    })()}
                   </select>
                 </div>
                 <div>
