@@ -32,6 +32,9 @@ const defaultPermissions: OrganizationPermissions = {
   isMgi: false,
 };
 
+// Debug: Log when permissions are fetched
+const DEBUG = true;
+
 export function useOrganizationPermissions() {
   const { user, profile, hasRole } = useAuth();
   const [permissions, setPermissions] = useState<OrganizationPermissions>(defaultPermissions);
@@ -53,6 +56,10 @@ export function useOrganizationPermissions() {
           .eq("id", profile.organization_id)
           .single();
 
+        if (DEBUG) {
+          console.log("Org fetch result:", { org, orgError, organization_id: profile.organization_id });
+        }
+
         if (orgError || !org?.org_type) {
           console.error("Error fetching organization:", orgError);
           setPermissions(defaultPermissions);
@@ -69,6 +76,10 @@ export function useOrganizationPermissions() {
           .eq("org_type", orgType)
           .single();
 
+        if (DEBUG) {
+          console.log("Permissions fetch result:", { perms, permsError, orgType });
+        }
+
         if (permsError || !perms) {
           console.error("Error fetching permissions:", permsError);
           setPermissions(defaultPermissions);
@@ -79,7 +90,7 @@ export function useOrganizationPermissions() {
         // Admin override - admins can do everything
         const isAdmin = hasRole("admin");
 
-        setPermissions({
+        const newPermissions = {
           canCreateDeclarations: isAdmin || perms.can_create_declarations,
           canCreateInvoices: isAdmin || perms.can_create_invoices,
           canCreateOpex: isAdmin || perms.can_create_opex,
@@ -91,7 +102,13 @@ export function useOrganizationPermissions() {
           orgType,
           isGateway: orgType === "gateway",
           isMgi: orgType === "mgi_media" || orgType === "mgi_communications",
-        });
+        };
+
+        if (DEBUG) {
+          console.log("Setting permissions:", newPermissions);
+        }
+
+        setPermissions(newPermissions);
       } catch (error) {
         console.error("Error in fetchPermissions:", error);
         setPermissions(defaultPermissions);

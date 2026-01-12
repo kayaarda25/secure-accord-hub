@@ -53,7 +53,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, roles, signOut } = useAuth();
-  const { permissions } = useOrganizationPermissions();
+  const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
 
   // Build navigation based on permissions
   const navigation: NavItem[] = useMemo(() => {
@@ -61,6 +61,15 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Tasks", href: "/tasks", icon: CheckSquare },
     ];
+
+    // Don't show permission-based items while loading
+    if (permissionsLoading) {
+      // Only show basic items while loading
+      items.push({ name: "Documents", href: "/documents", icon: FileText });
+      items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
+      items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
+      return items;
+    }
 
     // Finances menu (Declarations, Invoices)
     const financeChildren: NavItem["children"] = [];
@@ -118,7 +127,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
 
     return items;
-  }, [permissions]);
+  }, [permissions, permissionsLoading]);
 
   const handleSignOut = async () => {
     await signOut();
