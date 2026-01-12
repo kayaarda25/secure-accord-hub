@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 
 interface SearchResult {
   id: string;
@@ -36,7 +37,7 @@ interface SearchResult {
   link: string;
 }
 
-const quickActions = [
+const baseQuickActions = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/" },
   { name: "Dokumente", icon: FileText, href: "/documents" },
   { name: "Aufgaben", icon: CheckSquare, href: "/tasks" },
@@ -59,8 +60,14 @@ export function GlobalSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
 
-  // Keyboard shortcut (Cmd+K / Ctrl+K)
+  const quickActions = useMemo(() => {
+    if (permissionsLoading) return baseQuickActions.filter((a) => a.href !== "/budget");
+
+    const canSeeBudget = permissions.canViewBudget || permissions.canCreateBudget;
+    return baseQuickActions.filter((a) => (a.href === "/budget" ? canSeeBudget : true));
+  }, [permissions, permissionsLoading]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
