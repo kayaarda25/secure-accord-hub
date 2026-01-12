@@ -12,6 +12,7 @@ import Declarations from "./pages/Declarations";
 import Invoices from "./pages/Invoices";
 import Documents from "./pages/Documents";
 import Calendar from "./pages/Calendar";
+import Tasks from "./pages/Tasks";
 import Opex from "./pages/Opex";
 import Communication from "./pages/Communication";
 import UsersPage from "./pages/Users";
@@ -92,7 +93,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Placeholder routes */}
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute>
+                  <Tasks />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/partners"
               element={
