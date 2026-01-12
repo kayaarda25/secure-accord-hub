@@ -496,47 +496,107 @@ export default function Opex() {
         />
       </div>
 
-      {/* Cost Centers Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {costCenters
-        .filter((cc) => !cc.name.includes("Allgemein") && !cc.name.includes("Projekte"))
-        .slice(0, 4)
-        .map((cc, index) => {
-          const usagePercent = cc.budget_annual > 0 
-            ? Math.round((cc.budget_used / cc.budget_annual) * 100) 
-            : 0;
-          return (
-            <div
-              key={cc.id}
-              className="card-state p-4 animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="badge-gold">{cc.code}</span>
-                <span className="text-xs text-muted-foreground">{cc.country}</span>
+      {/* Organization Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {(() => {
+          // Aggregate cost centers by organization
+          const orgData = [
+            {
+              id: 'mgi-media',
+              name: 'MGI Media',
+              code: 'MGI M',
+              color: 'text-blue-500',
+            },
+            {
+              id: 'mgi-communications',
+              name: 'MGI Communications',
+              code: 'MGI C',
+              color: 'text-purple-500',
+            },
+            {
+              id: 'gateway',
+              name: 'Gateway',
+              code: 'GW',
+              color: 'text-accent',
+            },
+          ];
+
+          // Check if current user is from Gateway (should see combined MGI view)
+          const isGatewayUser = hasAnyRole(['state']);
+
+          const displayOrgs = isGatewayUser
+            ? [
+                {
+                  id: 'mgi-combined',
+                  name: 'MGI',
+                  code: 'MGI',
+                  color: 'text-blue-500',
+                  budgetAnnual: costCenters
+                    .filter(cc => cc.code.startsWith('MGIM') || cc.code.startsWith('MGIC'))
+                    .reduce((sum, cc) => sum + (cc.budget_annual || 0), 0),
+                  budgetUsed: costCenters
+                    .filter(cc => cc.code.startsWith('MGIM') || cc.code.startsWith('MGIC'))
+                    .reduce((sum, cc) => sum + (cc.budget_used || 0), 0),
+                },
+                {
+                  id: 'gateway',
+                  name: 'Gateway',
+                  code: 'GW',
+                  color: 'text-accent',
+                  budgetAnnual: costCenters
+                    .filter(cc => cc.code.startsWith('GW'))
+                    .reduce((sum, cc) => sum + (cc.budget_annual || 0), 0),
+                  budgetUsed: costCenters
+                    .filter(cc => cc.code.startsWith('GW'))
+                    .reduce((sum, cc) => sum + (cc.budget_used || 0), 0),
+                },
+              ]
+            : orgData.map(org => {
+                const prefix = org.id === 'mgi-media' ? 'MGIM' : org.id === 'mgi-communications' ? 'MGIC' : 'GW';
+                const orgCostCenters = costCenters.filter(cc => cc.code.startsWith(prefix));
+                return {
+                  ...org,
+                  budgetAnnual: orgCostCenters.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0),
+                  budgetUsed: orgCostCenters.reduce((sum, cc) => sum + (cc.budget_used || 0), 0),
+                };
+              });
+
+          return displayOrgs.map((org, index) => {
+            const usagePercent = org.budgetAnnual > 0
+              ? Math.round((org.budgetUsed / org.budgetAnnual) * 100)
+              : 0;
+            return (
+              <div
+                key={org.id}
+                className="card-state p-4 animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="badge-gold">{org.code}</span>
+                </div>
+                <p className="text-sm font-medium text-foreground mb-2">{org.name}</p>
+                <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      usagePercent > 90
+                        ? "bg-destructive"
+                        : usagePercent > 70
+                        ? "bg-warning"
+                        : "bg-success"
+                    }`}
+                    style={{ width: `${usagePercent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {formatCurrency(org.budgetUsed)}
+                  </span>
+                  <span className="text-foreground font-medium">{usagePercent}%</span>
+                </div>
               </div>
-              <p className="text-sm font-medium text-foreground mb-2">{cc.name}</p>
-              <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    usagePercent > 90
-                      ? "bg-destructive"
-                      : usagePercent > 70
-                      ? "bg-warning"
-                      : "bg-success"
-                  }`}
-                  style={{ width: `${usagePercent}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">
-                  {formatCurrency(cc.budget_used)}
-                </span>
-                <span className="text-foreground font-medium">{usagePercent}%</span>
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
 
       {/* Expenses Table */}
