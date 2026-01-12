@@ -302,6 +302,7 @@ export type Database = {
       opex_expenses: {
         Row: {
           amount: number
+          category: string | null
           cost_center_id: string
           created_at: string
           currency: string
@@ -326,6 +327,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          category?: string | null
           cost_center_id: string
           created_at?: string
           currency?: string
@@ -350,6 +352,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category?: string | null
           cost_center_id?: string
           created_at?: string
           currency?: string

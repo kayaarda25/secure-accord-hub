@@ -52,11 +52,28 @@ export default function Opex() {
   const [showNewExpense, setShowNewExpense] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Expense categories
+  const expenseCategories = [
+    { value: "salaries", label: "Salaries & Wages", icon: "👤" },
+    { value: "rent", label: "Rent & Lease", icon: "🏢" },
+    { value: "insurance", label: "Insurance", icon: "🛡️" },
+    { value: "transportation", label: "Transportation", icon: "🚗" },
+    { value: "it", label: "IT & Technology", icon: "💻" },
+    { value: "utilities", label: "Utilities", icon: "⚡" },
+    { value: "maintenance", label: "Maintenance", icon: "🔧" },
+    { value: "marketing", label: "Marketing & Ads", icon: "📢" },
+    { value: "training", label: "Training & Education", icon: "📚" },
+    { value: "office", label: "Office Supplies", icon: "📎" },
+    { value: "communication", label: "Communication", icon: "📞" },
+    { value: "other", label: "Other", icon: "📦" },
+  ];
+
   // Form state
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     cost_center_id: "",
+    category: "",
     amount: "",
     currency: "CHF",
   });
@@ -109,6 +126,7 @@ export default function Opex() {
           title: formData.title,
           description: formData.description || null,
           cost_center_id: formData.cost_center_id,
+          category: formData.category || null,
           amount: parseFloat(formData.amount),
           currency: formData.currency,
           submitted_by: user.id,
@@ -141,6 +159,7 @@ export default function Opex() {
         title: "",
         description: "",
         cost_center_id: "",
+        category: "",
         amount: "",
         currency: "CHF",
       });
@@ -482,15 +501,45 @@ export default function Opex() {
 
       {/* New Expense Modal */}
       {showNewExpense && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="card-state w-full max-w-lg p-6 animate-fade-in">
-            <h2 className="text-xl font-semibold text-foreground mb-6">
-              Neue OPEX-Ausgabe
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="card-state w-full max-w-2xl p-6 animate-fade-in my-8">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
+              OPEX-Einreichung
             </h2>
-            <form onSubmit={handleSubmitExpense} className="space-y-4">
+            <p className="text-sm text-muted-foreground mb-6">
+              Füllen Sie alle Felder aus, um Ihre Betriebskosten einzureichen.
+            </p>
+            <form onSubmit={handleSubmitExpense} className="space-y-6">
+              {/* Category Selection */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Kategorie auswählen *
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {expenseCategories.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, category: cat.value })}
+                      className={`p-3 rounded-lg border text-left transition-all ${
+                        formData.category === cat.value
+                          ? "border-accent bg-accent/10 ring-2 ring-accent"
+                          : "border-border bg-muted hover:border-accent/50"
+                      }`}
+                    >
+                      <span className="text-xl block mb-1">{cat.icon}</span>
+                      <span className="text-xs font-medium text-foreground line-clamp-1">
+                        {cat.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Titel
+                  Bezeichnung *
                 </label>
                 <input
                   type="text"
@@ -499,14 +548,15 @@ export default function Opex() {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  placeholder="Beschreibung der Ausgabe"
+                  placeholder="z.B. Monatliche Serverkosten, Büroausstattung..."
                   required
                 />
               </div>
 
+              {/* Cost Center */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Kostenstelle
+                  Kostenstelle *
                 </label>
                 <select
                   value={formData.cost_center_id}
@@ -519,20 +569,22 @@ export default function Opex() {
                   <option value="">Kostenstelle wählen</option>
                   {costCenters.map((cc) => (
                     <option key={cc.id} value={cc.id}>
-                      {cc.code} - {cc.name}
+                      {cc.code} - {cc.name} {cc.country ? `(${cc.country})` : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Amount and Currency */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Betrag
+                    Betrag *
                   </label>
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.amount}
                     onChange={(e) =>
                       setFormData({ ...formData, amount: e.target.value })
@@ -561,6 +613,7 @@ export default function Opex() {
                 </div>
               </div>
 
+              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                   Beschreibung
@@ -572,10 +625,11 @@ export default function Opex() {
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={3}
-                  placeholder="Zusätzliche Details..."
+                  placeholder="Zusätzliche Details zur Ausgabe..."
                 />
               </div>
 
+              {/* File Upload */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                   Beleg hochladen
@@ -608,7 +662,8 @@ export default function Opex() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              {/* Submit Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowNewExpense(false)}
@@ -618,7 +673,7 @@ export default function Opex() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !formData.category}
                   className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSubmitting && <Loader2 size={16} className="animate-spin" />}
