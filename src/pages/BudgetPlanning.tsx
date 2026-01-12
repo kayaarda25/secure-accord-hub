@@ -207,11 +207,25 @@ export default function BudgetPlanning() {
     },
   ];
 
-  const costCenterData = costCenters.map((cc) => ({
-    name: cc.code,
-    Budget: cc.budget_annual || 0,
-    Verwendet: cc.budget_used || 0,
-  }));
+  // Group cost centers by organization (Gateway, MGI C, MGI M)
+  const getOrganizationName = (code: string): string => {
+    if (code.startsWith("GW")) return "Gateway";
+    if (code.startsWith("MGIC")) return "MGI C";
+    if (code.startsWith("MGIM")) return "MGI M";
+    return code;
+  };
+
+  const costCenterData = Object.values(
+    costCenters.reduce((acc, cc) => {
+      const orgName = getOrganizationName(cc.code);
+      if (!acc[orgName]) {
+        acc[orgName] = { name: orgName, Budget: 0, Verwendet: 0 };
+      }
+      acc[orgName].Budget += cc.budget_annual || 0;
+      acc[orgName].Verwendet += cc.budget_used || 0;
+      return acc;
+    }, {} as Record<string, { name: string; Budget: number; Verwendet: number }>)
+  );
 
   // Alerts for over-budget
   const overBudgetCenters = costCenters.filter((cc) => {
