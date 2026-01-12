@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard,
   Wallet,
@@ -14,6 +15,7 @@ import {
   Building2,
   Users,
   Globe,
+  LogOut,
 } from "lucide-react";
 
 const navigation = [
@@ -36,6 +38,21 @@ const secondaryNav = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, roles, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const getRoleBadge = () => {
+    if (roles.includes("state")) return "Staat";
+    if (roles.includes("management")) return "Management";
+    if (roles.includes("finance")) return "Finance";
+    if (roles.includes("partner")) return "Partner";
+    return "Benutzer";
+  };
 
   return (
     <aside
@@ -125,22 +142,41 @@ export function Sidebar() {
         {!collapsed ? (
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">AD</span>
+              <span className="text-xs font-medium text-primary-foreground">
+                {profile?.first_name?.[0] || "U"}
+                {profile?.last_name?.[0] || ""}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-accent-foreground truncate">
-                Admin User
+                {profile?.first_name || "Benutzer"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                Staatliche Verwaltung
+                {getRoleBadge()}
               </p>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              title="Abmelden"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         ) : (
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">AD</span>
+              <span className="text-xs font-medium text-primary-foreground">
+                {profile?.first_name?.[0] || "U"}
+              </span>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              title="Abmelden"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         )}
       </div>
