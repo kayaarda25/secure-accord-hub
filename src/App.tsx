@@ -8,6 +8,8 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Finances from "./pages/Finances";
+import Declarations from "./pages/Declarations";
+import Invoices from "./pages/Invoices";
 import Documents from "./pages/Documents";
 import Calendar from "./pages/Calendar";
 import Opex from "./pages/Opex";
@@ -39,6 +41,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Finances />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/finances/declarations"
+              element={
+                <ProtectedRoute>
+                  <Declarations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/finances/invoices"
+              element={
+                <ProtectedRoute>
+                  <Invoices />
                 </ProtectedRoute>
               }
             />
