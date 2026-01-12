@@ -14,6 +14,11 @@ import {
   Check,
   Loader2,
   X,
+  MessageSquare,
+  Send,
+  Circle,
+  Square,
+  Download,
 } from "lucide-react";
 
 interface Participant {
@@ -22,13 +27,22 @@ interface Participant {
   stream?: MediaStream;
 }
 
-interface VideoMeetingProps {
-  onClose: () => void;
+interface ChatMessage {
+  id: string;
+  sender_id: string;
+  sender_name: string;
+  content: string;
+  created_at: string;
 }
 
-export function VideoMeeting({ onClose }: VideoMeetingProps) {
+interface VideoMeetingProps {
+  onClose: () => void;
+  initialRoomCode?: string;
+}
+
+export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   const { user, profile } = useAuth();
-  const [roomId, setRoomId] = useState<string>("");
+  const [roomId, setRoomId] = useState<string>(initialRoomCode || "");
   const [isInRoom, setIsInRoom] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -37,6 +51,21 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newChatMessage, setNewChatMessage] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -55,6 +84,21 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
       { urls: "stun:stun1.l.google.com:19302" },
     ],
   };
+
+  // Auto-join if initialRoomCode is provided
+  useEffect(() => {
+    if (initialRoomCode && !isInRoom) {
+      joinRoom(initialRoomCode);
+    }
+  }, [initialRoomCode]);
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    if (showChat) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setUnreadCount(0);
+    }
+  }, [chatMessages, showChat]);
 
   const createPeerConnection = useCallback((peerId: string) => {
     console.log("Creating peer connection for:", peerId);
@@ -134,6 +178,22 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
     }
   };
 
+  const fetchChatHistory = async (roomCode: string) => {
+    try {
+      const { data } = await supabase
+        .from("meeting_chat_messages")
+        .select("*")
+        .eq("room_code", roomCode)
+        .order("created_at", { ascending: true });
+
+      if (data) {
+        setChatMessages(data);
+      }
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+    }
+  };
+
   const joinRoom = async (roomToJoin: string) => {
     if (!user) return;
     setIsJoining(true);
@@ -147,7 +207,31 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
 
     console.log("Joining room:", roomToJoin);
 
-    // Subscribe to the room channel
+    // Fetch chat history
+    await fetchChatHistory(roomToJoin);
+
+    // Subscribe to chat messages
+    const chatChannel = supabase
+      .channel(`chat:${roomToJoin}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "meeting_chat_messages",
+          filter: `room_code=eq.${roomToJoin}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as ChatMessage;
+          setChatMessages((prev) => [...prev, newMessage]);
+          if (!showChat && newMessage.sender_id !== user?.id) {
+            setUnreadCount((prev) => prev + 1);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to the room channel for WebRTC
     const channel = supabase.channel(`meeting:${roomToJoin}`, {
       config: {
         presence: { key: user.id },
@@ -165,7 +249,6 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
         })).filter((p) => p.id !== user.id);
 
         setParticipants((prev) => {
-          // Merge with existing participants that have streams
           return presentUsers.map((newP) => {
             const existing = prev.find((p) => p.id === newP.id);
             return existing ? { ...newP, stream: existing.stream } : newP;
@@ -175,7 +258,6 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
       .on("presence", { event: "join" }, async ({ key, newPresences }) => {
         console.log("User joined:", key, newPresences);
         if (key !== user.id) {
-          // Create offer for new participant
           const pc = createPeerConnection(key);
           try {
             const offer = await pc.createOffer();
@@ -267,10 +349,126 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
     await joinRoom(newRoomId);
   };
 
+  const sendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatMessage.trim() || !user) return;
+
+    try {
+      await supabase.from("meeting_chat_messages").insert({
+        room_code: roomId,
+        sender_id: user.id,
+        sender_name: userName,
+        content: newChatMessage.trim(),
+      });
+      setNewChatMessage("");
+    } catch (error) {
+      console.error("Error sending chat message:", error);
+    }
+  };
+
+  const startRecording = async () => {
+    if (!localStreamRef.current) return;
+
+    try {
+      // Create a combined stream with all participants
+      const canvas = document.createElement("canvas");
+      canvas.width = 1920;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+      
+      // For simplicity, record local stream only
+      const mediaRecorder = new MediaRecorder(localStreamRef.current, {
+        mimeType: "video/webm;codecs=vp9",
+      });
+
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+        setRecordedBlob(blob);
+      };
+
+      mediaRecorder.start(1000);
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  };
+
+  const saveRecording = async () => {
+    if (!recordedBlob || !user) return;
+
+    try {
+      const fileName = `recording_${roomId}_${Date.now()}.webm`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("meeting-recordings")
+        .upload(filePath, recordedBlob);
+
+      if (uploadError) throw uploadError;
+
+      // Save record to database
+      await supabase.from("meeting_recordings").insert({
+        room_code: roomId,
+        file_path: filePath,
+        file_name: fileName,
+        file_size: recordedBlob.size,
+        duration_seconds: recordingTime,
+        recorded_by: user.id,
+      });
+
+      // Download locally too
+      const url = URL.createObjectURL(recordedBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setRecordedBlob(null);
+      setRecordingTime(0);
+    } catch (error) {
+      console.error("Error saving recording:", error);
+    }
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const leaveRoom = () => {
     console.log("Leaving room");
     
-    // Stop all tracks
+    if (isRecording) {
+      stopRecording();
+    }
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
@@ -280,11 +478,9 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
       screenStreamRef.current = null;
     }
 
-    // Close all peer connections
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
 
-    // Unsubscribe from channel
     if (channelRef.current) {
       channelRef.current.unsubscribe();
       channelRef.current = null;
@@ -294,6 +490,7 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
     setRoomId("");
     setParticipants([]);
     setIsScreenSharing(false);
+    setChatMessages([]);
     onClose();
   };
 
@@ -319,12 +516,10 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
-      // Stop screen sharing
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
       }
-      // Replace screen track with camera track
       if (localStreamRef.current) {
         const videoTrack = localStreamRef.current.getVideoTracks()[0];
         peerConnectionsRef.current.forEach((pc) => {
@@ -347,7 +542,6 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
           setIsScreenSharing(false);
         };
 
-        // Replace camera track with screen track
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender) {
@@ -383,6 +577,9 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
       peerConnectionsRef.current.forEach((pc) => pc.close());
       if (channelRef.current) {
         channelRef.current.unsubscribe();
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
       }
     };
   }, []);
@@ -485,66 +682,153 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Users size={18} className="text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {participants.length + 1} Teilnehmer
-          </span>
+        <div className="flex items-center gap-4">
+          {isRecording && (
+            <div className="flex items-center gap-2 text-destructive">
+              <Circle size={12} className="fill-current animate-pulse" />
+              <span className="text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {participants.length + 1} Teilnehmer
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Video Grid */}
-      <div className="flex-1 p-4 overflow-auto">
-        <div
-          className={`grid gap-4 h-full ${
-            participants.length === 0
-              ? "grid-cols-1"
-              : participants.length <= 1
-              ? "grid-cols-1 md:grid-cols-2"
-              : participants.length <= 3
-              ? "grid-cols-2"
-              : "grid-cols-2 md:grid-cols-3"
-          }`}
-        >
-          {/* Local Video */}
-          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute bottom-3 left-3 px-2 py-1 bg-background/80 rounded text-sm text-foreground">
-              {userName} (Sie)
-            </div>
-            {!isVideoEnabled && (
-              <div className="absolute inset-0 bg-muted flex items-center justify-center">
-                <VideoOff size={48} className="text-muted-foreground" />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Video Grid */}
+        <div className={`flex-1 p-4 overflow-auto transition-all ${showChat ? "pr-0" : ""}`}>
+          <div
+            className={`grid gap-4 h-full ${
+              participants.length === 0
+                ? "grid-cols-1"
+                : participants.length <= 1
+                ? "grid-cols-1 md:grid-cols-2"
+                : participants.length <= 3
+                ? "grid-cols-2"
+                : "grid-cols-2 md:grid-cols-3"
+            }`}
+          >
+            {/* Local Video */}
+            <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-3 left-3 px-2 py-1 bg-background/80 rounded text-sm text-foreground">
+                {userName} (Sie)
               </div>
-            )}
-          </div>
-
-          {/* Remote Videos */}
-          {participants.map((participant) => (
-            <div
-              key={participant.id}
-              className="relative bg-muted rounded-lg overflow-hidden aspect-video"
-            >
-              {participant.stream ? (
-                <RemoteVideo stream={participant.stream} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              {!isVideoEnabled && (
+                <div className="absolute inset-0 bg-muted flex items-center justify-center">
+                  <VideoOff size={48} className="text-muted-foreground" />
                 </div>
               )}
-              <div className="absolute bottom-3 left-3 px-2 py-1 bg-background/80 rounded text-sm text-foreground">
-                {participant.name}
-              </div>
             </div>
-          ))}
+
+            {/* Remote Videos */}
+            {participants.map((participant) => (
+              <div
+                key={participant.id}
+                className="relative bg-muted rounded-lg overflow-hidden aspect-video"
+              >
+                {participant.stream ? (
+                  <RemoteVideo stream={participant.stream} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                <div className="absolute bottom-3 left-3 px-2 py-1 bg-background/80 rounded text-sm text-foreground">
+                  {participant.name}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Chat Panel */}
+        {showChat && (
+          <div className="w-80 border-l border-border bg-card flex flex-col">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <h3 className="font-medium text-foreground">Chat</h3>
+              <button
+                onClick={() => setShowChat(false)}
+                className="p-1 rounded hover:bg-muted text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`${msg.sender_id === user?.id ? "text-right" : ""}`}
+                >
+                  <div
+                    className={`inline-block max-w-[85%] p-2 rounded-lg ${
+                      msg.sender_id === user?.id
+                        ? "bg-accent/20 text-foreground"
+                        : "bg-muted text-foreground"
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      {msg.sender_name}
+                    </p>
+                    <p className="text-sm">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <form onSubmit={sendChatMessage} className="p-3 border-t border-border">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newChatMessage}
+                  onChange={(e) => setNewChatMessage(e.target.value)}
+                  placeholder="Nachricht..."
+                  className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={!newChatMessage.trim()}
+                  className="p-2 rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
+
+      {/* Recording saved notification */}
+      {recordedBlob && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg p-4 shadow-lg animate-fade-in">
+          <p className="text-sm text-foreground mb-3">Aufnahme bereit zum Speichern</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setRecordedBlob(null)}
+              className="px-3 py-1.5 bg-muted text-foreground rounded text-sm"
+            >
+              Verwerfen
+            </button>
+            <button
+              onClick={saveRecording}
+              className="px-3 py-1.5 bg-accent text-accent-foreground rounded text-sm flex items-center gap-1"
+            >
+              <Download size={14} />
+              Speichern
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="p-4 border-t border-border bg-card">
@@ -578,6 +862,31 @@ export function VideoMeeting({ onClose }: VideoMeetingProps) {
             }`}
           >
             <Monitor size={24} />
+          </button>
+          <button
+            onClick={() => setShowChat(!showChat)}
+            className={`p-4 rounded-full transition-colors relative ${
+              showChat
+                ? "bg-accent text-accent-foreground"
+                : "bg-muted hover:bg-muted/80 text-foreground"
+            }`}
+          >
+            <MessageSquare size={24} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`p-4 rounded-full transition-colors ${
+              isRecording
+                ? "bg-destructive text-destructive-foreground animate-pulse"
+                : "bg-muted hover:bg-muted/80 text-foreground"
+            }`}
+          >
+            {isRecording ? <Square size={24} /> : <Circle size={24} />}
           </button>
           <button
             onClick={leaveRoom}

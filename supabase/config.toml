@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.opex-reminder]
 verify_jwt = false
+
+[functions.send-meeting-invitation]
+verify_jwt = false
