@@ -26,6 +26,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -196,7 +197,11 @@ export default function Documents() {
           status: "pending",
         }));
 
-        await supabase.from("document_signatures").insert(signatureRequests);
+        const { error: signaturesError } = await supabase
+          .from("document_signatures")
+          .insert(signatureRequests);
+
+        if (signaturesError) throw signaturesError;
 
         // Get current user's profile for requester name
         const currentUserProfile = profiles.find(p => p.user_id === user.id);
@@ -248,6 +253,12 @@ export default function Documents() {
 
       await logAction("CREATE", "documents", docData?.id);
 
+      toast.success(
+        formData.signers.length > 0
+          ? "Document uploaded and signature requests sent"
+          : "Document uploaded"
+      );
+
       // Reset form
       setFormData({
         name: "",
@@ -263,8 +274,58 @@ export default function Documents() {
       fetchData();
     } catch (error) {
       console.error("Error uploading document:", error);
+      toast.error("Upload failed");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openDocument = async (doc: Document, download = false) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(doc.file_path, 60);
+
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error("Could not create access link");
+
+      if (download) {
+        const a = document.createElement("a");
+        a.href = data.signedUrl;
+        a.download = doc.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return;
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error opening document:", error);
+      toast.error("Failed to open document");
+    }
+  };
+
+  const handleSelfSign = async (documentId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.from("document_signatures").insert({
+        document_id: documentId,
+        signer_id: user.id,
+        requested_by: user.id,
+        status: "signed",
+        signed_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      toast.success("Document signed");
+      await logAction("SIGN", "document_signatures", documentId);
+      fetchData();
+    } catch (error) {
+      console.error("Error self-signing document:", error);
+      toast.error("Signing failed");
     }
   };
 
@@ -272,18 +333,23 @@ export default function Documents() {
     if (!user) return;
 
     try {
-      await supabase
+      const { error } = await supabase
         .from("document_signatures")
         .update({
           status: "signed",
           signed_at: new Date().toISOString(),
         })
-        .eq("id", signatureId);
+        .eq("id", signatureId)
+        .eq("signer_id", user.id);
 
+      if (error) throw error;
+
+      toast.success("Document signed");
       await logAction("SIGN", "document_signatures", signatureId);
       fetchData();
     } catch (error) {
       console.error("Error signing document:", error);
+      toast.error("Signing failed");
     }
   };
 
@@ -291,18 +357,23 @@ export default function Documents() {
     if (!user) return;
 
     try {
-      await supabase
+      const { error } = await supabase
         .from("document_signatures")
         .update({
           status: "rejected",
           rejected_at: new Date().toISOString(),
         })
-        .eq("id", signatureId);
+        .eq("id", signatureId)
+        .eq("signer_id", user.id);
 
+      if (error) throw error;
+
+      toast.success("Signature rejected");
       await logAction("REJECT", "document_signatures", signatureId);
       fetchData();
     } catch (error) {
       console.error("Error rejecting signature:", error);
+      toast.error("Reject failed");
     }
   };
 
@@ -653,12 +724,55 @@ export default function Documents() {
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-1">
-                      <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <button
+                        onClick={() => openDocument(doc)}
+                        className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title="View"
+                      >
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <button
+                        onClick={() => openDocument(doc, true)}
+                        className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title="Download"
+                      >
                         <Download size={16} />
                       </button>
+
+                      {(() => {
+                        const myPending = (doc.signatures || []).find(
+                          (s) => s.signer_id === user?.id && s.status === "pending"
+                        );
+                        const canSelfSign =
+                          doc.uploaded_by === user?.id && (!doc.signatures || doc.signatures.length === 0);
+
+                        if (myPending) {
+                          return (
+                            <button
+                              onClick={() => handleSign(myPending.id)}
+                              className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Sign"
+                            >
+                              <PenTool size={16} />
+                            </button>
+                          );
+                        }
+
+                        if (canSelfSign) {
+                          return (
+                            <button
+                              onClick={() => handleSelfSign(doc.id)}
+                              className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Sign"
+                            >
+                              <PenTool size={16} />
+                            </button>
+                          );
+                        }
+
+                        return null;
+                      })()}
+
                       <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                         <MoreHorizontal size={16} />
                       </button>
