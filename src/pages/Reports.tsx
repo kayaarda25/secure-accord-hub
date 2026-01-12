@@ -46,12 +46,16 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Globe,
+  PieChart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { QuarterlyReport } from "@/components/reports/QuarterlyReport";
+import { RevenueByRegion } from "@/components/reports/RevenueByRegion";
 
 interface ScheduledReport {
   id: string;
@@ -513,11 +517,23 @@ export default function Reports() {
   return (
     <Layout title="Reports" subtitle="Berichte generieren und automatisieren">
       <Tabs defaultValue="opex-overview" className="space-y-6">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="quarterly">Quartalsabschlüsse</TabsTrigger>
+          <TabsTrigger value="regional">Umsatz nach Region</TabsTrigger>
           <TabsTrigger value="opex-overview">OPEX-Übersicht</TabsTrigger>
           <TabsTrigger value="generate">Report erstellen</TabsTrigger>
           <TabsTrigger value="scheduled">Geplante Reports</TabsTrigger>
         </TabsList>
+
+        {/* Quarterly Reports Tab */}
+        <TabsContent value="quarterly" className="space-y-6">
+          <QuarterlyReport />
+        </TabsContent>
+
+        {/* Regional Revenue Tab */}
+        <TabsContent value="regional" className="space-y-6">
+          <RevenueByRegion />
+        </TabsContent>
 
         {/* OPEX Overview Tab */}
         <TabsContent value="opex-overview" className="space-y-6">
