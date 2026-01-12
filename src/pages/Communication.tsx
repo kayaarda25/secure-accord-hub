@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { VideoMeeting } from "@/components/communication/VideoMeeting";
 import {
   MessageSquare,
   Users,
@@ -20,6 +21,7 @@ import {
   ChevronRight,
   Loader2,
   Clock,
+  Video,
 } from "lucide-react";
 
 type CommunicationType = "partner" | "authority" | "internal";
@@ -71,6 +73,7 @@ export default function Communication() {
   const [newMessage, setNewMessage] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
+  const [showVideoMeeting, setShowVideoMeeting] = useState(false);
 
   // Form state for new thread
   const [threadForm, setThreadForm] = useState({
@@ -277,7 +280,22 @@ export default function Communication() {
   ];
 
   return (
-    <Layout title="Kommunikation" subtitle="Nachrichten und Protokolle">
+    <Layout title="Kommunikation" subtitle="Nachrichten, Protokolle und Online-Sitzungen">
+      {/* Video Meeting Modal */}
+      {showVideoMeeting && (
+        <VideoMeeting onClose={() => setShowVideoMeeting(false)} />
+      )}
+
+      {/* Video Meeting Button */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowVideoMeeting(true)}
+          className="px-4 py-2.5 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
+        >
+          <Video size={18} />
+          Online-Sitzung starten
+        </button>
+      </div>
       {/* Tabs */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
         {tabs
