@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   BarChart,
   FileText,
@@ -38,6 +39,13 @@ import {
   Mail,
   Trash2,
   Play,
+  Building2,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +64,33 @@ interface ScheduledReport {
   next_run_at: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+interface OpexSummary {
+  organization_id: string;
+  organization_name: string;
+  org_type: string;
+  total_amount: number;
+  pending_count: number;
+  approved_count: number;
+  rejected_count: number;
+  budget_used: number;
+  budget_total: number;
+  categories: { [key: string]: number };
+}
+
+interface OpexExpenseDetail {
+  id: string;
+  expense_number: string;
+  title: string;
+  amount: number;
+  currency: string;
+  category: string | null;
+  status: string;
+  expense_date: string;
+  submitted_by_name: string;
+  cost_center_name: string;
+  organization_name: string;
 }
 
 const reportTypes = [
@@ -84,12 +119,144 @@ export default function Reports() {
   const [isAddReportOpen, setIsAddReportOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [opexSummaries, setOpexSummaries] = useState<OpexSummary[]>([]);
+  const [opexDetails, setOpexDetails] = useState<OpexExpenseDetail[]>([]);
+  const [isLoadingOpex, setIsLoadingOpex] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchScheduledReports();
+    fetchOpexData();
   }, []);
+
+  const fetchOpexData = async () => {
+    setIsLoadingOpex(true);
+    try {
+      // Fetch organizations
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, name, org_type")
+        .in("org_type", ["mgi_media", "mgi_communications", "gateway"]);
+
+      // Fetch all OPEX expenses with cost center info
+      const { data: expenses } = await supabase
+        .from("opex_expenses")
+        .select(`
+          id,
+          expense_number,
+          title,
+          amount,
+          currency,
+          category,
+          status,
+          expense_date,
+          submitted_by,
+          cost_center_id
+        `)
+        .order("expense_date", { ascending: false });
+
+      // Fetch cost centers with organization info
+      const { data: costCenters } = await supabase
+        .from("cost_centers")
+        .select("id, name, organization_id, budget_annual, budget_used");
+
+      // Fetch profiles for submitter names
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name");
+
+      if (orgs && expenses && costCenters && profiles) {
+        // Create lookup maps
+        const costCenterMap = new Map(costCenters.map(cc => [cc.id, cc]));
+        const profileMap = new Map(profiles.map(p => [p.user_id, p]));
+        const orgMap = new Map(orgs.map(o => [o.id, o]));
+
+        // Build detailed expense list
+        const details: OpexExpenseDetail[] = expenses.map(exp => {
+          const costCenter = costCenterMap.get(exp.cost_center_id);
+          const org = costCenter ? orgMap.get(costCenter.organization_id) : null;
+          const profile = profileMap.get(exp.submitted_by);
+          
+          return {
+            id: exp.id,
+            expense_number: exp.expense_number,
+            title: exp.title,
+            amount: exp.amount,
+            currency: exp.currency,
+            category: exp.category,
+            status: exp.status,
+            expense_date: exp.expense_date,
+            submitted_by_name: profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Unbekannt" : "Unbekannt",
+            cost_center_name: costCenter?.name || "–",
+            organization_name: org ? getOrgDisplayName(org.org_type) : "–",
+          };
+        });
+
+        setOpexDetails(details);
+
+        // Build summaries per organization
+        const summaries: OpexSummary[] = orgs.map(org => {
+          const orgCostCenters = costCenters.filter(cc => cc.organization_id === org.id);
+          const orgCostCenterIds = orgCostCenters.map(cc => cc.id);
+          const orgExpenses = expenses.filter(e => orgCostCenterIds.includes(e.cost_center_id));
+
+          const categories: { [key: string]: number } = {};
+          orgExpenses.forEach(e => {
+            const cat = e.category || "Sonstige";
+            categories[cat] = (categories[cat] || 0) + Number(e.amount);
+          });
+
+          return {
+            organization_id: org.id,
+            organization_name: getOrgDisplayName(org.org_type),
+            org_type: org.org_type || "",
+            total_amount: orgExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
+            pending_count: orgExpenses.filter(e => e.status === "pending" || e.status === "approved_supervisor").length,
+            approved_count: orgExpenses.filter(e => e.status === "approved_finance").length,
+            rejected_count: orgExpenses.filter(e => e.status === "rejected").length,
+            budget_used: orgCostCenters.reduce((sum, cc) => sum + Number(cc.budget_used || 0), 0),
+            budget_total: orgCostCenters.reduce((sum, cc) => sum + Number(cc.budget_annual || 0), 0),
+            categories,
+          };
+        });
+
+        setOpexSummaries(summaries);
+      }
+    } catch (error) {
+      console.error("Error fetching OPEX data:", error);
+    } finally {
+      setIsLoadingOpex(false);
+    }
+  };
+
+  const getOrgDisplayName = (orgType: string | null): string => {
+    if (orgType === "mgi_media") return "MGI Media";
+    if (orgType === "mgi_communications") return "MGI Communications";
+    if (orgType === "gateway") return "Gateway";
+    return "Unbekannt";
+  };
+
+  const formatCurrency = (amount: number, currency: string = "CHF"): string => {
+    return new Intl.NumberFormat("de-CH", {
+      style: "currency",
+      currency,
+    }).format(amount);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "approved_finance":
+        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Genehmigt</Badge>;
+      case "rejected":
+        return <Badge className="bg-red-500/10 text-red-600 border-red-500/20">Abgelehnt</Badge>;
+      case "approved_supervisor":
+        return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">Vorgesetzter OK</Badge>;
+      case "pending":
+      default:
+        return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Ausstehend</Badge>;
+    }
+  };
 
   const fetchScheduledReports = async () => {
     setIsLoading(true);
@@ -173,11 +340,233 @@ export default function Reports() {
 
   return (
     <Layout title="Reports" subtitle="Berichte generieren und automatisieren">
-      <Tabs defaultValue="generate" className="space-y-6">
+      <Tabs defaultValue="opex-overview" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="opex-overview">OPEX-Übersicht</TabsTrigger>
           <TabsTrigger value="generate">Report erstellen</TabsTrigger>
           <TabsTrigger value="scheduled">Geplante Reports</TabsTrigger>
         </TabsList>
+
+        {/* OPEX Overview Tab */}
+        <TabsContent value="opex-overview" className="space-y-6">
+          {isLoadingOpex ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+              <p>Lade OPEX-Daten...</p>
+            </div>
+          ) : (
+            <>
+              {/* Organization Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {opexSummaries.map((summary) => (
+                  <Card key={summary.organization_id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${
+                          summary.org_type === "mgi_media" 
+                            ? "bg-blue-500/10" 
+                            : summary.org_type === "mgi_communications"
+                            ? "bg-purple-500/10"
+                            : "bg-green-500/10"
+                        }`}>
+                          <Building2 className={`h-6 w-6 ${
+                            summary.org_type === "mgi_media" 
+                              ? "text-blue-500" 
+                              : summary.org_type === "mgi_communications"
+                              ? "text-purple-500"
+                              : "text-green-500"
+                          }`} />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{summary.organization_name}</CardTitle>
+                          <CardDescription>OPEX-Zusammenfassung</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Total Amount */}
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Gesamtausgaben</span>
+                        </div>
+                        <span className="font-bold text-lg">{formatCurrency(summary.total_amount)}</span>
+                      </div>
+
+                      {/* Status Counts */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center p-2 bg-yellow-500/10 rounded-lg">
+                          <AlertCircle className="h-4 w-4 text-yellow-600 mx-auto mb-1" />
+                          <div className="text-lg font-bold text-yellow-600">{summary.pending_count}</div>
+                          <div className="text-xs text-muted-foreground">Ausstehend</div>
+                        </div>
+                        <div className="text-center p-2 bg-green-500/10 rounded-lg">
+                          <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto mb-1" />
+                          <div className="text-lg font-bold text-green-600">{summary.approved_count}</div>
+                          <div className="text-xs text-muted-foreground">Genehmigt</div>
+                        </div>
+                        <div className="text-center p-2 bg-red-500/10 rounded-lg">
+                          <XCircle className="h-4 w-4 text-red-600 mx-auto mb-1" />
+                          <div className="text-lg font-bold text-red-600">{summary.rejected_count}</div>
+                          <div className="text-xs text-muted-foreground">Abgelehnt</div>
+                        </div>
+                      </div>
+
+                      {/* Budget Progress */}
+                      {summary.budget_total > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Budget-Nutzung</span>
+                            <span className="font-medium">
+                              {Math.round((summary.budget_used / summary.budget_total) * 100)}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={(summary.budget_used / summary.budget_total) * 100} 
+                            className="h-2"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{formatCurrency(summary.budget_used)}</span>
+                            <span>{formatCurrency(summary.budget_total)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Top Categories */}
+                      {Object.keys(summary.categories).length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">Top Kategorien</div>
+                          <div className="space-y-1">
+                            {Object.entries(summary.categories)
+                              .sort(([, a], [, b]) => b - a)
+                              .slice(0, 3)
+                              .map(([cat, amount]) => (
+                                <div key={cat} className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground truncate">{cat}</span>
+                                  <span className="font-medium">{formatCurrency(amount)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Combined Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Gesamtübersicht aller Organisationen
+                  </CardTitle>
+                  <CardDescription>
+                    Aggregierte OPEX-Daten von MGI Media, MGI Communications und Gateway
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-primary">
+                        {formatCurrency(opexSummaries.reduce((sum, s) => sum + s.total_amount, 0))}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Gesamtausgaben</div>
+                    </div>
+                    <div className="p-4 bg-yellow-500/10 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-yellow-600">
+                        {opexSummaries.reduce((sum, s) => sum + s.pending_count, 0)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Ausstehend gesamt</div>
+                    </div>
+                    <div className="p-4 bg-green-500/10 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {opexSummaries.reduce((sum, s) => sum + s.approved_count, 0)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Genehmigt gesamt</div>
+                    </div>
+                    <div className="p-4 bg-red-500/10 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-red-600">
+                        {opexSummaries.reduce((sum, s) => sum + s.rejected_count, 0)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Abgelehnt gesamt</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Detailed OPEX Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>OPEX-Details aller Organisationen</CardTitle>
+                  <CardDescription>
+                    Alle eingereichten Ausgaben von MGI Media, MGI Communications und Gateway
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {opexDetails.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Keine OPEX-Einträge vorhanden</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nr.</TableHead>
+                            <TableHead>Organisation</TableHead>
+                            <TableHead>Kostenstelle</TableHead>
+                            <TableHead>Titel</TableHead>
+                            <TableHead>Kategorie</TableHead>
+                            <TableHead>Datum</TableHead>
+                            <TableHead className="text-right">Betrag</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Eingereicht von</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {opexDetails.slice(0, 50).map((expense) => (
+                            <TableRow key={expense.id}>
+                              <TableCell className="font-mono text-sm">{expense.expense_number}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={
+                                  expense.organization_name === "MGI Media"
+                                    ? "border-blue-500/30 text-blue-600"
+                                    : expense.organization_name === "MGI Communications"
+                                    ? "border-purple-500/30 text-purple-600"
+                                    : "border-green-500/30 text-green-600"
+                                }>
+                                  {expense.organization_name}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">{expense.cost_center_name}</TableCell>
+                              <TableCell className="font-medium max-w-[200px] truncate">{expense.title}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{expense.category || "–"}</TableCell>
+                              <TableCell className="text-sm">
+                                {format(new Date(expense.expense_date), "dd.MM.yyyy", { locale: de })}
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency(expense.amount, expense.currency)}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(expense.status)}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{expense.submitted_by_name}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {opexDetails.length > 50 && (
+                        <div className="text-center py-4 text-sm text-muted-foreground">
+                          Zeige 50 von {opexDetails.length} Einträgen
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
 
         {/* Generate Reports Tab */}
         <TabsContent value="generate" className="space-y-6">
