@@ -116,7 +116,7 @@ export default function Opex() {
   const generatePDF = (submittedExpenses: { category: string; label: string; amount: number }[], costCenter: CostCenter | undefined, total: number) => {
     const selectedPeriod = formData.period;
     const periodDate = new Date(selectedPeriod + "-01");
-    const monthName = periodDate.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+    const monthName = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
     
     // Create HTML content for PDF
     const htmlContent = `
@@ -124,7 +124,7 @@ export default function Opex() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>OPEX Bericht - ${monthName}</title>
+        <title>OPEX Report - ${monthName}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
           .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #c9a227; padding-bottom: 20px; }
@@ -145,32 +145,32 @@ export default function Opex() {
       </head>
       <body>
         <div class="header">
-          <h1>OPEX Bericht</h1>
+          <h1>OPEX Report</h1>
           <p>${monthName}</p>
         </div>
         <div class="info">
           <div class="info-row">
-            <span class="info-label">Kostenstelle:</span>
+            <span class="info-label">Cost Center:</span>
             <span class="info-value">${costCenter?.code || "N/A"} - ${costCenter?.name || "N/A"}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Land:</span>
+            <span class="info-label">Country:</span>
             <span class="info-value">${costCenter?.country || "N/A"}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Währung:</span>
+            <span class="info-label">Currency:</span>
             <span class="info-value">${formData.currency}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Erstellt am:</span>
-            <span class="info-value">${new Date().toLocaleDateString("de-CH")}</span>
+            <span class="info-label">Created on:</span>
+            <span class="info-value">${new Date().toLocaleDateString("en-US")}</span>
           </div>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Kategorie</th>
-              <th class="amount">Betrag</th>
+              <th>Category</th>
+              <th class="amount">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -181,14 +181,14 @@ export default function Opex() {
               </tr>
             `).join("")}
             <tr class="total">
-              <td>Gesamtsumme</td>
+              <td>Total</td>
               <td class="amount">${formatCurrency(total, formData.currency)}</td>
             </tr>
           </tbody>
         </table>
-        ${formData.description ? `<p><strong>Bemerkungen:</strong> ${formData.description}</p>` : ""}
+        ${formData.description ? `<p><strong>Notes:</strong> ${formData.description}</p>` : ""}
         <div class="footer">
-          <p>Automatisch generiert am ${new Date().toLocaleString("de-CH")}</p>
+          <p>Automatically generated on ${new Date().toLocaleString("en-US")}</p>
         </div>
       </body>
       </html>
@@ -217,7 +217,7 @@ export default function Opex() {
       }));
 
     if (nonEmptyExpenses.length === 0) {
-      alert("Bitte geben Sie mindestens einen Betrag ein.");
+      alert("Please enter at least one amount.");
       return;
     }
 
@@ -246,7 +246,7 @@ export default function Opex() {
       // Check for errors
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
-        throw new Error("Fehler beim Speichern einiger Ausgaben");
+        throw new Error("Error saving some expenses");
       }
 
       // Log all created expenses
@@ -336,28 +336,28 @@ export default function Opex() {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-warning">
             <Clock size={12} />
-            Ausstehend
+            Pending
           </span>
         );
       case "approved_supervisor":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-info">
             <CheckCircle size={12} />
-            Vorgesetzter OK
+            Supervisor OK
           </span>
         );
       case "approved_finance":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-success">
             <CheckCircle size={12} />
-            Genehmigt
+            Approved
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-critical">
             <XCircle size={12} />
-            Abgelehnt
+            Rejected
           </span>
         );
       default:
@@ -366,7 +366,7 @@ export default function Opex() {
   };
 
   const formatCurrency = (amount: number, currency: string = "CHF") => {
-    return new Intl.NumberFormat("de-CH", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
@@ -374,7 +374,7 @@ export default function Opex() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -391,7 +391,7 @@ export default function Opex() {
 
   if (isLoading) {
     return (
-      <Layout title="OPEX" subtitle="Betriebskosten-Verwaltung">
+      <Layout title="OPEX" subtitle="Operating Expenses Management">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -400,7 +400,7 @@ export default function Opex() {
   }
 
   return (
-    <Layout title="OPEX" subtitle="Betriebskosten-Verwaltung">
+    <Layout title="OPEX" subtitle="Operating Expenses Management">
       {/* Action Bar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -409,10 +409,10 @@ export default function Opex() {
             Filter
           </button>
           <select className="px-4 py-2 bg-muted rounded-lg text-sm font-medium text-foreground border-0 focus:ring-2 focus:ring-accent">
-            <option>Alle Status</option>
-            <option>Ausstehend</option>
-            <option>Genehmigt</option>
-            <option>Abgelehnt</option>
+            <option>All Status</option>
+            <option>Pending</option>
+            <option>Approved</option>
+            <option>Rejected</option>
           </select>
         </div>
         <div className="flex items-center gap-3">
@@ -425,7 +425,7 @@ export default function Opex() {
             className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
           >
             <Plus size={16} />
-            Neue Ausgabe
+            New Expense
           </button>
         </div>
       </div>
@@ -433,27 +433,27 @@ export default function Opex() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
-          title="Ausstehend"
+          title="Pending"
           value={formatCurrency(totalPending)}
-          changeLabel={`${expenses.filter((e) => e.status === "pending").length} Anfragen`}
+          changeLabel={`${expenses.filter((e) => e.status === "pending").length} requests`}
           icon={<Clock size={20} className="text-warning" />}
           variant="warning"
         />
         <MetricCard
-          title="Genehmigt (Monat)"
+          title="Approved (Month)"
           value={formatCurrency(totalApproved)}
-          changeLabel={`${expenses.filter((e) => e.status === "approved_finance").length} Ausgaben`}
+          changeLabel={`${expenses.filter((e) => e.status === "approved_finance").length} expenses`}
           icon={<CheckCircle size={20} className="text-success" />}
           variant="success"
         />
         <MetricCard
-          title="Kostenstellen"
+          title="Cost Centers"
           value={costCenters.length.toString()}
-          changeLabel="Aktive Stellen"
+          changeLabel="Active centers"
           icon={<Receipt size={20} className="text-muted-foreground" />}
         />
         <MetricCard
-          title="Budget verbraucht"
+          title="Budget Used"
           value="68%"
           changeLabel="YTD"
           icon={<Receipt size={20} className="text-accent" />}
@@ -504,9 +504,9 @@ export default function Opex() {
       {/* Expenses Table */}
       <div className="card-state">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">OPEX-Anfragen</h3>
+          <h3 className="font-semibold text-foreground">OPEX Requests</h3>
           <span className="text-sm text-muted-foreground">
-            {expenses.length} Ausgaben
+            {expenses.length} expenses
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -514,16 +514,16 @@ export default function Opex() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Ausgabe
+                  Expense
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Kostenstelle
+                  Cost Center
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
                 <th className="text-right p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Betrag
+                  Amount
                 </th>
                 <th className="w-32"></th>
               </tr>
@@ -562,7 +562,7 @@ export default function Opex() {
                         <button
                           onClick={() => handleApprove(expense.id, "supervisor")}
                           className="p-2 rounded hover:bg-success/10 text-success transition-colors"
-                          title="Genehmigen (Vorgesetzter)"
+                          title="Approve (Supervisor)"
                         >
                           <CheckCircle size={16} />
                         </button>
@@ -571,16 +571,16 @@ export default function Opex() {
                         <button
                           onClick={() => handleApprove(expense.id, "finance")}
                           className="p-2 rounded hover:bg-success/10 text-success transition-colors"
-                          title="Genehmigen (Finance)"
+                          title="Approve (Finance)"
                         >
                           <CheckCircle size={16} />
                         </button>
                       )}
                       {canApprove && (expense.status === "pending" || expense.status === "approved_supervisor") && (
                         <button
-                          onClick={() => handleReject(expense.id, "Abgelehnt")}
+                          onClick={() => handleReject(expense.id, "Rejected")}
                           className="p-2 rounded hover:bg-destructive/10 text-destructive transition-colors"
-                          title="Ablehnen"
+                          title="Reject"
                         >
                           <XCircle size={16} />
                         </button>
@@ -598,7 +598,7 @@ export default function Opex() {
               {expenses.length === 0 && (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                    Keine OPEX-Ausgaben vorhanden
+                    No OPEX expenses available
                   </td>
                 </tr>
               )}
@@ -612,17 +612,17 @@ export default function Opex() {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="card-state w-full max-w-3xl p-6 animate-fade-in my-8 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              OPEX-Einreichung
+              OPEX Submission
             </h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Geben Sie alle monatlichen Betriebskosten ein. Nach dem Einreichen wird ein Bericht erstellt.
+              Enter all monthly operating expenses. A report will be generated after submission.
             </p>
             <form onSubmit={handleSubmitExpense} className="space-y-6">
               {/* Period and Cost Center */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Periode *
+                    Period *
                   </label>
                   <input
                     type="month"
@@ -636,7 +636,7 @@ export default function Opex() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Kostenstelle *
+                    Cost Center *
                   </label>
                   <select
                     value={formData.cost_center_id}
@@ -646,7 +646,7 @@ export default function Opex() {
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                   >
-                    <option value="">Kostenstelle wählen</option>
+                    <option value="">Select cost center</option>
                     {costCenters.map((cc) => (
                       <option key={cc.id} value={cc.id}>
                         {cc.code} - {cc.name} {cc.country ? `(${cc.country})` : ""}
@@ -656,7 +656,7 @@ export default function Opex() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Währung
+                    Currency
                   </label>
                   <select
                     value={formData.currency}
@@ -676,7 +676,7 @@ export default function Opex() {
               {/* All expense categories as input fields */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-3">
-                  Betriebskosten nach Kategorie
+                  Operating Expenses by Category
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {expenseCategories.map((cat) => (
@@ -712,7 +712,7 @@ export default function Opex() {
               {/* Total */}
               <div className="p-4 bg-accent/10 rounded-lg border border-accent/30">
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold text-foreground">Gesamtsumme</span>
+                  <span className="text-lg font-semibold text-foreground">Total</span>
                   <span className="text-xl font-bold text-accent">
                     {formatCurrency(
                       Object.values(formData.expenses).reduce((sum, val) => sum + (parseFloat(val) || 0), 0),
@@ -725,7 +725,7 @@ export default function Opex() {
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Bemerkungen
+                  Notes
                 </label>
                 <textarea
                   value={formData.description}
@@ -734,7 +734,7 @@ export default function Opex() {
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
-                  placeholder="Zusätzliche Anmerkungen zur Einreichung..."
+                  placeholder="Additional notes for this submission..."
                 />
               </div>
 
@@ -745,7 +745,7 @@ export default function Opex() {
                   onClick={() => setShowNewExpense(false)}
                   className="flex-1 py-2.5 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
                 >
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -754,7 +754,7 @@ export default function Opex() {
                 >
                   {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                   <Download size={16} />
-                  Einreichen & Bericht erstellen
+                  Submit & Generate Report
                 </button>
               </div>
             </form>

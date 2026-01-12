@@ -59,10 +59,10 @@ interface DocumentSignature {
 }
 
 const folders = [
-  { name: "Verträge", count: 0, icon: FileText, type: "contract" },
-  { name: "Lizenzen", count: 0, icon: Lock, type: "license" },
-  { name: "Berichte", count: 0, icon: FileText, type: "report" },
-  { name: "Sonstige", count: 0, icon: Folder, type: "other" },
+  { name: "Contracts", count: 0, icon: FileText, type: "contract" },
+  { name: "Licenses", count: 0, icon: Lock, type: "license" },
+  { name: "Reports", count: 0, icon: FileText, type: "report" },
+  { name: "Other", count: 0, icon: Folder, type: "other" },
 ];
 
 export default function Documents() {
@@ -257,28 +257,28 @@ export default function Documents() {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-success">
             <CheckCircle size={12} />
-            {status === "signed" ? "Signiert" : "Gültig"}
+            {status === "signed" ? "Signed" : "Valid"}
           </span>
         );
       case "pending":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-warning">
             <Clock size={12} />
-            Signatur ausstehend
+            Signature Pending
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-critical">
             <XCircle size={12} />
-            Abgelehnt
+            Rejected
           </span>
         );
       case "expiring":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded status-warning animate-pulse-slow">
             <AlertTriangle size={12} />
-            Läuft ab
+            Expiring
           </span>
         );
       default:
@@ -288,7 +288,7 @@ export default function Documents() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "–";
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -304,10 +304,10 @@ export default function Documents() {
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case "contract": return "Vertrag";
-      case "license": return "Lizenz";
-      case "report": return "Bericht";
-      default: return "Sonstige";
+      case "contract": return "Contract";
+      case "license": return "License";
+      case "report": return "Report";
+      default: return "Other";
     }
   };
 
@@ -334,7 +334,7 @@ export default function Documents() {
 
   if (isLoading) {
     return (
-      <Layout title="Verträge & Dokumente" subtitle="Dokumentenverwaltung und Archiv">
+      <Layout title="Contracts & Documents" subtitle="Document Management and Archive">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -343,14 +343,14 @@ export default function Documents() {
   }
 
   return (
-    <Layout title="Verträge & Dokumente" subtitle="Dokumentenverwaltung und Archiv">
+    <Layout title="Contracts & Documents" subtitle="Document Management and Archive">
       {/* Pending Signatures Alert */}
       {pendingSignatures.length > 0 && (
         <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-lg">
           <div className="flex items-center gap-3 mb-3">
             <PenTool className="text-warning" size={20} />
             <span className="font-medium text-foreground">
-              {pendingSignatures.length} Dokument(e) warten auf Ihre Signatur
+              {pendingSignatures.length} document(s) awaiting your signature
             </span>
           </div>
           <div className="space-y-2">
@@ -369,14 +369,14 @@ export default function Documents() {
                     className="px-3 py-1.5 bg-success text-success-foreground rounded text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1"
                   >
                     <CheckCircle size={14} />
-                    Signieren
+                    Sign
                   </button>
                   <button
                     onClick={() => handleReject(sig.id)}
                     className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded text-sm font-medium hover:bg-destructive/90 transition-colors flex items-center gap-1"
                   >
                     <XCircle size={14} />
-                    Ablehnen
+                    Reject
                   </button>
                 </div>
               </div>
@@ -395,7 +395,7 @@ export default function Documents() {
             />
             <input
               type="text"
-              placeholder="Dokumente suchen..."
+              placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-muted rounded-lg text-sm text-foreground border-0 focus:ring-2 focus:ring-accent w-64"
@@ -435,7 +435,7 @@ export default function Documents() {
             className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
           >
             <Upload size={16} />
-            Hochladen
+            Upload
           </button>
         </div>
       </div>
@@ -457,7 +457,7 @@ export default function Documents() {
               </div>
               <div>
                 <p className="text-sm font-medium text-foreground">{folder.name}</p>
-                <p className="text-xs text-muted-foreground">{folder.count} Dateien</p>
+                <p className="text-xs text-muted-foreground">{folder.count} files</p>
               </div>
             </div>
           </button>
@@ -467,9 +467,9 @@ export default function Documents() {
       {/* Documents Table */}
       <div className="card-state">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">Aktuelle Dokumente</h3>
+          <h3 className="font-semibold text-foreground">Current Documents</h3>
           <span className="text-sm text-muted-foreground">
-            {filteredDocuments.length} Dokumente
+            {filteredDocuments.length} documents
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -477,19 +477,19 @@ export default function Documents() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Dokument
+                  Document
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Typ
+                  Type
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden lg:table-cell">
-                  Signaturen
+                  Signatures
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
                 <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Gültig bis
+                  Valid Until
                 </th>
                 <th className="w-24"></th>
               </tr>
@@ -565,7 +565,7 @@ export default function Documents() {
               {filteredDocuments.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                    Keine Dokumente vorhanden
+                    No documents available
                   </td>
                 </tr>
               )}
@@ -581,10 +581,10 @@ export default function Documents() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-foreground">
-                  Dokument hochladen
+                  Upload Document
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Laden Sie ein Dokument hoch und wählen Sie Unterzeichner aus.
+                  Upload a document and select signers.
                 </p>
               </div>
               <button
@@ -599,7 +599,7 @@ export default function Documents() {
               {/* File Upload */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Datei *
+                  File *
                 </label>
                 <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
                   <input
@@ -644,37 +644,37 @@ export default function Documents() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Dokumentname *
+                    Document Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="z.B. Kooperationsvertrag 2025"
+                    placeholder="e.g. Cooperation Agreement 2025"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Dokumenttyp
+                    Document Type
                   </label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   >
-                    <option value="contract">Vertrag</option>
-                    <option value="license">Lizenz</option>
-                    <option value="report">Bericht</option>
-                    <option value="other">Sonstige</option>
+                    <option value="contract">Contract</option>
+                    <option value="license">License</option>
+                    <option value="report">Report</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Gültig bis
+                  Valid Until
                 </label>
                 <input
                   type="date"
@@ -686,14 +686,14 @@ export default function Documents() {
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Beschreibung
+                  Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
-                  placeholder="Zusätzliche Informationen zum Dokument..."
+                  placeholder="Additional information about the document..."
                 />
               </div>
 
@@ -701,10 +701,10 @@ export default function Documents() {
               <div>
                 <label className="block text-sm font-medium text-foreground mb-3 flex items-center gap-2">
                   <Users size={16} />
-                  Unterzeichner auswählen
+                  Select Signers
                 </label>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Wählen Sie Personen aus, die dieses Dokument signieren müssen.
+                  Select people who need to sign this document.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
                   {profiles
@@ -740,7 +740,7 @@ export default function Documents() {
                 </div>
                 {formData.signers.length > 0 && (
                   <p className="text-xs text-accent mt-2">
-                    {formData.signers.length} Person(en) ausgewählt
+                    {formData.signers.length} person(s) selected
                   </p>
                 )}
               </div>
@@ -752,7 +752,7 @@ export default function Documents() {
                   onClick={() => setShowUploadModal(false)}
                   className="flex-1 py-2.5 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
                 >
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -761,7 +761,7 @@ export default function Documents() {
                 >
                   {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                   <Upload size={16} />
-                  Hochladen
+                  Upload
                 </button>
               </div>
             </form>
