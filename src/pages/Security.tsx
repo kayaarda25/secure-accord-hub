@@ -4,14 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Smartphone, Key, Monitor, Clock, MapPin, LogOut, AlertTriangle, CheckCircle, Lock, Shield, ShieldCheck } from "lucide-react";
+import { Key, Clock, Lock, Shield, ShieldCheck, AlertTriangle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
-import { de } from "date-fns/locale";
 import { TwoFactorSetup } from "@/components/security/TwoFactorSetup";
 import { DisableTwoFactor } from "@/components/security/DisableTwoFactor";
+import { IPWhitelist } from "@/components/security/IPWhitelist";
+import { ActiveSessions } from "@/components/security/ActiveSessions";
+import { LoginProtectionInfo } from "@/components/security/LoginProtectionInfo";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 interface UserSession {
   id: string;
@@ -39,6 +41,9 @@ export default function Security() {
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  // Session timeout hook
+  useSessionTimeout(settings?.session_timeout_minutes || 60);
+
   useEffect(() => {
     if (user) {
       fetchSecurityData();
@@ -122,6 +127,10 @@ export default function Security() {
   const handle2FADisableSuccess = () => {
     setHasMfaFactor(false);
     setSettings(prev => prev ? { ...prev, two_factor_enabled: false } : null);
+  };
+
+  const handleUpdateAllowedIps = (ips: string[]) => {
+    setSettings(prev => prev ? { ...prev, allowed_ips: ips.length > 0 ? ips : null } : null);
   };
   const handleUpdateTimeout = async (minutes: number) => {
     if (!settings || !user) return;
@@ -232,11 +241,6 @@ export default function Security() {
     }
     setIsChangingPassword(false);
   };
-  const getDeviceIcon = (userAgent: string | null) => {
-    if (!userAgent) return Monitor;
-    if (userAgent.toLowerCase().includes("mobile")) return Smartphone;
-    return Monitor;
-  };
   return <Layout title="Sicherheit" subtitle="Sicherheitseinstellungen und Sessions verwalten">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Security Overview */}
@@ -279,60 +283,18 @@ export default function Security() {
           </Card>
 
           {/* Active Sessions */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Aktive Sessions</CardTitle>
-                  <CardDescription>
-                    Geräte, die derzeit in Ihrem Konto angemeldet sind
-                  </CardDescription>
-                </div>
-                {sessions.length > 1 && <Button variant="outline" size="sm" onClick={handleTerminateAllSessions}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Alle beenden
-                  </Button>}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? <div className="text-center py-8 text-muted-foreground">Laden...</div> : sessions.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-                  <Monitor className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Keine aktiven Sessions gefunden</p>
-                </div> : <div className="space-y-4">
-                  {sessions.map(session => {
-                const DeviceIcon = getDeviceIcon(session.user_agent);
-                return <div key={session.id} className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                            <DeviceIcon className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {session.device_info || "Unbekanntes Gerät"}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              {session.ip_address && <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {session.ip_address}
-                                </span>}
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatDistanceToNow(new Date(session.last_active_at), {
-                            addSuffix: true,
-                            locale: de
-                          })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleTerminateSession(session.id)}>
-                          <LogOut className="h-4 w-4" />
-                        </Button>
-                      </div>;
-              })}
-                </div>}
-            </CardContent>
-          </Card>
+          <ActiveSessions
+            sessions={sessions}
+            isLoading={isLoading}
+            onTerminateSession={handleTerminateSession}
+            onTerminateAllSessions={handleTerminateAllSessions}
+          />
+
+          {/* IP Whitelist */}
+          <IPWhitelist
+            allowedIps={settings?.allowed_ips || null}
+            onUpdate={handleUpdateAllowedIps}
+          />
         </div>
 
         {/* Sidebar Settings */}
@@ -375,12 +337,22 @@ export default function Security() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {[15, 30, 60, 120].map(minutes => <Button key={minutes} variant={settings?.session_timeout_minutes === minutes ? "default" : "outline"} className="w-full justify-start" onClick={() => handleUpdateTimeout(minutes)}>
+                {[15, 30, 60, 120].map(minutes => (
+                  <Button 
+                    key={minutes} 
+                    variant={settings?.session_timeout_minutes === minutes ? "default" : "outline"} 
+                    className="w-full justify-start" 
+                    onClick={() => handleUpdateTimeout(minutes)}
+                  >
                     {minutes} Minuten
-                  </Button>)}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>
+
+          {/* Login Protection Info */}
+          <LoginProtectionInfo maxAttempts={5} lockoutMinutes={15} />
 
           {/* Security Tips */}
           <Card>

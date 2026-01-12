@@ -878,6 +878,33 @@ export type Database = {
           },
         ]
       }
+      login_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       meeting_chat_messages: {
         Row: {
           content: string
@@ -1687,6 +1714,7 @@ export type Database = {
           id: string
           ip_address: string | null
           is_active: boolean | null
+          is_current: boolean | null
           last_active_at: string | null
           user_agent: string | null
           user_id: string
@@ -1697,6 +1725,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           is_active?: boolean | null
+          is_current?: boolean | null
           last_active_at?: string | null
           user_agent?: string | null
           user_id: string
@@ -1707,6 +1736,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           is_active?: boolean | null
+          is_current?: boolean | null
           last_active_at?: string | null
           user_agent?: string | null
           user_id?: string
@@ -1745,10 +1775,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_login_blocked: {
+        Args: {
+          _email: string
+          _ip_address?: string
+          _lockout_minutes?: number
+          _max_attempts?: number
+        }
+        Returns: boolean
+      }
       is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
       is_task_creator: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
+      }
+      log_login_attempt: {
+        Args: {
+          _email: string
+          _ip_address?: string
+          _success?: boolean
+          _user_agent?: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

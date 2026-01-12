@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
 import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
+import { useLoginProtection } from "@/hooks/useLoginProtection";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -32,6 +33,10 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [show2FAVerify, setShow2FAVerify] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(5);
+  
+  const { checkIfBlocked, logAttempt, maxAttempts, lockoutMinutes } = useLoginProtection();
 
   const { signIn, signUp, user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -75,13 +80,36 @@ export default function Auth() {
           return;
         }
 
+        // Check if login is blocked
+        const blockStatus = await checkIfBlocked(email);
+        if (blockStatus.isBlocked) {
+          setIsBlocked(true);
+          setError(`Zu viele Fehlversuche. Bitte warten Sie ${lockoutMinutes} Minuten.`);
+          setIsSubmitting(false);
+          return;
+        }
+        setRemainingAttempts(blockStatus.remainingAttempts);
+
         const { error } = await signIn(email, password);
         if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            setError("Invalid credentials. Please check your email and password.");
+          // Log failed attempt
+          await logAttempt(email, false);
+          
+          // Update remaining attempts
+          const newStatus = await checkIfBlocked(email);
+          setRemainingAttempts(newStatus.remainingAttempts);
+          
+          if (newStatus.isBlocked) {
+            setIsBlocked(true);
+            setError(`Konto gesperrt. Bitte warten Sie ${lockoutMinutes} Minuten.`);
+          } else if (error.message.includes("Invalid login credentials")) {
+            setError(`Ungültige Anmeldedaten. Noch ${newStatus.remainingAttempts} Versuche übrig.`);
           } else {
             setError(error.message);
           }
+        } else {
+          // Log successful attempt
+          await logAttempt(email, true);
         }
       } else {
         const validation = signupSchema.safeParse({
@@ -150,7 +178,19 @@ export default function Auth() {
             {isLogin ? "Sign In" : "Sign Up"}
           </h2>
 
-          {error && (
+          {isBlocked && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Konto temporär gesperrt
+              </div>
+              <p className="text-muted-foreground mt-1">
+                Zu viele fehlgeschlagene Anmeldeversuche. Bitte warten Sie {lockoutMinutes} Minuten.
+              </p>
+            </div>
+          )}
+
+          {error && !isBlocked && (
             <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
               {error}
             </div>
