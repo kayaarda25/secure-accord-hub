@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AreaChart,
   Area,
@@ -8,19 +9,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { Inbox } from "lucide-react";
 
-const data = [
-  { month: "Jan", einnahmen: 420000, ausgaben: 180000 },
-  { month: "Feb", einnahmen: 380000, ausgaben: 165000 },
-  { month: "Mar", einnahmen: 510000, ausgaben: 195000 },
-  { month: "Apr", einnahmen: 490000, ausgaben: 210000 },
-  { month: "Mai", einnahmen: 620000, ausgaben: 225000 },
-  { month: "Jun", einnahmen: 580000, ausgaben: 190000 },
-  { month: "Jul", einnahmen: 710000, ausgaben: 235000 },
-  { month: "Aug", einnahmen: 680000, ausgaben: 220000 },
-  { month: "Sep", einnahmen: 750000, ausgaben: 245000 },
-  { month: "Okt", einnahmen: 820000, ausgaben: 260000 },
-];
+interface MonthlyData {
+  month: string;
+  budget: number;
+  used: number;
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -46,7 +41,38 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function FinanceChart() {
+  const [data, setData] = useState<MonthlyData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("year");
+
+  useEffect(() => {
+    fetchBudgetData();
+  }, []);
+
+  const fetchBudgetData = async () => {
+    try {
+      const { data: costCenters, error } = await supabase
+        .from("cost_centers")
+        .select("budget_annual, budget_used");
+
+      if (error) throw error;
+
+      // If we have data, create a simple chart showing budget vs used
+      if (costCenters && costCenters.length > 0) {
+        const totalBudget = costCenters.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0);
+        const totalUsed = costCenters.reduce((sum, cc) => sum + (cc.budget_used || 0), 0);
+        
+        // Create simple monthly breakdown (would be replaced with actual transaction data)
+        setData([
+          { month: "Budget", budget: totalBudget, used: totalUsed },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error fetching budget data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="card-state p-6">
@@ -54,7 +80,7 @@ export function FinanceChart() {
         <div>
           <h3 className="font-semibold text-foreground">Finanzübersicht</h3>
           <p className="text-sm text-muted-foreground">
-            Einnahmen vs. Ausgaben 2024
+            Budget vs. Verbrauch
           </p>
         </div>
         <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
@@ -74,67 +100,80 @@ export function FinanceChart() {
         </div>
       </div>
 
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="colorEinnahmen" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#c9a227" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#c9a227" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorAusgaben" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#64748b" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#64748b" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="hsl(220 15% 22%)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "hsl(215 15% 55%)", fontSize: 12 }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "hsl(215 15% 55%)", fontSize: 12 }}
-              tickFormatter={(value) => `${value / 1000}K`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="einnahmen"
-              name="Einnahmen"
-              stroke="#c9a227"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorEinnahmen)"
-            />
-            <Area
-              type="monotone"
-              dataKey="ausgaben"
-              name="Ausgaben"
-              stroke="#64748b"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorAusgaben)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {loading ? (
+        <div className="h-64 flex items-center justify-center text-muted-foreground">
+          Laden...
+        </div>
+      ) : data.length === 0 ? (
+        <div className="h-64 flex flex-col items-center justify-center text-center">
+          <Inbox className="h-10 w-10 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Keine Finanzdaten vorhanden
+          </p>
+        </div>
+      ) : (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="colorBudget" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#c9a227" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#c9a227" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#64748b" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#64748b" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(220 15% 22%)"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "hsl(215 15% 55%)", fontSize: 12 }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "hsl(215 15% 55%)", fontSize: 12 }}
+                tickFormatter={(value) => `${value / 1000}K`}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="budget"
+                name="Budget"
+                stroke="#c9a227"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorBudget)"
+              />
+              <Area
+                type="monotone"
+                dataKey="used"
+                name="Verbraucht"
+                stroke="#64748b"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorUsed)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-accent" />
-          <span className="text-sm text-muted-foreground">Einnahmen</span>
+          <span className="text-sm text-muted-foreground">Budget</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Ausgaben</span>
+          <span className="text-sm text-muted-foreground">Verbraucht</span>
         </div>
       </div>
     </div>

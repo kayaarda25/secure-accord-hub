@@ -1,5 +1,9 @@
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Wallet,
   TrendingUp,
@@ -8,86 +12,62 @@ import {
   Download,
   Filter,
   Plus,
-  MoreHorizontal,
-  ArrowUpRight,
-  ArrowDownRight,
+  Inbox,
 } from "lucide-react";
 
-const transactions = [
-  {
-    id: 1,
-    date: "2024-10-18",
-    description: "Revenue Share - MTN Uganda",
-    category: "Einnahmen",
-    currency: "CHF",
-    amount: 125000,
-    status: "completed",
-    partner: "MTN Uganda",
-  },
-  {
-    id: 2,
-    date: "2024-10-17",
-    description: "Betriebskosten Q3",
-    category: "Ausgaben",
-    currency: "CHF",
-    amount: -45000,
-    status: "completed",
-    partner: "Intern",
-  },
-  {
-    id: 3,
-    date: "2024-10-15",
-    description: "Lizenzgebühren Uganda",
-    category: "Einnahmen",
-    currency: "USD",
-    amount: 89000,
-    status: "pending",
-    partner: "URA",
-  },
-  {
-    id: 4,
-    date: "2024-10-12",
-    description: "Beratungshonorar",
-    category: "Ausgaben",
-    currency: "CHF",
-    amount: -28000,
-    status: "completed",
-    partner: "External",
-  },
-  {
-    id: 5,
-    date: "2024-10-10",
-    description: "Revenue Share - Airtel",
-    category: "Einnahmen",
-    currency: "EUR",
-    amount: 67000,
-    status: "completed",
-    partner: "Airtel Africa",
-  },
-];
-
-const currencyRates = [
-  { currency: "USD", rate: 0.88, change: -0.2 },
-  { currency: "EUR", rate: 0.94, change: 0.1 },
-  { currency: "UGX", rate: 0.00024, change: -0.5 },
-];
+interface CostCenterSummary {
+  total_budget: number;
+  used_budget: number;
+  remaining_budget: number;
+}
 
 export default function Finances() {
+  const { profile } = useAuth();
+  const [summary, setSummary] = useState<CostCenterSummary>({
+    total_budget: 0,
+    used_budget: 0,
+    remaining_budget: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFinanceSummary();
+  }, [profile]);
+
+  const fetchFinanceSummary = async () => {
+    try {
+      const { data: costCenters, error } = await supabase
+        .from("cost_centers")
+        .select("budget_annual, budget_used");
+
+      if (error) throw error;
+
+      const totalBudget = costCenters?.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0) || 0;
+      const usedBudget = costCenters?.reduce((sum, cc) => sum + (cc.budget_used || 0), 0) || 0;
+
+      setSummary({
+        total_budget: totalBudget,
+        used_budget: usedBudget,
+        remaining_budget: totalBudget - usedBudget,
+      });
+    } catch (error) {
+      console.error("Error fetching finance summary:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string = "CHF") => {
     return new Intl.NumberFormat("de-CH", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
-    }).format(Math.abs(amount));
+    }).format(amount);
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  const budgetUsagePercent = summary.total_budget > 0 
+    ? Math.round((summary.used_budget / summary.total_budget) * 100) 
+    : 0;
 
   return (
     <Layout title="Finanzen" subtitle="Übersicht aller Finanztransaktionen">
@@ -120,168 +100,53 @@ export default function Finances() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
-          title="Gesamteinnahmen"
-          value="CHF 5.96M"
-          change={18.5}
+          title="Gesamtbudget"
+          value={formatCurrency(summary.total_budget)}
+          changeLabel="Alle Kostenstellen"
           icon={<TrendingUp size={20} className="text-success" />}
           variant="success"
         />
         <MetricCard
-          title="Gesamtausgaben"
-          value="CHF 2.14M"
-          change={8.2}
+          title="Verbraucht"
+          value={formatCurrency(summary.used_budget)}
+          changeLabel={`${budgetUsagePercent}% des Budgets`}
           icon={<TrendingDown size={20} className="text-muted-foreground" />}
         />
         <MetricCard
-          title="Offene Zahlungen"
-          value="CHF 340K"
-          changeLabel="12 Transaktionen"
+          title="Verfügbar"
+          value={formatCurrency(summary.remaining_budget)}
+          changeLabel="Noch verfügbar"
           icon={<CreditCard size={20} className="text-warning" />}
           variant="warning"
         />
         <MetricCard
-          title="Netto-Cashflow"
-          value="CHF 3.82M"
-          change={12.3}
+          title="Budget-Auslastung"
+          value={`${budgetUsagePercent}%`}
+          changeLabel="Aktueller Stand"
           icon={<Wallet size={20} className="text-accent" />}
           variant="accent"
         />
       </div>
 
-      {/* Currency Rates */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {currencyRates.map((rate) => (
-          <div key={rate.currency} className="card-state p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {rate.currency}/CHF
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  {rate.rate.toFixed(4)}
-                </p>
-              </div>
-              <div
-                className={`flex items-center gap-1 text-sm ${
-                  rate.change >= 0 ? "text-success" : "text-destructive"
-                }`}
-              >
-                {rate.change >= 0 ? (
-                  <ArrowUpRight size={16} />
-                ) : (
-                  <ArrowDownRight size={16} />
-                )}
-                {Math.abs(rate.change)}%
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Transactions Table */}
-      <div className="card-state">
-        <div className="p-4 border-b border-border">
-          <h3 className="font-semibold text-foreground">Letzte Transaktionen</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Datum
-                </th>
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Beschreibung
-                </th>
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Partner
-                </th>
-                <th className="text-left p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="text-right p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Betrag
-                </th>
-                <th className="w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx, index) => (
-                <tr
-                  key={tx.id}
-                  className="table-row-state animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <td className="p-4 text-sm text-muted-foreground">
-                    {formatDate(tx.date)}
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {tx.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {tx.category}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground hidden md:table-cell">
-                    {tx.partner}
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded ${
-                        tx.status === "completed"
-                          ? "status-success"
-                          : "status-warning"
-                      }`}
-                    >
-                      {tx.status === "completed" ? "Abgeschlossen" : "Ausstehend"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <span
-                      className={`text-sm font-semibold ${
-                        tx.amount >= 0 ? "text-success" : "text-foreground"
-                      }`}
-                    >
-                      {tx.amount >= 0 ? "+" : "-"}
-                      {formatCurrency(tx.amount, tx.currency)}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <button className="p-1 rounded hover:bg-muted text-muted-foreground">
-                      <MoreHorizontal size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Zeige 1-5 von 156 Transaktionen
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Zurück
-            </button>
-            <button className="px-3 py-1 text-sm bg-muted rounded text-foreground">
-              1
-            </button>
-            <button className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              2
-            </button>
-            <button className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              3
-            </button>
-            <button className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Weiter
+      <Card>
+        <CardHeader>
+          <CardTitle>Letzte Transaktionen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">Keine Transaktionen vorhanden</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Transaktionen werden hier angezeigt, sobald sie erfasst werden.
+            </p>
+            <button className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2">
+              <Plus size={16} />
+              Erste Transaktion erstellen
             </button>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   );
 }
