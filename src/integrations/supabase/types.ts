@@ -243,6 +243,96 @@ export type Database = {
           },
         ]
       }
+      declarations: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          country: string
+          created_at: string
+          declaration_number: string
+          declaration_type: string
+          gia_incoming_cost: Json | null
+          gia_outgoing_revenue: Json | null
+          grx_fiscalization: number | null
+          id: string
+          margin_held: number | null
+          margin_split_infosi: number | null
+          margin_split_mgi: number | null
+          mgi_incoming_revenue: Json | null
+          mgi_outgoing_cost: Json | null
+          network_management_system: number | null
+          notes: string | null
+          opex_gia: number | null
+          opex_mgi: number | null
+          period_end: string
+          period_start: string
+          status: string
+          submitted_at: string
+          submitted_by: string
+          total_gia_balance: number | null
+          total_mgi_balance: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          country: string
+          created_at?: string
+          declaration_number: string
+          declaration_type: string
+          gia_incoming_cost?: Json | null
+          gia_outgoing_revenue?: Json | null
+          grx_fiscalization?: number | null
+          id?: string
+          margin_held?: number | null
+          margin_split_infosi?: number | null
+          margin_split_mgi?: number | null
+          mgi_incoming_revenue?: Json | null
+          mgi_outgoing_cost?: Json | null
+          network_management_system?: number | null
+          notes?: string | null
+          opex_gia?: number | null
+          opex_mgi?: number | null
+          period_end: string
+          period_start: string
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          total_gia_balance?: number | null
+          total_mgi_balance?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          country?: string
+          created_at?: string
+          declaration_number?: string
+          declaration_type?: string
+          gia_incoming_cost?: Json | null
+          gia_outgoing_revenue?: Json | null
+          grx_fiscalization?: number | null
+          id?: string
+          margin_held?: number | null
+          margin_split_infosi?: number | null
+          margin_split_mgi?: number | null
+          mgi_incoming_revenue?: Json | null
+          mgi_outgoing_cost?: Json | null
+          network_management_system?: number | null
+          notes?: string | null
+          opex_gia?: number | null
+          opex_mgi?: number | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          total_gia_balance?: number | null
+          total_mgi_balance?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_signatures: {
         Row: {
           created_at: string
