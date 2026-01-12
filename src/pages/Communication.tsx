@@ -143,8 +143,8 @@ export default function Communication() {
     return fullName.includes(searchLower) || u.email.toLowerCase().includes(searchLower);
   });
 
-  const canViewPartner = hasAnyRole(["management", "partner"]);
-  const canViewAuthority = hasAnyRole(["state", "management"]);
+  const canViewPartner = hasAnyRole(["management", "partner", "admin"]);
+  const canViewAuthority = hasAnyRole(["state", "management", "admin"]);
 
   useEffect(() => {
     fetchThreads();
