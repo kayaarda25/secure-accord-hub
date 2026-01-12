@@ -198,12 +198,19 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
           {step === "qrcode" && (
             <div className="space-y-4">
               <div className="flex justify-center p-4 bg-white rounded-lg">
-                <div dangerouslySetInnerHTML={{ __html: qrCode }} className="[&>svg]:w-48 [&>svg]:h-48" />
+                {qrCode.startsWith('data:') ? (
+                  <img src={qrCode} alt="2FA QR Code" className="w-48 h-48" />
+                ) : (
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: qrCode }} 
+                    className="[&>svg]:w-48 [&>svg]:h-48"
+                  />
+                )}
               </div>
               
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-1">Manueller Schlüssel:</p>
-                <code className="text-xs font-mono break-all">{secret}</code>
+                <code className="text-xs font-mono break-all select-all">{secret}</code>
               </div>
               
               <Button onClick={() => setStep("verify")} className="w-full">
