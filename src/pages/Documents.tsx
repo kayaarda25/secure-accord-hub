@@ -93,24 +93,7 @@ export default function Documents() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch documents with signatures
-      const { data: docsData } = await supabase
-        .from("documents")
-        .select(`
-          *,
-          signatures:document_signatures(
-            *,
-            signer:profiles!document_signatures_signer_id_fkey(*)
-          ),
-          uploader:profiles!documents_uploaded_by_fkey(*)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (docsData) {
-        setDocuments(docsData as unknown as Document[]);
-      }
-
-      // Fetch all profiles for signer selection
+      // Fetch all profiles first for lookups and signer selection
       const { data: profilesData } = await supabase
         .from("profiles")
         .select("*")
@@ -118,6 +101,31 @@ export default function Documents() {
 
       if (profilesData) {
         setProfiles(profilesData as Profile[]);
+      }
+
+      // Fetch documents with signatures
+      const { data: docsData } = await supabase
+        .from("documents")
+        .select(`
+          *,
+          signatures:document_signatures(*)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (docsData && profilesData) {
+        // Map profiles to documents and signatures
+        const profileMap = new Map(profilesData.map(p => [p.user_id, p]));
+        
+        const docsWithProfiles = docsData.map(doc => ({
+          ...doc,
+          uploader: profileMap.get(doc.uploaded_by) || null,
+          signatures: (doc.signatures || []).map((sig: { signer_id: string }) => ({
+            ...sig,
+            signer: profileMap.get(sig.signer_id) || null,
+          })),
+        }));
+        
+        setDocuments(docsWithProfiles as unknown as Document[]);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
