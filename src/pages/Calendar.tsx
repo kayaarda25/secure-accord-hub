@@ -13,65 +13,20 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-const events = [
-  {
-    id: 1,
-    title: "Uganda License Renewal",
-    date: "2024-10-28",
-    time: "Deadline",
-    type: "deadline",
-    priority: "critical",
-    description: "Telecom license must be renewed",
-  },
-  {
-    id: 2,
-    title: "Q3 Quarterly Statement",
-    date: "2024-10-31",
-    time: "Deadline",
-    type: "finance",
-    priority: "warning",
-    description: "Financial reports to partners",
-  },
-  {
-    id: 3,
-    title: "Partner Review Meeting",
-    date: "2024-11-05",
-    time: "10:00",
-    type: "meeting",
-    priority: "normal",
-    location: "Zurich / Video",
-    attendees: ["MGI AG", "URA", "MTN"],
-  },
-  {
-    id: 4,
-    title: "Board Meeting Q4",
-    date: "2024-11-12",
-    time: "14:00",
-    type: "meeting",
-    priority: "normal",
-    location: "Bern",
-    attendees: ["Board", "Management"],
-  },
-  {
-    id: 5,
-    title: "MTN Contract Extension",
-    date: "2024-11-15",
-    time: "Deadline",
-    type: "contract",
-    priority: "normal",
-    description: "Revenue-Share Agreement",
-  },
-  {
-    id: 6,
-    title: "Compliance Audit",
-    date: "2024-11-20",
-    time: "09:00",
-    type: "meeting",
-    priority: "warning",
-    location: "Zurich",
-    attendees: ["KPMG", "Internal Audit"],
-  },
-];
+interface CalendarEvent {
+  id: number;
+  title: string;
+  date: string;
+  time: string;
+  type: string;
+  priority: string;
+  description?: string;
+  location?: string;
+  attendees?: string[];
+}
+
+// Empty events array - data will come from database
+const events: CalendarEvent[] = [];
 
 const months = [
   "January", "February", "March", "April", "May", "June",
@@ -79,8 +34,9 @@ const months = [
 ];
 
 export default function Calendar() {
-  const [currentMonth, setCurrentMonth] = useState(9); // October
-  const [currentYear, setCurrentYear] = useState(2024);
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -220,7 +176,7 @@ export default function Calendar() {
             {calendarDays.map((day, index) => {
               const dayEvents = day ? getEventsForDay(day) : [];
               const isToday =
-                day === 21 && currentMonth === 9 && currentYear === 2024;
+                day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
 
               return (
                 <div
@@ -283,61 +239,69 @@ export default function Calendar() {
         {/* Upcoming Events */}
         <div className="space-y-4">
           <h3 className="font-semibold text-foreground">Upcoming Events</h3>
-          {events.map((event, index) => (
-            <div
-              key={event.id}
-              className={`card-state p-4 border-l-2 ${getPriorityStyles(
-                event.priority
-              )} animate-fade-in`}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  {getEventIcon(event.type)}
-                  <span className="text-xs uppercase tracking-wider">
-                    {event.type === "deadline"
-                      ? "Deadline"
-                      : event.type === "meeting"
-                      ? "Meeting"
-                      : event.type === "finance"
-                      ? "Finance"
-                      : "Contract"}
-                  </span>
+          {events.length === 0 ? (
+            <div className="card-state p-6 text-center">
+              <CalendarIcon size={32} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">No upcoming events</p>
+              <p className="text-xs text-muted-foreground mt-1">Click "New Event" to add one</p>
+            </div>
+          ) : (
+            events.map((event, index) => (
+              <div
+                key={event.id}
+                className={`card-state p-4 border-l-2 ${getPriorityStyles(
+                  event.priority
+                )} animate-fade-in`}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    {getEventIcon(event.type)}
+                    <span className="text-xs uppercase tracking-wider">
+                      {event.type === "deadline"
+                        ? "Deadline"
+                        : event.type === "meeting"
+                        ? "Meeting"
+                        : event.type === "finance"
+                        ? "Finance"
+                        : "Contract"}
+                    </span>
+                  </div>
+                  {getPriorityBadge(event.priority)}
                 </div>
-                {getPriorityBadge(event.priority)}
-              </div>
-              <h4 className="font-medium text-foreground mb-1">{event.title}</h4>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon size={12} />
-                  <span>{formatDate(event.date)}</span>
-                  {event.time !== "Deadline" && (
-                    <>
-                      <Clock size={12} className="ml-2" />
-                      <span>{event.time}</span>
-                    </>
+                <h4 className="font-medium text-foreground mb-1">{event.title}</h4>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon size={12} />
+                    <span>{formatDate(event.date)}</span>
+                    {event.time !== "Deadline" && (
+                      <>
+                        <Clock size={12} className="ml-2" />
+                        <span>{event.time}</span>
+                      </>
+                    )}
+                  </div>
+                  {event.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={12} />
+                      <span>{event.location}</span>
+                    </div>
+                  )}
+                  {event.attendees && (
+                    <div className="flex items-center gap-2">
+                      <Users size={12} />
+                      <span>{event.attendees.join(", ")}</span>
+                    </div>
+                  )}
+                  {event.description && (
+                    <p className="mt-2 text-muted-foreground">
+                      {event.description}
+                    </p>
                   )}
                 </div>
-                {event.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={12} />
-                    <span>{event.location}</span>
-                  </div>
-                )}
-                {event.attendees && (
-                  <div className="flex items-center gap-2">
-                    <Users size={12} />
-                    <span>{event.attendees.join(", ")}</span>
-                  </div>
-                )}
-                {event.description && (
-                  <p className="mt-2 text-muted-foreground">
-                    {event.description}
-                  </p>
-                )}
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </Layout>
