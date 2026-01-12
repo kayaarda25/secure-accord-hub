@@ -18,7 +18,18 @@ import {
   Eye,
   ChevronRight,
   Loader2,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CostCenter {
   id: string;
@@ -51,6 +62,8 @@ export default function Opex() {
   const [isLoading, setIsLoading] = useState(true);
   const [showNewExpense, setShowNewExpense] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Expense categories without emojis
   const expenseCategories = [
@@ -330,6 +343,28 @@ export default function Opex() {
     }
   };
 
+  const handleDelete = async (expenseId: string) => {
+    if (!user) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("opex_expenses")
+        .delete()
+        .eq("id", expenseId);
+
+      if (error) throw error;
+
+      await logAction("DELETE", "opex_expenses", expenseId);
+      setDeleteExpenseId(null);
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -588,8 +623,12 @@ export default function Opex() {
                       <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                        <MoreHorizontal size={16} />
+                      <button 
+                        onClick={() => setDeleteExpenseId(expense.id)}
+                        className="p-2 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -761,6 +800,29 @@ export default function Opex() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteExpenseId} onOpenChange={() => setDeleteExpenseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ausgabe löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Diese Aktion kann nicht rückgängig gemacht werden. Die Ausgabe wird permanent gelöscht.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteExpenseId && handleDelete(deleteExpenseId)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
