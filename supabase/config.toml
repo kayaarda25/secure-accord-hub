@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.send-meeting-invitation]
 verify_jwt = false
+
+[functions.send-signature-request]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.generate-report]
+verify_jwt = false
