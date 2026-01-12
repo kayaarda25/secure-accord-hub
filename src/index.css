@@ -2,84 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MGI × AFRIKA State-Grade Design System
-   Swiss Government Cooperation Platform
+/* Charcoal & Rose Gold Design System
+   Elegant, sophisticated dark theme with warm copper accents
    All colors in HSL format
 */
 
 @layer base {
   :root {
-    /* Dark Anthracite Base */
-    --background: 220 20% 10%;
-    --foreground: 210 20% 95%;
+    /* Deep Charcoal Base */
+    --background: 220 15% 8%;
+    --foreground: 30 15% 92%;
 
     /* Card surfaces - slightly lighter than background */
-    --card: 220 18% 13%;
-    --card-foreground: 210 20% 95%;
+    --card: 220 12% 12%;
+    --card-foreground: 30 15% 92%;
 
     /* Popover - elevated surface */
-    --popover: 220 18% 15%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 220 12% 14%;
+    --popover-foreground: 30 15% 92%;
 
-    /* Primary - State Blue */
-    --primary: 210 50% 25%;
-    --primary-foreground: 210 20% 98%;
+    /* Primary - Deep Charcoal Blue */
+    --primary: 220 20% 18%;
+    --primary-foreground: 30 15% 95%;
 
     /* Secondary - Muted surface */
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 210 15% 75%;
+    --secondary: 220 10% 16%;
+    --secondary-foreground: 30 10% 70%;
 
     /* Muted - Subdued elements */
-    --muted: 220 15% 20%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 220 10% 18%;
+    --muted-foreground: 220 10% 50%;
 
-    /* Accent - Gold */
-    --accent: 45 80% 47%;
-    --accent-foreground: 220 20% 10%;
+    /* Accent - Rose Gold */
+    --accent: 15 55% 55%;
+    --accent-foreground: 220 15% 8%;
 
     /* Status Colors */
-    --destructive: 0 65% 50%;
+    --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 142 70% 45%;
-    --success-foreground: 142 70% 10%;
+    --success: 160 60% 45%;
+    --success-foreground: 160 60% 10%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 92% 10%;
+    --warning: 35 85% 55%;
+    --warning-foreground: 35 85% 10%;
 
-    --info: 200 80% 50%;
-    --info-foreground: 200 80% 10%;
+    --info: 200 70% 50%;
+    --info-foreground: 200 70% 10%;
 
     /* Borders & Inputs */
-    --border: 220 15% 22%;
-    --input: 220 15% 18%;
-    --ring: 45 80% 47%;
+    --border: 220 10% 20%;
+    --input: 220 10% 16%;
+    --ring: 15 55% 55%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Sidebar - State sidebar */
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 210 15% 75%;
-    --sidebar-primary: 45 80% 47%;
-    --sidebar-primary-foreground: 220 20% 10%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 20% 95%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 45 80% 47%;
+    /* Sidebar */
+    --sidebar-background: 220 15% 6%;
+    --sidebar-foreground: 30 10% 70%;
+    --sidebar-primary: 15 55% 55%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 10% 14%;
+    --sidebar-accent-foreground: 30 15% 92%;
+    --sidebar-border: 220 10% 16%;
+    --sidebar-ring: 15 55% 55%;
 
     /* Custom Gradients */
-    --gradient-gold: linear-gradient(135deg, hsl(45 80% 47%), hsl(38 85% 55%));
-    --gradient-state: linear-gradient(135deg, hsl(210 50% 25%), hsl(220 45% 20%));
-    --gradient-surface: linear-gradient(180deg, hsl(220 18% 14%), hsl(220 18% 12%));
+    --gradient-rose: linear-gradient(135deg, hsl(15 55% 55%), hsl(350 50% 50%));
+    --gradient-charcoal: linear-gradient(135deg, hsl(220 20% 18%), hsl(220 15% 12%));
+    --gradient-surface: linear-gradient(180deg, hsl(220 12% 13%), hsl(220 12% 10%));
 
     /* Shadows */
-    --shadow-card: 0 4px 24px -4px hsla(220, 20%, 5%, 0.5);
-    --shadow-elevated: 0 8px 32px -8px hsla(220, 20%, 5%, 0.6);
-    --shadow-gold: 0 4px 20px -4px hsla(45, 80%, 47%, 0.3);
+    --shadow-card: 0 4px 24px -4px hsla(220, 15%, 3%, 0.6);
+    --shadow-elevated: 0 8px 32px -8px hsla(220, 15%, 3%, 0.7);
+    --shadow-rose: 0 4px 20px -4px hsla(15, 55%, 55%, 0.25);
   }
 
   .dark {
-    /* Same as root - platform is dark-mode only for state-grade appearance */
+    /* Same as root - platform is dark-mode only */
   }
 }
 
@@ -93,10 +93,10 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* Custom scrollbar for state-grade look */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -105,7 +105,7 @@
 
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 4px;
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -114,16 +114,16 @@
 }
 
 @layer components {
-  /* State-grade card with subtle border glow */
+  /* Elegant card with subtle border */
   .card-state {
-    @apply bg-card border border-border rounded-lg;
+    @apply bg-card border border-border rounded-xl;
     box-shadow: var(--shadow-card);
   }
 
-  /* Gold accent card for critical metrics */
+  /* Rose gold accent card */
   .card-accent {
-    @apply bg-card border border-accent/20 rounded-lg;
-    box-shadow: var(--shadow-gold);
+    @apply bg-card border border-accent/20 rounded-xl;
+    box-shadow: var(--shadow-rose);
   }
 
   /* Status indicators */
@@ -154,7 +154,7 @@
 
   /* Navigation link styling */
   .nav-link {
-    @apply flex items-center gap-3 px-4 py-3 text-sm font-medium text-sidebar-foreground rounded-lg transition-all duration-200;
+    @apply flex items-center gap-3 px-4 py-3 text-sm font-medium text-sidebar-foreground rounded-xl transition-all duration-200;
   }
 
   .nav-link:hover {
@@ -175,31 +175,31 @@
     @apply border-b border-border/50 hover:bg-muted/30 transition-colors;
   }
 
-  /* Badge variations */
+  /* Badge variations - Rose gold */
   .badge-gold {
-    @apply bg-accent/10 text-accent border border-accent/30 px-2 py-0.5 rounded text-xs font-medium;
+    @apply bg-accent/10 text-accent border border-accent/30 px-2.5 py-1 rounded-lg text-xs font-medium;
   }
 
-  /* Glow effects for important elements */
+  /* Glow effects */
   .glow-gold {
-    box-shadow: 0 0 20px hsla(45, 80%, 47%, 0.15);
+    box-shadow: 0 0 24px hsla(15, 55%, 55%, 0.2);
   }
 
   .glow-success {
-    box-shadow: 0 0 20px hsla(142, 70%, 45%, 0.15);
+    box-shadow: 0 0 20px hsla(160, 60%, 45%, 0.15);
   }
 }
 
 @layer utilities {
   /* Fade-in animation */
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeIn 0.4s ease-out forwards;
   }
 
   @keyframes fadeIn {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
@@ -215,7 +215,7 @@
   @keyframes slideIn {
     from {
       opacity: 0;
-      transform: translateX(-16px);
+      transform: translateX(-12px);
     }
     to {
       opacity: 1;
@@ -239,13 +239,13 @@
 
   /* Number counter animation */
   .animate-count {
-    animation: countUp 1s ease-out forwards;
+    animation: countUp 0.8s ease-out forwards;
   }
 
   @keyframes countUp {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;

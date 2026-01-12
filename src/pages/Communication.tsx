@@ -308,7 +308,7 @@ export default function Communication() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -316,21 +316,21 @@ export default function Communication() {
   };
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString("de-CH", {
+    return new Date(dateStr).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
   const tabs = [
-    { id: "partner" as const, label: "Partner", visible: canViewPartner },
-    { id: "authority" as const, label: "Behörden", visible: canViewAuthority },
-    { id: "internal" as const, label: "Intern", visible: true },
-    { id: "meetings" as const, label: "Protokolle", visible: true },
+    { id: "partner" as const, label: "Partners", visible: canViewPartner },
+    { id: "authority" as const, label: "Authorities", visible: canViewAuthority },
+    { id: "internal" as const, label: "Internal", visible: true },
+    { id: "meetings" as const, label: "Protocols", visible: true },
   ];
 
   return (
-    <Layout title="Kommunikation" subtitle="Nachrichten, Protokolle und Online-Sitzungen">
+    <Layout title="Communication" subtitle="Messages, protocols and online meetings">
       {/* Video Meeting Modal */}
       {showVideoMeeting && (
         <VideoMeeting 
@@ -355,20 +355,20 @@ export default function Communication() {
       )}
 
       {/* Meeting Buttons */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-wrap gap-3">
         <button
           onClick={() => setShowVideoMeeting(true)}
-          className="px-4 py-2.5 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
+          className="px-4 py-2.5 bg-accent text-accent-foreground rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
         >
           <Video size={18} />
-          Sofort-Sitzung
+          Instant Meeting
         </button>
         <button
           onClick={() => setShowScheduler(true)}
-          className="px-4 py-2.5 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors flex items-center gap-2"
+          className="px-4 py-2.5 bg-muted text-foreground rounded-xl text-sm font-medium hover:bg-muted/80 transition-colors flex items-center gap-2"
         >
           <Calendar size={18} />
-          Sitzung planen
+          Schedule Meeting
         </button>
       </div>
       {/* Tabs */}
@@ -406,17 +406,17 @@ export default function Communication() {
                 />
                 <input
                   type="text"
-                  placeholder="Protokolle suchen..."
-                  className="pl-10 pr-4 py-2 bg-muted rounded-lg text-sm text-foreground border-0 focus:ring-2 focus:ring-accent w-64"
+                  placeholder="Search protocols..."
+                  className="pl-10 pr-4 py-2 bg-muted rounded-xl text-sm text-foreground border-0 focus:ring-2 focus:ring-accent w-full sm:w-64"
                 />
               </div>
             </div>
             <button
               onClick={() => setShowNewProtocol(true)}
-              className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
+              className="px-4 py-2 bg-accent text-accent-foreground rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
             >
               <Plus size={16} />
-              Neues Protokoll
+              New Protocol
             </button>
           </div>
 
@@ -455,28 +455,28 @@ export default function Communication() {
                 {protocol.decisions && (
                   <div className="flex items-center gap-2 text-xs text-success">
                     <CheckCircle size={12} />
-                    <span>Entscheidungen dokumentiert</span>
+                    <span>Decisions documented</span>
                   </div>
                 )}
               </div>
             ))}
             {protocols.length === 0 && !isLoading && (
               <div className="col-span-full text-center py-12 text-muted-foreground">
-                Keine Protokolle vorhanden
+                No protocols available
               </div>
             )}
           </div>
         </div>
       ) : (
         // Threads & Messages View
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-250px)]">
           {/* Thread List */}
-          <div className="card-state flex flex-col">
+          <div className="card-state flex flex-col max-h-[300px] lg:max-h-none">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Konversationen</h3>
+              <h3 className="font-semibold text-foreground">Conversations</h3>
               <button
                 onClick={() => setShowNewThread(true)}
-                className="p-2 rounded-lg hover:bg-muted text-accent transition-colors"
+                className="p-2 rounded-xl hover:bg-muted text-accent transition-colors"
               >
                 <Plus size={18} />
               </button>
@@ -488,7 +488,7 @@ export default function Communication() {
                 </div>
               ) : threads.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  Keine Konversationen
+                  No conversations
                 </div>
               ) : (
                 threads.map((thread, index) => (
@@ -528,8 +528,8 @@ export default function Communication() {
                         {selectedThread.subject}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        {selectedThread.is_official && "Offiziell • "}
-                        Erstellt am {formatDate(selectedThread.created_at)}
+                        {selectedThread.is_official && "Official • "}
+                        Created on {formatDate(selectedThread.created_at)}
                       </p>
                     </div>
                     <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground">
@@ -557,7 +557,7 @@ export default function Communication() {
                           {message.is_decision && (
                             <div className="flex items-center gap-1 text-xs text-success mb-1">
                               <CheckCircle size={12} />
-                              Entscheidung
+                              Decision
                             </div>
                           )}
                           <p className="text-sm">{message.content}</p>
@@ -570,7 +570,7 @@ export default function Communication() {
                   })}
                   {messages.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground text-sm">
-                      Noch keine Nachrichten
+                      No messages yet
                     </div>
                   )}
                 </div>
@@ -589,8 +589,8 @@ export default function Communication() {
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Nachricht eingeben..."
-                    className="flex-1 px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                    placeholder="Type a message..."
+                    className="flex-1 px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                   <button
                     type="submit"
@@ -602,10 +602,10 @@ export default function Communication() {
                 </form>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground p-8">
                 <div className="text-center">
                   <MessageSquare size={48} className="mx-auto mb-4 opacity-30" />
-                  <p>Wählen Sie eine Konversation aus</p>
+                  <p>Select a conversation</p>
                 </div>
               </div>
             )}
@@ -616,14 +616,14 @@ export default function Communication() {
       {/* New Thread Modal */}
       {showNewThread && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="card-state w-full max-w-md p-6 animate-fade-in">
+          <div className="card-state w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold text-foreground mb-6">
-              Neue Konversation
+              New Conversation
             </h2>
             <form onSubmit={handleCreateThread} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Betreff
+                  Subject
                 </label>
                 <input
                   type="text"
@@ -631,14 +631,14 @@ export default function Communication() {
                   onChange={(e) =>
                     setThreadForm({ ...threadForm, subject: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Typ
+                  Type
                 </label>
                 <select
                   value={threadForm.type}
@@ -648,18 +648,18 @@ export default function Communication() {
                       type: e.target.value as CommunicationType,
                     })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                 >
-                  <option value="partner">Partner</option>
-                  <option value="authority">Behörden</option>
-                  <option value="internal">Intern</option>
+                  <option value="partner">Partners</option>
+                  <option value="authority">Authorities</option>
+                  <option value="internal">Internal</option>
                 </select>
               </div>
 
               {/* Member Selection */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Teilnehmer auswählen
+                  Select Participants
                 </label>
                 <div className="relative mb-2">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -667,8 +667,8 @@ export default function Communication() {
                     type="text"
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
-                    placeholder="Benutzer suchen..."
-                    className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                    placeholder="Search users..."
+                    className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-xl text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                 </div>
                 
@@ -698,10 +698,10 @@ export default function Communication() {
                 )}
                 
                 {/* User list */}
-                <div className="max-h-32 overflow-y-auto border border-border rounded-lg bg-muted">
+                <div className="max-h-32 overflow-y-auto border border-border rounded-xl bg-muted">
                   {filteredUsers.length === 0 ? (
                     <p className="text-center text-muted-foreground text-sm py-3">
-                      Keine Benutzer gefunden
+                      No users found
                     </p>
                   ) : (
                     filteredUsers.map(u => (
@@ -745,7 +745,7 @@ export default function Communication() {
                   className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
                 />
                 <label htmlFor="is_official" className="text-sm text-foreground">
-                  Offizielle Kommunikation
+                  Official Communication
                 </label>
               </div>
 
@@ -753,15 +753,15 @@ export default function Communication() {
                 <button
                   type="button"
                   onClick={() => setShowNewThread(false)}
-                  className="flex-1 py-2.5 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
+                  className="flex-1 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
                 >
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-xl font-medium hover:bg-accent/90 transition-colors"
                 >
-                  Erstellen
+                  Create
                 </button>
               </div>
             </form>
@@ -774,12 +774,12 @@ export default function Communication() {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="card-state w-full max-w-lg p-6 animate-fade-in my-8">
             <h2 className="text-xl font-semibold text-foreground mb-6">
-              Neues Meeting-Protokoll
+              New Meeting Protocol
             </h2>
             <form onSubmit={handleCreateProtocol} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Titel
+                  Title
                 </label>
                 <input
                   type="text"
@@ -787,15 +787,15 @@ export default function Communication() {
                   onChange={(e) =>
                     setProtocolForm({ ...protocolForm, title: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Datum
+                    Date
                   </label>
                   <input
                     type="date"
@@ -803,13 +803,13 @@ export default function Communication() {
                     onChange={(e) =>
                       setProtocolForm({ ...protocolForm, meeting_date: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Ort
+                    Location
                   </label>
                   <input
                     type="text"
@@ -817,14 +817,14 @@ export default function Communication() {
                     onChange={(e) =>
                       setProtocolForm({ ...protocolForm, location: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Teilnehmer (kommagetrennt)
+                  Attendees (comma-separated)
                 </label>
                 <input
                   type="text"
@@ -832,8 +832,8 @@ export default function Communication() {
                   onChange={(e) =>
                     setProtocolForm({ ...protocolForm, attendees: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  placeholder="Max Mustermann, Anna Schmidt, ..."
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="John Smith, Jane Doe, ..."
                 />
               </div>
 
@@ -846,35 +846,35 @@ export default function Communication() {
                   onChange={(e) =>
                     setProtocolForm({ ...protocolForm, agenda: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={3}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Protokoll / Notizen
+                  Minutes / Notes
                 </label>
                 <textarea
                   value={protocolForm.minutes}
                   onChange={(e) =>
                     setProtocolForm({ ...protocolForm, minutes: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={4}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Entscheidungen
+                  Decisions
                 </label>
                 <textarea
                   value={protocolForm.decisions}
                   onChange={(e) =>
                     setProtocolForm({ ...protocolForm, decisions: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
                 />
               </div>
@@ -883,15 +883,15 @@ export default function Communication() {
                 <button
                   type="button"
                   onClick={() => setShowNewProtocol(false)}
-                  className="flex-1 py-2.5 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
+                  className="flex-1 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
                 >
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-xl font-medium hover:bg-accent/90 transition-colors"
                 >
-                  Speichern
+                  Save
                 </button>
               </div>
             </form>
