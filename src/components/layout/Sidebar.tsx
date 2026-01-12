@@ -24,6 +24,7 @@ import {
   CheckSquare,
   TrendingUp,
   BarChart,
+  ScanLine,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -107,6 +108,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     // OPEX
     if (permissions.canViewOpex || permissions.canCreateOpex) {
       items.push({ name: "OPEX", href: "/opex", icon: Receipt, permission: "view_opex" });
+      items.push({ name: "Receipt Scanner", href: "/receipt-scanner", icon: ScanLine, permission: "view_opex" });
     }
 
     // Budget

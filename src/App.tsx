@@ -14,6 +14,7 @@ import Documents from "./pages/Documents";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Opex from "./pages/Opex";
+import ReceiptScanner from "./pages/ReceiptScanner";
 import Communication from "./pages/Communication";
 import UsersPage from "./pages/Users";
 import NotFound from "./pages/NotFound";
@@ -72,6 +73,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Opex />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/receipt-scanner"
+              element={
+                <ProtectedRoute>
+                  <ReceiptScanner />
                 </ProtectedRoute>
               }
             />
