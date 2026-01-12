@@ -79,6 +79,19 @@ interface OpexSummary {
   categories: { [key: string]: number };
 }
 
+interface OpexMonthlyEntry {
+  id: string;
+  organization_name: string;
+  org_type: string;
+  period: string; // e.g., "Januar 2025"
+  period_key: string; // e.g., "2025-01"
+  total_amount: number;
+  currency: string;
+  expense_count: number;
+  categories: { category: string; amount: number }[];
+  expenses: OpexExpenseDetail[];
+}
+
 interface OpexExpenseDetail {
   id: string;
   expense_number: string;
@@ -120,10 +133,16 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [opexSummaries, setOpexSummaries] = useState<OpexSummary[]>([]);
-  const [opexDetails, setOpexDetails] = useState<OpexExpenseDetail[]>([]);
+  const [opexMonthlyEntries, setOpexMonthlyEntries] = useState<OpexMonthlyEntry[]>([]);
   const [isLoadingOpex, setIsLoadingOpex] = useState(true);
+  const [selectedEntry, setSelectedEntry] = useState<OpexMonthlyEntry | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const monthNames = [
+    "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember"
+  ];
 
   useEffect(() => {
     fetchScheduledReports();
@@ -172,8 +191,8 @@ export default function Reports() {
         const profileMap = new Map(profiles.map(p => [p.user_id, p]));
         const orgMap = new Map(orgs.map(o => [o.id, o]));
 
-        // Build detailed expense list
-        const details: OpexExpenseDetail[] = expenses.map(exp => {
+        // Build detailed expense list with org info
+        const detailedExpenses: OpexExpenseDetail[] = expenses.map(exp => {
           const costCenter = costCenterMap.get(exp.cost_center_id);
           const org = costCenter ? orgMap.get(costCenter.organization_id) : null;
           const profile = profileMap.get(exp.submitted_by);
@@ -193,7 +212,58 @@ export default function Reports() {
           };
         });
 
-        setOpexDetails(details);
+        // Group expenses by organization and month
+        const monthlyMap = new Map<string, OpexMonthlyEntry>();
+
+        detailedExpenses.forEach(exp => {
+          const date = new Date(exp.expense_date);
+          const periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const period = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+          const key = `${exp.organization_name}-${periodKey}`;
+
+          if (!monthlyMap.has(key)) {
+            const org = orgs.find(o => getOrgDisplayName(o.org_type) === exp.organization_name);
+            monthlyMap.set(key, {
+              id: key,
+              organization_name: exp.organization_name,
+              org_type: org?.org_type || "",
+              period,
+              period_key: periodKey,
+              total_amount: 0,
+              currency: exp.currency,
+              expense_count: 0,
+              categories: [],
+              expenses: [],
+            });
+          }
+
+          const entry = monthlyMap.get(key)!;
+          entry.total_amount += Number(exp.amount);
+          entry.expense_count += 1;
+          entry.expenses.push(exp);
+        });
+
+        // Calculate categories for each monthly entry
+        monthlyMap.forEach(entry => {
+          const categoryMap = new Map<string, number>();
+          entry.expenses.forEach(exp => {
+            const cat = exp.category || "Sonstige";
+            categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(exp.amount));
+          });
+          entry.categories = Array.from(categoryMap.entries())
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount);
+        });
+
+        // Sort by period (newest first) and then by organization
+        const sortedEntries = Array.from(monthlyMap.values()).sort((a, b) => {
+          if (a.period_key !== b.period_key) {
+            return b.period_key.localeCompare(a.period_key);
+          }
+          return a.organization_name.localeCompare(b.organization_name);
+        });
+
+        setOpexMonthlyEntries(sortedEntries);
 
         // Build summaries per organization
         const summaries: OpexSummary[] = orgs.map(org => {
@@ -228,6 +298,108 @@ export default function Reports() {
     } finally {
       setIsLoadingOpex(false);
     }
+  };
+
+  const generateOpexPdf = (entry: OpexMonthlyEntry) => {
+    // Create print-friendly HTML
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>OPEX Report - ${entry.organization_name} - ${entry.period}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          h2 { color: #666; margin-top: 30px; }
+          .summary { background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+          .summary-item { text-align: center; }
+          .summary-label { font-size: 12px; color: #666; }
+          .summary-value { font-size: 24px; font-weight: bold; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background: #f0f0f0; font-weight: bold; }
+          .amount { text-align: right; font-weight: bold; }
+          .category-section { margin-top: 30px; }
+          .category-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .footer { margin-top: 40px; font-size: 12px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h1>OPEX Report</h1>
+        <h2>${entry.organization_name} - ${entry.period}</h2>
+        
+        <div class="summary">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">Gesamtbetrag</div>
+              <div class="summary-value">${formatCurrency(entry.total_amount, entry.currency)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Anzahl Positionen</div>
+              <div class="summary-value">${entry.expense_count}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Kategorien</div>
+              <div class="summary-value">${entry.categories.length}</div>
+            </div>
+          </div>
+        </div>
+        
+        <h2>Aufschlüsselung nach Kategorie</h2>
+        <div class="category-section">
+          ${entry.categories.map(cat => `
+            <div class="category-item">
+              <span>${cat.category}</span>
+              <span class="amount">${formatCurrency(cat.amount, entry.currency)}</span>
+            </div>
+          `).join('')}
+        </div>
+        
+        <h2>Einzelpositionen</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Nr.</th>
+              <th>Titel</th>
+              <th>Kategorie</th>
+              <th>Datum</th>
+              <th style="text-align: right;">Betrag</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entry.expenses.map(exp => `
+              <tr>
+                <td>${exp.expense_number}</td>
+                <td>${exp.title}</td>
+                <td>${exp.category || '–'}</td>
+                <td>${format(new Date(exp.expense_date), "dd.MM.yyyy", { locale: de })}</td>
+                <td class="amount">${formatCurrency(exp.amount, exp.currency)}</td>
+                <td>${exp.status === 'approved_finance' ? 'Genehmigt' : exp.status === 'rejected' ? 'Abgelehnt' : exp.status === 'approved_supervisor' ? 'Vorgesetzter OK' : 'Ausstehend'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="footer">
+          Generiert am ${format(new Date(), "dd.MM.yyyy 'um' HH:mm", { locale: de })} Uhr
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+
+    toast({
+      title: "PDF generiert",
+      description: `OPEX-Report für ${entry.organization_name} - ${entry.period} wurde erstellt.`,
+    });
   };
 
   const getOrgDisplayName = (orgType: string | null): string => {
@@ -495,16 +667,16 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Detailed OPEX Table - Old Format */}
+              {/* Monthly OPEX Overview by Organization */}
               <Card>
                 <CardHeader>
-                  <CardTitle>OPEX-Details aller Organisationen</CardTitle>
+                  <CardTitle>OPEX nach Organisation und Monat</CardTitle>
                   <CardDescription>
-                    Alle eingereichten Ausgaben von MGI Media, MGI Communications und Gateway
+                    Monatliche OPEX-Zusammenfassung von MGI Media, MGI Communications und Gateway
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {opexDetails.length === 0 ? (
+                  {opexMonthlyEntries.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>Keine OPEX-Einträge vorhanden</p>
@@ -514,70 +686,187 @@ export default function Reports() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/30">
-                            <TableHead className="font-semibold">Nr.</TableHead>
                             <TableHead className="font-semibold">Organisation</TableHead>
-                            <TableHead className="font-semibold">Kostenstelle</TableHead>
-                            <TableHead className="font-semibold">Titel</TableHead>
-                            <TableHead className="font-semibold">Kategorie</TableHead>
-                            <TableHead className="font-semibold">Datum</TableHead>
-                            <TableHead className="font-semibold text-right">Betrag</TableHead>
-                            <TableHead className="font-semibold">Status</TableHead>
-                            <TableHead className="font-semibold">Eingereicht von</TableHead>
+                            <TableHead className="font-semibold">Periode</TableHead>
+                            <TableHead className="font-semibold">Anzahl</TableHead>
+                            <TableHead className="font-semibold">Top Kategorien</TableHead>
+                            <TableHead className="font-semibold text-right">Gesamtbetrag</TableHead>
+                            <TableHead className="font-semibold text-center">Aktionen</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {opexDetails.map((expense) => (
-                            <TableRow key={expense.id} className="hover:bg-muted/20">
-                              <TableCell className="font-mono text-xs text-muted-foreground">
-                                {expense.expense_number}
-                              </TableCell>
+                          {opexMonthlyEntries.map((entry) => (
+                            <TableRow key={entry.id} className="hover:bg-muted/20">
                               <TableCell>
-                                <span className={`text-sm font-medium ${
-                                  expense.organization_name === "MGI Media"
-                                    ? "text-blue-600"
-                                    : expense.organization_name === "MGI Communications"
-                                    ? "text-purple-600"
-                                    : "text-green-600"
-                                }`}>
-                                  {expense.organization_name}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {expense.cost_center_name}
+                                <div className="flex items-center gap-2">
+                                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                                    entry.org_type === "mgi_media" 
+                                      ? "bg-blue-500/10" 
+                                      : entry.org_type === "mgi_communications"
+                                      ? "bg-purple-500/10"
+                                      : "bg-green-500/10"
+                                  }`}>
+                                    <Building2 className={`h-4 w-4 ${
+                                      entry.org_type === "mgi_media" 
+                                        ? "text-blue-500" 
+                                        : entry.org_type === "mgi_communications"
+                                        ? "text-purple-500"
+                                        : "text-green-500"
+                                    }`} />
+                                  </div>
+                                  <span className={`font-medium ${
+                                    entry.org_type === "mgi_media"
+                                      ? "text-blue-600"
+                                      : entry.org_type === "mgi_communications"
+                                      ? "text-purple-600"
+                                      : "text-green-600"
+                                  }`}>
+                                    {entry.organization_name}
+                                  </span>
+                                </div>
                               </TableCell>
                               <TableCell className="font-medium">
-                                {expense.title}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {expense.category || "–"}
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {format(new Date(expense.expense_date), "dd.MM.yyyy", { locale: de })}
-                              </TableCell>
-                              <TableCell className="text-right font-semibold">
-                                {formatCurrency(expense.amount, expense.currency)}
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  {entry.period}
+                                </div>
                               </TableCell>
                               <TableCell>
-                                <span className={`text-sm ${
-                                  expense.status === "approved_finance"
-                                    ? "text-green-600"
-                                    : expense.status === "rejected"
-                                    ? "text-red-600"
-                                    : expense.status === "approved_supervisor"
-                                    ? "text-blue-600"
-                                    : "text-yellow-600"
-                                }`}>
-                                  {expense.status === "approved_finance"
-                                    ? "Genehmigt"
-                                    : expense.status === "rejected"
-                                    ? "Abgelehnt"
-                                    : expense.status === "approved_supervisor"
-                                    ? "Vorgesetzter OK"
-                                    : "Ausstehend"}
+                                <Badge variant="secondary">{entry.expense_count} Positionen</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                  {entry.categories.slice(0, 3).map((cat, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">
+                                      {cat.category}: {formatCurrency(cat.amount, entry.currency)}
+                                    </Badge>
+                                  ))}
+                                  {entry.categories.length > 3 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{entry.categories.length - 3} mehr
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-lg font-bold">
+                                  {formatCurrency(entry.total_amount, entry.currency)}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {expense.submitted_by_name}
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-2">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => setSelectedEntry(entry)}
+                                      >
+                                        <FileText className="h-4 w-4 mr-1" />
+                                        Details
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                                      <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                          <Building2 className={`h-5 w-5 ${
+                                            entry.org_type === "mgi_media"
+                                              ? "text-blue-500"
+                                              : entry.org_type === "mgi_communications"
+                                              ? "text-purple-500"
+                                              : "text-green-500"
+                                          }`} />
+                                          {entry.organization_name} - {entry.period}
+                                        </DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        {/* Summary */}
+                                        <div className="grid grid-cols-3 gap-4">
+                                          <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                            <div className="text-2xl font-bold">{formatCurrency(entry.total_amount, entry.currency)}</div>
+                                            <div className="text-sm text-muted-foreground">Gesamtbetrag</div>
+                                          </div>
+                                          <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                            <div className="text-2xl font-bold">{entry.expense_count}</div>
+                                            <div className="text-sm text-muted-foreground">Positionen</div>
+                                          </div>
+                                          <div className="p-4 bg-muted/50 rounded-lg text-center">
+                                            <div className="text-2xl font-bold">{entry.categories.length}</div>
+                                            <div className="text-sm text-muted-foreground">Kategorien</div>
+                                          </div>
+                                        </div>
+
+                                        {/* Categories */}
+                                        <div>
+                                          <h4 className="font-medium mb-2">Aufschlüsselung nach Kategorie</h4>
+                                          <div className="space-y-2">
+                                            {entry.categories.map((cat, idx) => (
+                                              <div key={idx} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                                                <span>{cat.category}</span>
+                                                <span className="font-bold">{formatCurrency(cat.amount, entry.currency)}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Expense List */}
+                                        <div>
+                                          <h4 className="font-medium mb-2">Einzelpositionen</h4>
+                                          <Table>
+                                            <TableHeader>
+                                              <TableRow>
+                                                <TableHead>Nr.</TableHead>
+                                                <TableHead>Titel</TableHead>
+                                                <TableHead>Kategorie</TableHead>
+                                                <TableHead>Datum</TableHead>
+                                                <TableHead className="text-right">Betrag</TableHead>
+                                                <TableHead>Status</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {entry.expenses.map((exp) => (
+                                                <TableRow key={exp.id}>
+                                                  <TableCell className="font-mono text-xs">{exp.expense_number}</TableCell>
+                                                  <TableCell>{exp.title}</TableCell>
+                                                  <TableCell className="text-muted-foreground">{exp.category || "–"}</TableCell>
+                                                  <TableCell>{format(new Date(exp.expense_date), "dd.MM.yyyy", { locale: de })}</TableCell>
+                                                  <TableCell className="text-right font-medium">{formatCurrency(exp.amount, exp.currency)}</TableCell>
+                                                  <TableCell>
+                                                    <span className={`text-sm ${
+                                                      exp.status === "approved_finance"
+                                                        ? "text-green-600"
+                                                        : exp.status === "rejected"
+                                                        ? "text-red-600"
+                                                        : exp.status === "approved_supervisor"
+                                                        ? "text-blue-600"
+                                                        : "text-yellow-600"
+                                                    }`}>
+                                                      {exp.status === "approved_finance"
+                                                        ? "Genehmigt"
+                                                        : exp.status === "rejected"
+                                                        ? "Abgelehnt"
+                                                        : exp.status === "approved_supervisor"
+                                                        ? "Vorgesetzter OK"
+                                                        : "Ausstehend"}
+                                                    </span>
+                                                  </TableCell>
+                                                </TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        </div>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                  <Button 
+                                    variant="default" 
+                                    size="sm"
+                                    onClick={() => generateOpexPdf(entry)}
+                                  >
+                                    <Download className="h-4 w-4 mr-1" />
+                                    PDF
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
