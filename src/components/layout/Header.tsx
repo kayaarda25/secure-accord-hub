@@ -1,4 +1,6 @@
-import { Bell, Search, Shield, Clock, Menu } from "lucide-react";
+import { Shield, Clock, Menu } from "lucide-react";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 interface HeaderProps {
   title: string;
@@ -7,7 +9,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
-  const currentDate = new Date().toLocaleDateString("en-US", {
+  const currentDate = new Date().toLocaleDateString("de-DE", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -48,16 +50,11 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
           <span className="text-xs font-medium text-success">Secure</span>
         </div>
 
-        {/* Search */}
-        <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-          <Search size={18} />
-        </button>
+        {/* Global Search */}
+        <GlobalSearch />
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-          <Bell size={18} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
-        </button>
+        <NotificationCenter />
       </div>
     </header>
   );

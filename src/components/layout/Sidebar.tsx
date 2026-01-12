@@ -19,8 +19,10 @@ import {
   LogOut,
   FileSpreadsheet,
   Banknote,
-  Menu,
   X,
+  CheckSquare,
+  TrendingUp,
+  BarChart,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -33,6 +35,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { 
     name: "Finances", 
     href: "/finances", 
@@ -44,6 +47,8 @@ const navigation: NavItem[] = [
     ]
   },
   { name: "OPEX", href: "/opex", icon: Receipt },
+  { name: "Budget", href: "/budget", icon: TrendingUp },
+  { name: "Reports", href: "/reports", icon: BarChart },
   { name: "Documents", href: "/documents", icon: FileText },
   { name: "Communication", href: "/communication", icon: MessageSquare },
   { name: "Calendar", href: "/calendar", icon: Calendar },
