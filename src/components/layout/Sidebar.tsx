@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import {
   LayoutDashboard,
   Wallet,
@@ -30,29 +31,9 @@ interface NavItem {
   name: string;
   href: string;
   icon: typeof LayoutDashboard;
-  children?: { name: string; href: string; icon: typeof LayoutDashboard }[];
+  children?: { name: string; href: string; icon: typeof LayoutDashboard; permission?: string }[];
+  permission?: string;
 }
-
-const navigation: NavItem[] = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Tasks", href: "/tasks", icon: CheckSquare },
-  { 
-    name: "Finances", 
-    href: "/finances", 
-    icon: Wallet,
-    children: [
-      { name: "Overview", href: "/finances", icon: Wallet },
-      { name: "Declarations", href: "/finances/declarations", icon: FileSpreadsheet },
-      { name: "Invoices", href: "/finances/invoices", icon: Banknote },
-    ]
-  },
-  { name: "OPEX", href: "/opex", icon: Receipt },
-  { name: "Budget", href: "/budget", icon: TrendingUp },
-  { name: "Reports", href: "/reports", icon: BarChart },
-  { name: "Documents", href: "/documents", icon: FileText },
-  { name: "Communication", href: "/communication", icon: MessageSquare },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
-];
 
 const secondaryNav = [
   { name: "Partners", href: "/partners", icon: Building2 },
@@ -72,6 +53,72 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, roles, signOut } = useAuth();
+  const { permissions } = useOrganizationPermissions();
+
+  // Build navigation based on permissions
+  const navigation: NavItem[] = useMemo(() => {
+    const items: NavItem[] = [
+      { name: "Dashboard", href: "/", icon: LayoutDashboard },
+      { name: "Tasks", href: "/tasks", icon: CheckSquare },
+    ];
+
+    // Finances menu (Declarations, Invoices)
+    const financeChildren: NavItem["children"] = [];
+    
+    if (permissions.canViewDeclarations || permissions.canCreateDeclarations) {
+      financeChildren.push({ 
+        name: "Declarations", 
+        href: "/finances/declarations", 
+        icon: FileSpreadsheet,
+        permission: "view_declarations" 
+      });
+    }
+    
+    if (permissions.canViewInvoices || permissions.canCreateInvoices) {
+      financeChildren.push({ 
+        name: "Invoices", 
+        href: "/finances/invoices", 
+        icon: Banknote,
+        permission: "view_invoices" 
+      });
+    }
+
+    if (financeChildren.length > 0) {
+      items.push({
+        name: "Finances",
+        href: "/finances",
+        icon: Wallet,
+        children: [
+          { name: "Overview", href: "/finances", icon: Wallet },
+          ...financeChildren
+        ]
+      });
+    }
+
+    // OPEX
+    if (permissions.canViewOpex || permissions.canCreateOpex) {
+      items.push({ name: "OPEX", href: "/opex", icon: Receipt, permission: "view_opex" });
+    }
+
+    // Budget
+    if (permissions.canViewBudget || permissions.canCreateBudget) {
+      items.push({ name: "Budget", href: "/budget", icon: TrendingUp, permission: "view_budget" });
+    }
+
+    // Reports (always visible)
+    items.push({ name: "Reports", href: "/reports", icon: BarChart });
+
+    // Documents (always visible)
+    items.push({ name: "Documents", href: "/documents", icon: FileText });
+
+    // Communication (always visible)
+    items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
+
+    // Calendar (always visible)
+    items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
+
+    return items;
+  }, [permissions]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -91,6 +138,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     if (roles.includes("finance")) return "Finance";
     if (roles.includes("partner")) return "Partner";
     return "User";
+  };
+
+  const getOrgLabel = () => {
+    if (permissions.orgType === "gateway") return "Gateway";
+    if (permissions.orgType === "mgi_media") return "MGI Media";
+    if (permissions.orgType === "mgi_communications") return "MGI Comm";
+    return "";
   };
 
   const sidebarContent = (
@@ -231,7 +285,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 {profile?.first_name || "User"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {getRoleBadge()}
+                {getRoleBadge()} {getOrgLabel() && `• ${getOrgLabel()}`}
               </p>
             </div>
             <button

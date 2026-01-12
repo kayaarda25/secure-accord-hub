@@ -19,6 +19,8 @@ import {
   Loader2,
   X,
   Users,
+  Building2,
+  Share2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +34,12 @@ interface Profile {
   last_name: string | null;
   email: string;
   organization_id: string | null;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  org_type: string | null;
 }
 
 interface Document {
@@ -71,6 +79,7 @@ export default function Documents() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -84,6 +93,8 @@ export default function Documents() {
     description: "",
     expires_at: "",
     signers: [] as string[],
+    sharedWithOrgs: [] as string[],
+    sharedWithUsers: [] as string[],
   });
 
   useEffect(() => {
@@ -101,6 +112,16 @@ export default function Documents() {
 
       if (profilesData) {
         setProfiles(profilesData as Profile[]);
+      }
+
+      // Fetch organizations for sharing
+      const { data: orgsData } = await supabase
+        .from("organizations")
+        .select("id, name, org_type")
+        .order("name");
+
+      if (orgsData) {
+        setOrganizations(orgsData as Organization[]);
       }
 
       // Fetch documents with signatures
@@ -205,6 +226,26 @@ export default function Documents() {
         }
       }
 
+      // Create document shares for organizations
+      if (formData.sharedWithOrgs.length > 0 && docData) {
+        const orgShares = formData.sharedWithOrgs.map((orgId) => ({
+          document_id: docData.id,
+          shared_with_organization_id: orgId,
+          shared_by: user.id,
+        }));
+        await supabase.from("document_shares").insert(orgShares);
+      }
+
+      // Create document shares for individual users
+      if (formData.sharedWithUsers.length > 0 && docData) {
+        const userShares = formData.sharedWithUsers.map((userId) => ({
+          document_id: docData.id,
+          shared_with_user_id: userId,
+          shared_by: user.id,
+        }));
+        await supabase.from("document_shares").insert(userShares);
+      }
+
       await logAction("CREATE", "documents", docData?.id);
 
       // Reset form
@@ -214,6 +255,8 @@ export default function Documents() {
         description: "",
         expires_at: "",
         signers: [],
+        sharedWithOrgs: [],
+        sharedWithUsers: [],
       });
       setSelectedFile(null);
       setShowUploadModal(false);
@@ -270,6 +313,32 @@ export default function Documents() {
         ? prev.signers.filter((id) => id !== userId)
         : [...prev.signers, userId],
     }));
+  };
+
+  const toggleSharedOrg = (orgId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      sharedWithOrgs: prev.sharedWithOrgs.includes(orgId)
+        ? prev.sharedWithOrgs.filter((id) => id !== orgId)
+        : [...prev.sharedWithOrgs, orgId],
+    }));
+  };
+
+  const toggleSharedUser = (userId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      sharedWithUsers: prev.sharedWithUsers.includes(userId)
+        ? prev.sharedWithUsers.filter((id) => id !== userId)
+        : [...prev.sharedWithUsers, userId],
+    }));
+  };
+
+  // Get display name for organization
+  const getOrgDisplayName = (org: Organization) => {
+    if (org.org_type === "mgi_media") return "MGI Media";
+    if (org.org_type === "mgi_communications") return "MGI Communications";
+    if (org.org_type === "gateway") return "Gateway";
+    return org.name;
   };
 
   const getDocumentStatus = (doc: Document) => {
@@ -758,7 +827,86 @@ export default function Documents() {
                         <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-sm">
                           {profile.first_name?.[0] || profile.email[0].toUpperCase()}
                           {profile.last_name?.[0] || ""}
-                        </div>
+              </div>
+
+              {/* Document Sharing */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                  <Share2 size={16} />
+                  Share Document
+                </label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Select organizations and/or specific users who can view this document.
+                </p>
+                
+                {/* Organization Sharing */}
+                <div className="mb-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <Building2 size={12} />
+                    Organizations
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {organizations.map((org) => (
+                      <button
+                        key={org.id}
+                        type="button"
+                        onClick={() => toggleSharedOrg(org.id)}
+                        className={`px-3 py-1.5 rounded-lg border text-sm transition-all flex items-center gap-2 ${
+                          formData.sharedWithOrgs.includes(org.id)
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-muted text-muted-foreground hover:border-accent/50"
+                        }`}
+                      >
+                        <Building2 size={14} />
+                        {getOrgDisplayName(org)}
+                        {formData.sharedWithOrgs.includes(org.id) && (
+                          <CheckCircle size={12} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* User Sharing */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <Users size={12} />
+                    Specific Users (optional)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto p-1">
+                    {profiles
+                      .filter((p) => p.user_id !== user?.id && !formData.signers.includes(p.user_id))
+                      .map((profile) => (
+                        <button
+                          key={profile.user_id}
+                          type="button"
+                          onClick={() => toggleSharedUser(profile.user_id)}
+                          className={`p-2 rounded-lg border text-left transition-all flex items-center gap-2 ${
+                            formData.sharedWithUsers.includes(profile.user_id)
+                              ? "border-accent bg-accent/10 ring-1 ring-accent"
+                              : "border-border bg-muted hover:border-accent/50"
+                          }`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent font-medium text-xs">
+                            {profile.first_name?.[0] || profile.email[0].toUpperCase()}
+                          </div>
+                          <span className="text-xs font-medium text-foreground truncate flex-1">
+                            {profile.first_name} {profile.last_name}
+                          </span>
+                          {formData.sharedWithUsers.includes(profile.user_id) && (
+                            <CheckCircle size={12} className="text-accent flex-shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                {(formData.sharedWithOrgs.length > 0 || formData.sharedWithUsers.length > 0) && (
+                  <p className="text-xs text-accent mt-2">
+                    Shared with {formData.sharedWithOrgs.length} organization(s) and {formData.sharedWithUsers.length} user(s)
+                  </p>
+                )}
+              </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">
                             {profile.first_name} {profile.last_name}
