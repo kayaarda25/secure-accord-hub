@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   FileText,
   Plus,
@@ -49,17 +51,12 @@ interface DeclarationFormData {
   declarationType: string;
   periodStart: string;
   periodEnd: string;
-  // MGI Traffic - Revenue from international incoming traffic
   mgiIncomingRevenue: Record<string, ProviderData>;
-  // MGI Traffic - Cost for international outgoing traffic PLUS OPEX
   mgiOutgoingCost: Record<string, ProviderData>;
   opexMgi: string;
-  // GIA Traffic - Revenue from international outgoing traffic
   giaOutgoingRevenue: Record<string, ProviderData>;
-  // GIA Traffic - Cost for international incoming traffic
   giaIncomingCost: Record<string, ProviderData>;
   opexGia: string;
-  // Margin calculations
   grxFiscalization: string;
   networkManagementSystem: string;
   marginSplitInfosi: string;
@@ -69,16 +66,17 @@ interface DeclarationFormData {
 
 interface Declaration {
   id: string;
-  number: string;
-  title: string;
-  type: string;
-  period: string;
-  dueDate: string;
-  submittedDate?: string;
-  status: "draft" | "pending" | "submitted" | "approved" | "rejected";
-  amount: number;
-  currency: string;
-  organization: string;
+  declaration_number: string;
+  country: string;
+  declaration_type: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  total_mgi_balance: number;
+  total_gia_balance: number;
+  margin_held: number;
+  submitted_at: string;
+  submitted_by: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
@@ -97,7 +95,9 @@ const createEmptyProviderData = (): Record<string, ProviderData> => {
 
 export default function Declarations() {
   const { user } = useAuth();
+  const { logAction } = useAuditLog();
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -120,6 +120,28 @@ export default function Declarations() {
     marginSplitMgi: "70",
     notes: "",
   });
+
+  useEffect(() => {
+    fetchDeclarations();
+  }, []);
+
+  const fetchDeclarations = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("declarations")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+
+      if (error) throw error;
+      setDeclarations(data || []);
+    } catch (error) {
+      console.error("Error fetching declarations:", error);
+      toast.error("Failed to load declarations");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number, currency: string = "USD") => {
     return new Intl.NumberFormat("de-CH", {
@@ -167,7 +189,6 @@ export default function Declarations() {
     }));
   };
 
-  // Calculate totals for each section
   const calculateTotals = (data: Record<string, ProviderData>) => {
     let totalMinutes = 0;
     let totalUsd = 0;
@@ -183,7 +204,6 @@ export default function Declarations() {
   const giaOutgoingTotals = calculateTotals(formData.giaOutgoingRevenue);
   const giaIncomingTotals = calculateTotals(formData.giaIncomingCost);
 
-  // Calculate balances
   const calculateMgiBalance = () => {
     const balances: Record<string, number> = {};
     TELECOM_PROVIDERS.forEach(provider => {
@@ -207,15 +227,12 @@ export default function Declarations() {
   const mgiBalances = calculateMgiBalance();
   const giaBalances = calculateGiaBalance();
 
-  // Include OPEX in cost totals
   const mgiOutgoingWithOpex = mgiOutgoingTotals.usd + parseNumber(formData.opexMgi);
   const giaIncomingWithOpex = giaIncomingTotals.usd + parseNumber(formData.opexGia);
 
-  // Total balances
   const totalMgiBalance = mgiIncomingTotals.usd - mgiOutgoingWithOpex;
   const totalGiaBalance = giaOutgoingTotals.usd - giaIncomingWithOpex;
 
-  // Margin calculations
   const marginHeld = totalMgiBalance + totalGiaBalance;
   const totalRevenue = mgiIncomingTotals.usd + giaOutgoingTotals.usd;
   const totalCost = mgiOutgoingWithOpex + giaIncomingWithOpex;
@@ -387,7 +404,6 @@ export default function Declarations() {
           </tr>
         </table>
 
-        <!-- MGI Traffic Section -->
         <div class="section-title">Traffic and Monies held by MGI</div>
         
         <table class="data-table">
@@ -467,7 +483,6 @@ export default function Declarations() {
           </tbody>
         </table>
 
-        <!-- GIA Traffic Section -->
         <div class="section-title">Traffic and Monies held by GIA</div>
         
         <table class="data-table">
@@ -547,7 +562,6 @@ export default function Declarations() {
           </tbody>
         </table>
 
-        <!-- Margin Section -->
         <table class="margin-table">
           <thead>
             <tr>
@@ -614,11 +628,57 @@ export default function Declarations() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error("You must be logged in");
+      return;
+    }
+
+    if (!formData.periodStart || !formData.periodEnd) {
+      toast.error("Please select a period");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
+      const insertData = {
+        country: formData.country,
+        declaration_type: formData.declarationType,
+        period_start: formData.periodStart,
+        period_end: formData.periodEnd,
+        status: "submitted",
+        mgi_incoming_revenue: JSON.parse(JSON.stringify(formData.mgiIncomingRevenue)),
+        mgi_outgoing_cost: JSON.parse(JSON.stringify(formData.mgiOutgoingCost)),
+        opex_mgi: parseNumber(formData.opexMgi),
+        gia_outgoing_revenue: JSON.parse(JSON.stringify(formData.giaOutgoingRevenue)),
+        gia_incoming_cost: JSON.parse(JSON.stringify(formData.giaIncomingCost)),
+        opex_gia: parseNumber(formData.opexGia),
+        grx_fiscalization: parseNumber(formData.grxFiscalization),
+        network_management_system: parseNumber(formData.networkManagementSystem),
+        margin_split_infosi: parseNumber(formData.marginSplitInfosi),
+        margin_split_mgi: parseNumber(formData.marginSplitMgi),
+        total_mgi_balance: totalMgiBalance,
+        total_gia_balance: totalGiaBalance,
+        margin_held: marginHeld,
+        notes: formData.notes || null,
+        submitted_by: user.id,
+        declaration_number: "",
+      };
+
+      const { data, error } = await supabase
+        .from("declarations")
+        .insert([insertData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await logAction("CREATE", "declarations", data.id);
+      
       // Generate PDF
       generatePDF();
+      
+      toast.success("Declaration saved successfully");
       
       // Reset form
       setFormData({
@@ -640,27 +700,25 @@ export default function Declarations() {
       });
       
       setCreateDialogOpen(false);
+      fetchDeclarations();
     } catch (error) {
       console.error("Error submitting declaration:", error);
+      toast.error("Failed to save declaration");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const filteredDeclarations = declarations.filter((decl) => {
-    const matchesSearch = decl.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      decl.number.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "all" || decl.type === filterType;
+    const matchesSearch = 
+      decl.declaration_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      decl.country.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "all" || decl.declaration_type === filterType;
     return matchesSearch && matchesType;
   });
 
   const pendingCount = declarations.filter((d) => d.status === "pending" || d.status === "draft").length;
-  const upcomingDeadlines = declarations.filter((d) => {
-    const dueDate = new Date(d.dueDate);
-    const now = new Date();
-    const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays > 0 && d.status !== "approved";
-  }).length;
+  const submittedCount = declarations.filter((d) => d.status === "submitted").length;
 
   const renderProviderInputs = (
     section: keyof Pick<DeclarationFormData, 'mgiIncomingRevenue' | 'mgiOutgoingCost' | 'giaOutgoingRevenue' | 'giaIncomingCost'>,
@@ -707,6 +765,16 @@ export default function Declarations() {
     </div>
   );
 
+  if (isLoading) {
+    return (
+      <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
       {/* Stats Cards */}
@@ -737,10 +805,10 @@ export default function Declarations() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Due in 30 Days</p>
-                <p className="text-2xl font-bold text-destructive">{upcomingDeadlines}</p>
+                <p className="text-sm text-muted-foreground">Submitted</p>
+                <p className="text-2xl font-bold text-primary">{submittedCount}</p>
               </div>
-              <Calendar className="h-8 w-8 text-destructive" />
+              <FileText className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -982,12 +1050,12 @@ export default function Declarations() {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
+                        Saving...
                       </>
                     ) : (
                       <>
                         <Download className="mr-2 h-4 w-4" />
-                        Generate PDF
+                        Save & Generate PDF
                       </>
                     )}
                   </Button>
@@ -1024,41 +1092,44 @@ export default function Declarations() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Number</TableHead>
-                  <TableHead>Title</TableHead>
+                  <TableHead>Country</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Period</TableHead>
-                  <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">MGI Balance</TableHead>
+                  <TableHead className="text-right">GIA Balance</TableHead>
+                  <TableHead className="text-right">Margin</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredDeclarations.map((decl) => {
-                  const statusConfig = STATUS_CONFIG[decl.status];
+                  const statusConfig = STATUS_CONFIG[decl.status] || STATUS_CONFIG.draft;
                   const StatusIcon = statusConfig.icon;
                   return (
                     <TableRow key={decl.id}>
-                      <TableCell className="font-mono text-sm">{decl.number}</TableCell>
+                      <TableCell className="font-mono text-sm">{decl.declaration_number}</TableCell>
+                      <TableCell>{decl.country}</TableCell>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{decl.title}</p>
-                          <p className="text-xs text-muted-foreground">{decl.organization}</p>
-                        </div>
+                        <Badge variant="outline">{decl.declaration_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{decl.type}</Badge>
+                        {formatDate(decl.period_start)} - {formatDate(decl.period_end)}
                       </TableCell>
-                      <TableCell>{decl.period}</TableCell>
-                      <TableCell>{formatDate(decl.dueDate)}</TableCell>
                       <TableCell>
                         <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
                           <StatusIcon className="h-3 w-3" />
                           {statusConfig.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {decl.amount > 0 ? formatCurrency(decl.amount, decl.currency) : "-"}
+                      <TableCell className={`text-right font-medium ${decl.total_mgi_balance < 0 ? 'text-destructive' : ''}`}>
+                        {formatCurrency(decl.total_mgi_balance)}
+                      </TableCell>
+                      <TableCell className={`text-right font-medium ${decl.total_gia_balance < 0 ? 'text-destructive' : ''}`}>
+                        {formatCurrency(decl.total_gia_balance)}
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {formatCurrency(decl.margin_held)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm">
