@@ -29,6 +29,7 @@ import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "sonner";
 import { SignatureDisplay } from "@/components/documents/SignatureDisplay";
 import { DocumentDetailDialog } from "@/components/documents/DocumentDetailDialog";
+import { SignaturePositionSelector, SignaturePosition } from "@/components/documents/SignaturePositionSelector";
 
 interface Profile {
   id: string;
@@ -70,6 +71,7 @@ interface DocumentSignature {
   status: string;
   signed_at: string | null;
   signature_image: string | null;
+  signature_position?: string | null;
   signer?: Profile;
 }
 
@@ -95,6 +97,15 @@ export default function Documents() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  
+  // Signature position selector state
+  const [showPositionSelector, setShowPositionSelector] = useState(false);
+  const [pendingSignAction, setPendingSignAction] = useState<{
+    type: 'self' | 'pending';
+    documentId?: string;
+    signatureId?: string;
+    documentName?: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -138,7 +149,7 @@ export default function Documents() {
         .from("documents")
         .select(`
           *,
-          signatures:document_signatures(*, signature_image)
+          signatures:document_signatures(*, signature_image, signature_position)
         `)
         .order("created_at", { ascending: false });
 
@@ -335,56 +346,103 @@ export default function Documents() {
     return `text:${first}.${last}`.toUpperCase();
   };
 
-  const handleSelfSign = async (documentId: string) => {
-    if (!user) return;
+  // Get user's signature preview for the position selector
+  const getUserSignaturePreview = async (): Promise<{ image: string | null; initials: string | null }> => {
+    const userProfile = profiles.find((p) => p.user_id === user?.id);
+    if (!userProfile) return { image: null, initials: null };
 
-    const signatureImage = await getUserSignatureImage();
-
-    try {
-      const { error } = await supabase.from("document_signatures").insert({
-        document_id: documentId,
-        signer_id: user.id,
-        requested_by: user.id,
-        status: "signed",
-        signed_at: new Date().toISOString(),
-        signature_image: signatureImage,
-      });
-
-      if (error) throw error;
-
-      toast.success("Dokument signiert");
-      await logAction("SIGN", "document_signatures", documentId);
-      fetchData();
-    } catch (error) {
-      console.error("Error self-signing document:", error);
-      toast.error("Signieren fehlgeschlagen");
+    if (userProfile.signature_type === "image" && userProfile.signature_data) {
+      const { data } = await supabase.storage
+        .from("signatures")
+        .createSignedUrl(userProfile.signature_data, 86400);
+      return { image: data?.signedUrl || null, initials: null };
     }
+    if (userProfile.signature_type === "text" && userProfile.signature_initials) {
+      return { image: null, initials: userProfile.signature_initials };
+    }
+    const first = userProfile.first_name?.[0] || "";
+    const last = userProfile.last_name?.[0] || "";
+    return { image: null, initials: `${first}.${last}`.toUpperCase() };
   };
 
-  const handleSign = async (signatureId: string) => {
-    if (!user) return;
+  // Open position selector for self-sign
+  const openSelfSignSelector = async (doc: Document) => {
+    setPendingSignAction({
+      type: 'self',
+      documentId: doc.id,
+      documentName: doc.name,
+    });
+    setShowPositionSelector(true);
+  };
+
+  // Open position selector for pending signature
+  const openSignSelector = async (signatureId: string, documentName: string) => {
+    setPendingSignAction({
+      type: 'pending',
+      signatureId,
+      documentName,
+    });
+    setShowPositionSelector(true);
+  };
+
+  // Execute signing with selected position
+  const handleSignWithPosition = async (position: SignaturePosition) => {
+    if (!user || !pendingSignAction) return;
 
     const signatureImage = await getUserSignatureImage();
 
     try {
-      const { error } = await supabase
-        .from("document_signatures")
-        .update({
+      if (pendingSignAction.type === 'self' && pendingSignAction.documentId) {
+        const { error } = await supabase.from("document_signatures").insert({
+          document_id: pendingSignAction.documentId,
+          signer_id: user.id,
+          requested_by: user.id,
           status: "signed",
           signed_at: new Date().toISOString(),
           signature_image: signatureImage,
-        })
-        .eq("id", signatureId)
-        .eq("signer_id", user.id);
+          signature_position: position,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        await logAction("SIGN", "document_signatures", pendingSignAction.documentId);
+      } else if (pendingSignAction.type === 'pending' && pendingSignAction.signatureId) {
+        const { error } = await supabase
+          .from("document_signatures")
+          .update({
+            status: "signed",
+            signed_at: new Date().toISOString(),
+            signature_image: signatureImage,
+            signature_position: position,
+          })
+          .eq("id", pendingSignAction.signatureId)
+          .eq("signer_id", user.id);
+
+        if (error) throw error;
+        await logAction("SIGN", "document_signatures", pendingSignAction.signatureId);
+      }
 
       toast.success("Dokument signiert");
-      await logAction("SIGN", "document_signatures", signatureId);
+      setPendingSignAction(null);
       fetchData();
     } catch (error) {
       console.error("Error signing document:", error);
       toast.error("Signieren fehlgeschlagen");
+    }
+  };
+
+  // Legacy handlers (kept for backwards compatibility, now open selector)
+  const handleSelfSign = async (documentId: string) => {
+    const doc = documents.find(d => d.id === documentId);
+    if (doc) {
+      openSelfSignSelector(doc);
+    }
+  };
+
+  const handleSign = async (signatureId: string) => {
+    const sig = documents.flatMap(d => d.signatures || []).find(s => s.id === signatureId);
+    const doc = documents.find(d => d.signatures?.some(s => s.id === signatureId));
+    if (sig && doc) {
+      openSignSelector(signatureId, doc.name);
     }
   };
 
@@ -1110,6 +1168,20 @@ export default function Documents() {
         document={selectedDocument}
         open={showDetailDialog}
         onOpenChange={setShowDetailDialog}
+      />
+
+      {/* Signature Position Selector */}
+      <SignaturePositionSelector
+        open={showPositionSelector}
+        onOpenChange={(open) => {
+          setShowPositionSelector(open);
+          if (!open) setPendingSignAction(null);
+        }}
+        onConfirm={handleSignWithPosition}
+        documentName={pendingSignAction?.documentName}
+        signaturePreview={null}
+        signatureInitials={profiles.find(p => p.user_id === user?.id)?.signature_initials || 
+          `${profiles.find(p => p.user_id === user?.id)?.first_name?.[0] || ''}.${profiles.find(p => p.user_id === user?.id)?.last_name?.[0] || ''}`.toUpperCase()}
       />
     </Layout>
   );

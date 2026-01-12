@@ -39,6 +39,7 @@ interface DocumentSignature {
   status: string;
   signed_at: string | null;
   signature_image: string | null;
+  signature_position?: string | null;
   signer?: Profile;
 }
 
@@ -258,6 +259,7 @@ export function DocumentDetailDialog({
                         signatureImage={getSignatureImage(sig)}
                         signatureInitials={getSignatureInitials(sig)}
                         signedAt={sig.signed_at || ""}
+                        position={sig.signature_position}
                       />
                     ))}
                   </div>

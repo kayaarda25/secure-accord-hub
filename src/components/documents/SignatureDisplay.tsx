@@ -1,18 +1,33 @@
 import { CheckCircle } from "lucide-react";
+import { SignaturePosition } from "./SignaturePositionSelector";
 
 interface SignatureDisplayProps {
   signerName: string;
   signatureImage?: string | null;
   signatureInitials?: string | null;
   signedAt: string;
+  position?: SignaturePosition | string | null;
   compact?: boolean;
 }
+
+const getPositionLabel = (position?: SignaturePosition | string | null) => {
+  switch (position) {
+    case "top-left": return "Oben Links";
+    case "top-center": return "Oben Mitte";
+    case "top-right": return "Oben Rechts";
+    case "bottom-left": return "Unten Links";
+    case "bottom-center": return "Unten Mitte";
+    case "bottom-right": return "Unten Rechts";
+    default: return null;
+  }
+};
 
 export function SignatureDisplay({
   signerName,
   signatureImage,
   signatureInitials,
   signedAt,
+  position,
   compact = false,
 }: SignatureDisplayProps) {
   const formattedDate = new Date(signedAt).toLocaleDateString("de-DE", {
@@ -22,6 +37,8 @@ export function SignatureDisplay({
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const positionLabel = getPositionLabel(position);
 
   if (compact) {
     return (
@@ -57,6 +74,11 @@ export function SignatureDisplay({
             <span className="text-sm font-medium text-foreground">
               Signiert von {signerName}
             </span>
+            {positionLabel && (
+              <span className="text-xs px-2 py-0.5 bg-accent/10 text-accent rounded">
+                {positionLabel}
+              </span>
+            )}
           </div>
           
           {/* Signature */}
