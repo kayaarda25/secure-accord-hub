@@ -52,30 +52,29 @@ export default function Opex() {
   const [showNewExpense, setShowNewExpense] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Expense categories
+  // Expense categories without emojis
   const expenseCategories = [
-    { value: "salaries", label: "Salaries & Wages", icon: "👤" },
-    { value: "rent", label: "Rent & Lease", icon: "🏢" },
-    { value: "insurance", label: "Insurance", icon: "🛡️" },
-    { value: "transportation", label: "Transportation", icon: "🚗" },
-    { value: "it", label: "IT & Technology", icon: "💻" },
-    { value: "utilities", label: "Utilities", icon: "⚡" },
-    { value: "maintenance", label: "Maintenance", icon: "🔧" },
-    { value: "marketing", label: "Marketing & Ads", icon: "📢" },
-    { value: "training", label: "Training & Education", icon: "📚" },
-    { value: "office", label: "Office Supplies", icon: "📎" },
-    { value: "communication", label: "Communication", icon: "📞" },
-    { value: "other", label: "Other", icon: "📦" },
+    { value: "salaries", label: "Salaries & Wages" },
+    { value: "rent", label: "Rent & Lease" },
+    { value: "insurance", label: "Insurance" },
+    { value: "transportation", label: "Transportation" },
+    { value: "it", label: "IT & Technology" },
+    { value: "utilities", label: "Utilities" },
+    { value: "maintenance", label: "Maintenance" },
+    { value: "marketing", label: "Marketing & Ads" },
+    { value: "training", label: "Training & Education" },
+    { value: "office", label: "Office Supplies" },
+    { value: "communication", label: "Communication" },
+    { value: "other", label: "Other" },
   ];
 
-  // Form state
+  // Form state for bulk entry
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
     cost_center_id: "",
-    category: "",
-    amount: "",
     currency: "CHF",
+    period: new Date().toISOString().slice(0, 7), // YYYY-MM format
+    description: "",
+    expenses: Object.fromEntries(expenseCategories.map(c => [c.value, ""])) as Record<string, string>,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -114,60 +113,169 @@ export default function Opex() {
     }
   };
 
+  const generatePDF = (submittedExpenses: { category: string; label: string; amount: number }[], costCenter: CostCenter | undefined, total: number) => {
+    const selectedPeriod = formData.period;
+    const periodDate = new Date(selectedPeriod + "-01");
+    const monthName = periodDate.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+    
+    // Create HTML content for PDF
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>OPEX Bericht - ${monthName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #c9a227; padding-bottom: 20px; }
+          .header h1 { color: #1a1a2e; margin: 0; }
+          .header p { color: #666; margin: 10px 0 0; }
+          .info { margin-bottom: 30px; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { color: #666; }
+          .info-value { font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th { background: #1a1a2e; color: white; padding: 12px; text-align: left; }
+          td { padding: 12px; border-bottom: 1px solid #eee; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .total { background: #c9a227 !important; color: white; font-weight: bold; }
+          .amount { text-align: right; }
+          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>OPEX Bericht</h1>
+          <p>${monthName}</p>
+        </div>
+        <div class="info">
+          <div class="info-row">
+            <span class="info-label">Kostenstelle:</span>
+            <span class="info-value">${costCenter?.code || "N/A"} - ${costCenter?.name || "N/A"}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Land:</span>
+            <span class="info-value">${costCenter?.country || "N/A"}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Währung:</span>
+            <span class="info-value">${formData.currency}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Erstellt am:</span>
+            <span class="info-value">${new Date().toLocaleDateString("de-CH")}</span>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Kategorie</th>
+              <th class="amount">Betrag</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${submittedExpenses.map(exp => `
+              <tr>
+                <td>${exp.label}</td>
+                <td class="amount">${formatCurrency(exp.amount, formData.currency)}</td>
+              </tr>
+            `).join("")}
+            <tr class="total">
+              <td>Gesamtsumme</td>
+              <td class="amount">${formatCurrency(total, formData.currency)}</td>
+            </tr>
+          </tbody>
+        </table>
+        ${formData.description ? `<p><strong>Bemerkungen:</strong> ${formData.description}</p>` : ""}
+        <div class="footer">
+          <p>Automatisch generiert am ${new Date().toLocaleString("de-CH")}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Open in new window and trigger print
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    // Get all non-empty expenses
+    const nonEmptyExpenses = expenseCategories
+      .filter(cat => formData.expenses[cat.value] && parseFloat(formData.expenses[cat.value]) > 0)
+      .map(cat => ({
+        category: cat.value,
+        label: cat.label,
+        amount: parseFloat(formData.expenses[cat.value])
+      }));
+
+    if (nonEmptyExpenses.length === 0) {
+      alert("Bitte geben Sie mindestens einen Betrag ein.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from("opex_expenses")
-        .insert({
-          title: formData.title,
-          description: formData.description || null,
-          cost_center_id: formData.cost_center_id,
-          category: formData.category || null,
-          amount: parseFloat(formData.amount),
-          currency: formData.currency,
-          submitted_by: user.id,
-          expense_number: "", // Will be auto-generated
-        })
-        .select()
-        .single();
+      // Insert all expenses
+      const insertPromises = nonEmptyExpenses.map(exp => 
+        supabase
+          .from("opex_expenses")
+          .insert({
+            title: `${exp.label} - ${formData.period}`,
+            description: formData.description || null,
+            cost_center_id: formData.cost_center_id,
+            category: exp.category,
+            amount: exp.amount,
+            currency: formData.currency,
+            submitted_by: user.id,
+            expense_number: "",
+          })
+          .select()
+          .single()
+      );
 
-      if (error) throw error;
-
-      // Upload receipt if selected
-      if (selectedFile && data) {
-        const filePath = `${user.id}/${data.id}/${selectedFile.name}`;
-        await supabase.storage.from("receipts").upload(filePath, selectedFile);
-
-        await supabase.from("opex_receipts").insert({
-          expense_id: data.id,
-          file_name: selectedFile.name,
-          file_path: filePath,
-          file_size: selectedFile.size,
-          mime_type: selectedFile.type,
-          uploaded_by: user.id,
-        });
+      const results = await Promise.all(insertPromises);
+      
+      // Check for errors
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        throw new Error("Fehler beim Speichern einiger Ausgaben");
       }
 
-      await logAction("CREATE", "opex_expenses", data?.id);
+      // Log all created expenses
+      for (const result of results) {
+        if (result.data) {
+          await logAction("CREATE", "opex_expenses", result.data.id);
+        }
+      }
+
+      // Calculate total
+      const total = nonEmptyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const costCenter = costCenters.find(cc => cc.id === formData.cost_center_id);
+
+      // Generate PDF
+      generatePDF(nonEmptyExpenses, costCenter, total);
 
       // Reset form
       setFormData({
-        title: "",
-        description: "",
         cost_center_id: "",
-        category: "",
-        amount: "",
         currency: "CHF",
+        period: new Date().toISOString().slice(0, 7),
+        description: "",
+        expenses: Object.fromEntries(expenseCategories.map(c => [c.value, ""])),
       });
       setSelectedFile(null);
       setShowNewExpense(false);
       fetchData();
     } catch (error) {
-      console.error("Error submitting expense:", error);
+      console.error("Error submitting expenses:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -502,97 +610,49 @@ export default function Opex() {
       {/* New Expense Modal */}
       {showNewExpense && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="card-state w-full max-w-2xl p-6 animate-fade-in my-8">
+          <div className="card-state w-full max-w-3xl p-6 animate-fade-in my-8 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold text-foreground mb-2">
               OPEX-Einreichung
             </h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Füllen Sie alle Felder aus, um Ihre Betriebskosten einzureichen.
+              Geben Sie alle monatlichen Betriebskosten ein. Nach dem Einreichen wird ein Bericht erstellt.
             </p>
             <form onSubmit={handleSubmitExpense} className="space-y-6">
-              {/* Category Selection */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-3">
-                  Kategorie auswählen *
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {expenseCategories.map((cat) => (
-                    <button
-                      key={cat.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, category: cat.value })}
-                      className={`p-3 rounded-lg border text-left transition-all ${
-                        formData.category === cat.value
-                          ? "border-accent bg-accent/10 ring-2 ring-accent"
-                          : "border-border bg-muted hover:border-accent/50"
-                      }`}
-                    >
-                      <span className="text-xl block mb-1">{cat.icon}</span>
-                      <span className="text-xs font-medium text-foreground line-clamp-1">
-                        {cat.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Bezeichnung *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  placeholder="z.B. Monatliche Serverkosten, Büroausstattung..."
-                  required
-                />
-              </div>
-
-              {/* Cost Center */}
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Kostenstelle *
-                </label>
-                <select
-                  value={formData.cost_center_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cost_center_id: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  required
-                >
-                  <option value="">Kostenstelle wählen</option>
-                  {costCenters.map((cc) => (
-                    <option key={cc.id} value={cc.id}>
-                      {cc.code} - {cc.name} {cc.country ? `(${cc.country})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Amount and Currency */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Period and Cost Center */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Betrag *
+                    Periode *
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.amount}
+                    type="month"
+                    value={formData.period}
                     onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
+                      setFormData({ ...formData, period: e.target.value })
                     }
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="0.00"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    Kostenstelle *
+                  </label>
+                  <select
+                    value={formData.cost_center_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cost_center_id: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                    required
+                  >
+                    <option value="">Kostenstelle wählen</option>
+                    {costCenters.map((cc) => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.code} - {cc.name} {cc.country ? `(${cc.country})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
@@ -613,10 +673,59 @@ export default function Opex() {
                 </div>
               </div>
 
+              {/* All expense categories as input fields */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Betriebskosten nach Kategorie
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {expenseCategories.map((cat) => (
+                    <div key={cat.value} className="flex items-center gap-3 p-3 bg-muted rounded-lg border border-border">
+                      <span className="text-sm font-medium text-foreground flex-1 min-w-[140px]">
+                        {cat.label}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.expenses[cat.value]}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              expenses: {
+                                ...formData.expenses,
+                                [cat.value]: e.target.value
+                              }
+                            })
+                          }
+                          className="w-32 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-right focus:outline-none focus:ring-2 focus:ring-accent"
+                          placeholder="0.00"
+                        />
+                        <span className="text-xs text-muted-foreground w-10">{formData.currency}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="p-4 bg-accent/10 rounded-lg border border-accent/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold text-foreground">Gesamtsumme</span>
+                  <span className="text-xl font-bold text-accent">
+                    {formatCurrency(
+                      Object.values(formData.expenses).reduce((sum, val) => sum + (parseFloat(val) || 0), 0),
+                      formData.currency
+                    )}
+                  </span>
+                </div>
+              </div>
+
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Beschreibung
+                  Bemerkungen
                 </label>
                 <textarea
                   value={formData.description}
@@ -624,42 +733,9 @@ export default function Opex() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={3}
-                  placeholder="Zusätzliche Details zur Ausgabe..."
+                  rows={2}
+                  placeholder="Zusätzliche Anmerkungen zur Einreichung..."
                 />
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Beleg hochladen
-                </label>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) =>
-                      setSelectedFile(e.target.files?.[0] || null)
-                    }
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    {selectedFile ? (
-                      <div className="flex items-center justify-center gap-2 text-accent">
-                        <FileText size={20} />
-                        <span className="text-sm">{selectedFile.name}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload size={24} className="mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          PDF, JPG oder PNG (max. 10MB)
-                        </p>
-                      </>
-                    )}
-                  </label>
-                </div>
               </div>
 
               {/* Submit Buttons */}
@@ -673,11 +749,12 @@ export default function Opex() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !formData.category}
+                  disabled={isSubmitting || !formData.cost_center_id}
                   className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                  Einreichen
+                  <Download size={16} />
+                  Einreichen & Bericht erstellen
                 </button>
               </div>
             </form>
