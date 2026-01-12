@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { VideoMeeting } from "@/components/communication/VideoMeeting";
+import { MeetingScheduler } from "@/components/communication/MeetingScheduler";
 import {
   MessageSquare,
   Users,
@@ -74,6 +75,8 @@ export default function Communication() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
   const [showVideoMeeting, setShowVideoMeeting] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [meetingRoomCode, setMeetingRoomCode] = useState<string | undefined>(undefined);
 
   // Form state for new thread
   const [threadForm, setThreadForm] = useState({
@@ -283,17 +286,42 @@ export default function Communication() {
     <Layout title="Kommunikation" subtitle="Nachrichten, Protokolle und Online-Sitzungen">
       {/* Video Meeting Modal */}
       {showVideoMeeting && (
-        <VideoMeeting onClose={() => setShowVideoMeeting(false)} />
+        <VideoMeeting 
+          onClose={() => {
+            setShowVideoMeeting(false);
+            setMeetingRoomCode(undefined);
+          }} 
+          initialRoomCode={meetingRoomCode}
+        />
       )}
 
-      {/* Video Meeting Button */}
-      <div className="mb-6">
+      {/* Meeting Scheduler */}
+      {showScheduler && (
+        <MeetingScheduler 
+          onClose={() => setShowScheduler(false)}
+          onJoinMeeting={(code) => {
+            setMeetingRoomCode(code);
+            setShowScheduler(false);
+            setShowVideoMeeting(true);
+          }}
+        />
+      )}
+
+      {/* Meeting Buttons */}
+      <div className="mb-6 flex gap-3">
         <button
           onClick={() => setShowVideoMeeting(true)}
           className="px-4 py-2.5 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
         >
           <Video size={18} />
-          Online-Sitzung starten
+          Sofort-Sitzung
+        </button>
+        <button
+          onClick={() => setShowScheduler(true)}
+          className="px-4 py-2.5 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors flex items-center gap-2"
+        >
+          <Calendar size={18} />
+          Sitzung planen
         </button>
       </div>
       {/* Tabs */}
