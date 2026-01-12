@@ -482,9 +482,9 @@ export default function Opex() {
           variant="success"
         />
         <MetricCard
-          title="Cost Centers"
-          value={costCenters.length.toString()}
-          changeLabel="Active centers"
+          title="Organizations"
+          value={hasAnyRole(['state']) ? "2" : "3"}
+          changeLabel="Active organizations"
           icon={<Receipt size={20} className="text-muted-foreground" />}
         />
         <MetricCard
