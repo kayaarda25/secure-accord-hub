@@ -2,95 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* MGI × AFRIKA State-Grade Design System
+   Swiss Government Cooperation Platform
+   All colors in HSL format
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark Anthracite Base */
+    --background: 220 20% 10%;
+    --foreground: 210 20% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card surfaces - slightly lighter than background */
+    --card: 220 18% 13%;
+    --card-foreground: 210 20% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Popover - elevated surface */
+    --popover: 220 18% 15%;
+    --popover-foreground: 210 20% 95%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - State Blue */
+    --primary: 210 50% 25%;
+    --primary-foreground: 210 20% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Muted surface */
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 210 15% 75%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Subdued elements */
+    --muted: 220 15% 20%;
+    --muted-foreground: 215 15% 55%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Gold */
+    --accent: 45 80% 47%;
+    --accent-foreground: 220 20% 10%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Status Colors */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 142 70% 45%;
+    --success-foreground: 142 70% 10%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 10%;
+
+    --info: 200 80% 50%;
+    --info-foreground: 200 80% 10%;
+
+    /* Borders & Inputs */
+    --border: 220 15% 22%;
+    --input: 220 15% 18%;
+    --ring: 45 80% 47%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Sidebar - State sidebar */
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 210 15% 75%;
+    --sidebar-primary: 45 80% 47%;
+    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-accent: 220 15% 15%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 45 80% 47%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Custom Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(45 80% 47%), hsl(38 85% 55%));
+    --gradient-state: linear-gradient(135deg, hsl(210 50% 25%), hsl(220 45% 20%));
+    --gradient-surface: linear-gradient(180deg, hsl(220 18% 14%), hsl(220 18% 12%));
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Shadows */
+    --shadow-card: 0 4px 24px -4px hsla(220, 20%, 5%, 0.5);
+    --shadow-elevated: 0 8px 32px -8px hsla(220, 20%, 5%, 0.6);
+    --shadow-gold: 0 4px 20px -4px hsla(45, 80%, 47%, 0.3);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Same as root - platform is dark-mode only for state-grade appearance */
   }
 }
 
@@ -100,6 +89,167 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom scrollbar for state-grade look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  /* State-grade card with subtle border glow */
+  .card-state {
+    @apply bg-card border border-border rounded-lg;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Gold accent card for critical metrics */
+  .card-accent {
+    @apply bg-card border border-accent/20 rounded-lg;
+    box-shadow: var(--shadow-gold);
+  }
+
+  /* Status indicators */
+  .status-success {
+    @apply bg-success/10 text-success border border-success/20;
+  }
+
+  .status-warning {
+    @apply bg-warning/10 text-warning border border-warning/20;
+  }
+
+  .status-critical {
+    @apply bg-destructive/10 text-destructive border border-destructive/20;
+  }
+
+  .status-info {
+    @apply bg-info/10 text-info border border-info/20;
+  }
+
+  /* Metric display */
+  .metric-value {
+    @apply text-3xl font-bold tracking-tight text-foreground;
+  }
+
+  .metric-label {
+    @apply text-sm font-medium text-muted-foreground uppercase tracking-wider;
+  }
+
+  /* Navigation link styling */
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 text-sm font-medium text-sidebar-foreground rounded-lg transition-all duration-200;
+  }
+
+  .nav-link:hover {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+  }
+
+  .nav-link-active {
+    @apply bg-sidebar-accent text-accent border-l-2 border-accent;
+  }
+
+  /* Section headers */
+  .section-header {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4;
+  }
+
+  /* Data table rows */
+  .table-row-state {
+    @apply border-b border-border/50 hover:bg-muted/30 transition-colors;
+  }
+
+  /* Badge variations */
+  .badge-gold {
+    @apply bg-accent/10 text-accent border border-accent/30 px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  /* Glow effects for important elements */
+  .glow-gold {
+    box-shadow: 0 0 20px hsla(45, 80%, 47%, 0.15);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 20px hsla(142, 70%, 45%, 0.15);
+  }
+}
+
+@layer utilities {
+  /* Fade-in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Slide-in from left */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Pulse for alerts */
+  .animate-pulse-slow {
+    animation: pulseSlow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulseSlow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Number counter animation */
+  .animate-count {
+    animation: countUp 1s ease-out forwards;
+  }
+
+  @keyframes countUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
