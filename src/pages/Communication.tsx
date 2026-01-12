@@ -63,6 +63,15 @@ interface MeetingProtocol {
   created_at: string;
 }
 
+interface UserProfile {
+  id: string;
+  user_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  department: string | null;
+}
+
 export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
   const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("partner");
@@ -77,12 +86,15 @@ export default function Communication() {
   const [showVideoMeeting, setShowVideoMeeting] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
   const [meetingRoomCode, setMeetingRoomCode] = useState<string | undefined>(undefined);
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   // Form state for new thread
   const [threadForm, setThreadForm] = useState({
     subject: "",
     type: "partner" as CommunicationType,
     is_official: false,
+    selectedMembers: [] as string[],
   });
 
   // Form state for new protocol
@@ -94,6 +106,41 @@ export default function Communication() {
     agenda: "",
     minutes: "",
     decisions: "",
+  });
+
+  useEffect(() => {
+    fetchAvailableUsers();
+  }, []);
+
+  const fetchAvailableUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, email, first_name, last_name, department")
+        .eq("is_active", true)
+        .order("first_name");
+      
+      if (error) throw error;
+      setAvailableUsers(data || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const toggleMember = (userId: string) => {
+    setThreadForm(prev => ({
+      ...prev,
+      selectedMembers: prev.selectedMembers.includes(userId)
+        ? prev.selectedMembers.filter(id => id !== userId)
+        : [...prev.selectedMembers, userId]
+    }));
+  };
+
+  const filteredUsers = availableUsers.filter(u => {
+    if (u.user_id === user?.id) return false; // Exclude current user
+    const searchLower = userSearchQuery.toLowerCase();
+    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
+    return fullName.includes(searchLower) || u.email.toLowerCase().includes(searchLower);
   });
 
   const canViewPartner = hasAnyRole(["management", "partner"]);
@@ -184,7 +231,7 @@ export default function Communication() {
       if (error) throw error;
 
       setShowNewThread(false);
-      setThreadForm({ subject: "", type: "partner", is_official: false });
+      setThreadForm({ subject: "", type: "partner", is_official: false, selectedMembers: [] });
       fetchThreads();
       if (data) {
         setSelectedThread(data as Thread);
@@ -607,6 +654,84 @@ export default function Communication() {
                   <option value="authority">Behörden</option>
                   <option value="internal">Intern</option>
                 </select>
+              </div>
+
+              {/* Member Selection */}
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                  Teilnehmer auswählen
+                </label>
+                <div className="relative mb-2">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="Benutzer suchen..."
+                    className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                
+                {/* Selected members */}
+                {threadForm.selectedMembers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {threadForm.selectedMembers.map(memberId => {
+                      const member = availableUsers.find(u => u.user_id === memberId);
+                      if (!member) return null;
+                      return (
+                        <span
+                          key={memberId}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-accent/20 text-accent rounded-md text-xs"
+                        >
+                          {member.first_name || member.email}
+                          <button
+                            type="button"
+                            onClick={() => toggleMember(memberId)}
+                            className="ml-1 hover:text-accent-foreground"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* User list */}
+                <div className="max-h-32 overflow-y-auto border border-border rounded-lg bg-muted">
+                  {filteredUsers.length === 0 ? (
+                    <p className="text-center text-muted-foreground text-sm py-3">
+                      Keine Benutzer gefunden
+                    </p>
+                  ) : (
+                    filteredUsers.map(u => (
+                      <button
+                        key={u.user_id}
+                        type="button"
+                        onClick={() => toggleMember(u.user_id)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/80 transition-colors flex items-center justify-between ${
+                          threadForm.selectedMembers.includes(u.user_id) ? "bg-accent/10" : ""
+                        }`}
+                      >
+                        <div>
+                          <span className="text-foreground">
+                            {u.first_name || u.last_name 
+                              ? `${u.first_name || ""} ${u.last_name || ""}`.trim() 
+                              : u.email}
+                          </span>
+                          {u.department && (
+                            <span className="text-muted-foreground text-xs ml-2">
+                              ({u.department})
+                            </span>
+                          )}
+                        </div>
+                        {threadForm.selectedMembers.includes(u.user_id) && (
+                          <span className="text-accent">✓</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
