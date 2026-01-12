@@ -22,7 +22,7 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
   const [signatureType, setSignatureType] = useState<"draw" | "text">("text");
   const [initials, setInitials] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [existingSignature, setExistingSignature] = useState<string | null>(null);
+  const [existingSignatureUrl, setExistingSignatureUrl] = useState<string | null>(null);
   const [existingType, setExistingType] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,19 +43,25 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
   const fetchExistingSignature = async () => {
     if (!user) return;
 
-    const { data } = await supabase
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("signature_data, signature_type, signature_initials")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (data) {
-      setExistingSignature(data.signature_data);
-      setExistingType(data.signature_type);
-      if (data.signature_initials) {
-        setInitials(data.signature_initials);
+    if (profileData) {
+      setExistingType(profileData.signature_type);
+      if (profileData.signature_initials) {
+        setInitials(profileData.signature_initials);
       }
-      if (data.signature_type === "image" && data.signature_data) {
+      if (profileData.signature_type === "image" && profileData.signature_data) {
+        // signature_data now contains the storage path
+        const { data } = await supabase.storage
+          .from("signatures")
+          .createSignedUrl(profileData.signature_data, 3600);
+        if (data?.signedUrl) {
+          setExistingSignatureUrl(data.signedUrl);
+        }
         setSignatureType("draw");
       }
     }
@@ -67,13 +73,25 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
     }
   };
 
+  const dataURLtoBlob = (dataURL: string): Blob => {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
   const handleSave = async () => {
     if (!user) return;
 
     setIsSaving(true);
 
     try {
-      let signatureData: string | null = null;
+      let signaturePath: string | null = null;
       let sigType: string = "text";
       let sigInitials: string | null = null;
 
@@ -87,7 +105,32 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
           setIsSaving(false);
           return;
         }
-        signatureData = sigCanvas.current.toDataURL("image/png");
+        
+        // Convert canvas to blob and upload to storage
+        const dataUrl = sigCanvas.current.toDataURL("image/png");
+        const blob = dataURLtoBlob(dataUrl);
+        const fileName = `${user.id}/signature_${Date.now()}.png`;
+        
+        // Delete old signature if exists
+        const { data: oldProfile } = await supabase
+          .from("profiles")
+          .select("signature_data")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (oldProfile?.signature_data) {
+          await supabase.storage
+            .from("signatures")
+            .remove([oldProfile.signature_data]);
+        }
+        
+        const { error: uploadError } = await supabase.storage
+          .from("signatures")
+          .upload(fileName, blob, { upsert: true });
+
+        if (uploadError) throw uploadError;
+        
+        signaturePath = fileName;
         sigType = "image";
       } else {
         if (!initials.trim()) {
@@ -106,7 +149,7 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
       const { error } = await supabase
         .from("profiles")
         .update({
-          signature_data: signatureData,
+          signature_data: signaturePath,
           signature_type: sigType,
           signature_initials: sigInitials,
         })
@@ -114,7 +157,18 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
 
       if (error) throw error;
 
-      setExistingSignature(signatureData);
+      // Refresh the signature URL
+      if (signaturePath) {
+        const { data } = await supabase.storage
+          .from("signatures")
+          .createSignedUrl(signaturePath, 3600);
+        if (data?.signedUrl) {
+          setExistingSignatureUrl(data.signedUrl);
+        }
+      } else {
+        setExistingSignatureUrl(null);
+      }
+      
       setExistingType(sigType);
 
       toast({
@@ -141,6 +195,19 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
     setIsSaving(true);
 
     try {
+      // Delete from storage if image signature
+      const { data: oldProfile } = await supabase
+        .from("profiles")
+        .select("signature_data, signature_type")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (oldProfile?.signature_type === "image" && oldProfile?.signature_data) {
+        await supabase.storage
+          .from("signatures")
+          .remove([oldProfile.signature_data]);
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -152,7 +219,7 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
 
       if (error) throw error;
 
-      setExistingSignature(null);
+      setExistingSignatureUrl(null);
       setExistingType(null);
       setInitials("");
       handleClear();
@@ -186,15 +253,15 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Existing Signature Preview */}
-        {(existingSignature || (existingType === "text" && initials)) && (
+        {(existingSignatureUrl || (existingType === "text" && initials)) && (
           <div className="p-4 bg-muted rounded-lg">
             <Label className="text-xs text-muted-foreground mb-2 block">
               Aktuelle Signatur
             </Label>
             <div className="bg-background p-4 rounded border border-border flex items-center justify-center min-h-[80px]">
-              {existingType === "image" && existingSignature ? (
+              {existingType === "image" && existingSignatureUrl ? (
                 <img
-                  src={existingSignature}
+                  src={existingSignatureUrl}
                   alt="Your signature"
                   className="max-h-[60px] object-contain"
                 />
@@ -289,7 +356,7 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
             )}
             Signatur speichern
           </Button>
-          {(existingSignature || (existingType === "text" && initials)) && (
+          {(existingSignatureUrl || (existingType === "text" && initials)) && (
             <Button
               variant="outline"
               onClick={handleDelete}

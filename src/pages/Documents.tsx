@@ -314,15 +314,19 @@ export default function Documents() {
     }
   };
 
-  const getUserSignatureImage = () => {
+  const getUserSignatureImage = async (): Promise<string | null> => {
     const userProfile = profiles.find((p) => p.user_id === user?.id);
     if (!userProfile) return null;
 
     if (userProfile.signature_type === "image" && userProfile.signature_data) {
-      return userProfile.signature_data;
+      // Get signed URL from storage
+      const { data } = await supabase.storage
+        .from("signatures")
+        .createSignedUrl(userProfile.signature_data, 86400); // 24 hours
+      return data?.signedUrl || null;
     }
     if (userProfile.signature_type === "text" && userProfile.signature_initials) {
-      // For text signatures, we'll store the initials as the signature_image
+      // For text signatures, we'll store the initials prefixed with "text:"
       return `text:${userProfile.signature_initials}`;
     }
     // Fallback: generate initials
@@ -334,7 +338,7 @@ export default function Documents() {
   const handleSelfSign = async (documentId: string) => {
     if (!user) return;
 
-    const signatureImage = getUserSignatureImage();
+    const signatureImage = await getUserSignatureImage();
 
     try {
       const { error } = await supabase.from("document_signatures").insert({
@@ -348,19 +352,19 @@ export default function Documents() {
 
       if (error) throw error;
 
-      toast.success("Document signed");
+      toast.success("Dokument signiert");
       await logAction("SIGN", "document_signatures", documentId);
       fetchData();
     } catch (error) {
       console.error("Error self-signing document:", error);
-      toast.error("Signing failed");
+      toast.error("Signieren fehlgeschlagen");
     }
   };
 
   const handleSign = async (signatureId: string) => {
     if (!user) return;
 
-    const signatureImage = getUserSignatureImage();
+    const signatureImage = await getUserSignatureImage();
 
     try {
       const { error } = await supabase
@@ -375,12 +379,12 @@ export default function Documents() {
 
       if (error) throw error;
 
-      toast.success("Document signed");
+      toast.success("Dokument signiert");
       await logAction("SIGN", "document_signatures", signatureId);
       fetchData();
     } catch (error) {
       console.error("Error signing document:", error);
-      toast.error("Signing failed");
+      toast.error("Signieren fehlgeschlagen");
     }
   };
 
