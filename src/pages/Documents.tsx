@@ -27,6 +27,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "sonner";
+import { SignatureDisplay } from "@/components/documents/SignatureDisplay";
+import { DocumentDetailDialog } from "@/components/documents/DocumentDetailDialog";
 
 interface Profile {
   id: string;
@@ -35,6 +37,9 @@ interface Profile {
   last_name: string | null;
   email: string;
   organization_id: string | null;
+  signature_data?: string | null;
+  signature_type?: string | null;
+  signature_initials?: string | null;
 }
 
 interface Organization {
@@ -64,6 +69,7 @@ interface DocumentSignature {
   requested_by: string;
   status: string;
   signed_at: string | null;
+  signature_image: string | null;
   signer?: Profile;
 }
 
@@ -87,6 +93,8 @@ export default function Documents() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -108,7 +116,7 @@ export default function Documents() {
       // Fetch all profiles first for lookups and signer selection
       const { data: profilesData } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*, signature_data, signature_type, signature_initials")
         .eq("is_active", true);
 
       if (profilesData) {
@@ -130,7 +138,7 @@ export default function Documents() {
         .from("documents")
         .select(`
           *,
-          signatures:document_signatures(*)
+          signatures:document_signatures(*, signature_image)
         `)
         .order("created_at", { ascending: false });
 
@@ -306,8 +314,27 @@ export default function Documents() {
     }
   };
 
+  const getUserSignatureImage = () => {
+    const userProfile = profiles.find((p) => p.user_id === user?.id);
+    if (!userProfile) return null;
+
+    if (userProfile.signature_type === "image" && userProfile.signature_data) {
+      return userProfile.signature_data;
+    }
+    if (userProfile.signature_type === "text" && userProfile.signature_initials) {
+      // For text signatures, we'll store the initials as the signature_image
+      return `text:${userProfile.signature_initials}`;
+    }
+    // Fallback: generate initials
+    const first = userProfile.first_name?.[0] || "";
+    const last = userProfile.last_name?.[0] || "";
+    return `text:${first}.${last}`.toUpperCase();
+  };
+
   const handleSelfSign = async (documentId: string) => {
     if (!user) return;
+
+    const signatureImage = getUserSignatureImage();
 
     try {
       const { error } = await supabase.from("document_signatures").insert({
@@ -316,6 +343,7 @@ export default function Documents() {
         requested_by: user.id,
         status: "signed",
         signed_at: new Date().toISOString(),
+        signature_image: signatureImage,
       });
 
       if (error) throw error;
@@ -332,12 +360,15 @@ export default function Documents() {
   const handleSign = async (signatureId: string) => {
     if (!user) return;
 
+    const signatureImage = getUserSignatureImage();
+
     try {
       const { error } = await supabase
         .from("document_signatures")
         .update({
           status: "signed",
           signed_at: new Date().toISOString(),
+          signature_image: signatureImage,
         })
         .eq("id", signatureId)
         .eq("signer_id", user.id);
@@ -673,8 +704,12 @@ export default function Documents() {
               {filteredDocuments.map((doc, index) => (
                 <tr
                   key={doc.id}
-                  className="table-row-state animate-fade-in"
+                  className="table-row-state animate-fade-in cursor-pointer"
                   style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => {
+                    setSelectedDocument(doc);
+                    setShowDetailDialog(true);
+                  }}
                 >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
@@ -1065,6 +1100,13 @@ export default function Documents() {
           </div>
         </div>
       )}
+
+      {/* Document Detail Dialog */}
+      <DocumentDetailDialog
+        document={selectedDocument}
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+      />
     </Layout>
   );
 }
