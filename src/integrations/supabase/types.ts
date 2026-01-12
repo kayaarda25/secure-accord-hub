@@ -727,6 +727,48 @@ export type Database = {
         }
         Relationships: []
       }
+      document_shares: {
+        Row: {
+          created_at: string | null
+          document_id: string
+          id: string
+          shared_by: string
+          shared_with_organization_id: string | null
+          shared_with_user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_id: string
+          id?: string
+          shared_by: string
+          shared_with_organization_id?: string | null
+          shared_with_user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          shared_by?: string
+          shared_with_organization_id?: string | null
+          shared_with_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_shares_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_shares_shared_with_organization_id_fkey"
+            columns: ["shared_with_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_signatures: {
         Row: {
           created_at: string
@@ -1210,6 +1252,51 @@ export type Database = {
           },
         ]
       }
+      organization_permissions: {
+        Row: {
+          can_create_budget: boolean
+          can_create_declarations: boolean
+          can_create_invoices: boolean
+          can_create_opex: boolean
+          can_view_budget: boolean
+          can_view_declarations: boolean
+          can_view_invoices: boolean
+          can_view_opex: boolean
+          created_at: string | null
+          id: string
+          org_type: Database["public"]["Enums"]["organization_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          can_create_budget?: boolean
+          can_create_declarations?: boolean
+          can_create_invoices?: boolean
+          can_create_opex?: boolean
+          can_view_budget?: boolean
+          can_view_declarations?: boolean
+          can_view_invoices?: boolean
+          can_view_opex?: boolean
+          created_at?: string | null
+          id?: string
+          org_type: Database["public"]["Enums"]["organization_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          can_create_budget?: boolean
+          can_create_declarations?: boolean
+          can_create_invoices?: boolean
+          can_create_opex?: boolean
+          can_view_budget?: boolean
+          can_view_declarations?: boolean
+          can_view_invoices?: boolean
+          can_view_opex?: boolean
+          created_at?: string | null
+          id?: string
+          org_type?: Database["public"]["Enums"]["organization_type"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           contact_email: string | null
@@ -1218,6 +1305,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          org_type: Database["public"]["Enums"]["organization_type"] | null
           status: string | null
           type: string
           updated_at: string
@@ -1229,6 +1317,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          org_type?: Database["public"]["Enums"]["organization_type"] | null
           status?: string | null
           type: string
           updated_at?: string
@@ -1240,6 +1329,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          org_type?: Database["public"]["Enums"]["organization_type"] | null
           status?: string | null
           type?: string
           updated_at?: string
@@ -1613,6 +1703,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_perform_action: {
+        Args: { _action: string; _user_id: string }
+        Returns: boolean
+      }
+      get_user_org_type: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["organization_type"]
+      }
       get_user_organization: { Args: { _user_id: string }; Returns: string }
       has_any_role: {
         Args: {
@@ -1628,6 +1726,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "state" | "management" | "finance" | "partner" | "admin"
@@ -1639,6 +1738,7 @@ export type Database = {
       communication_type: "partner" | "authority" | "internal"
       document_status: "valid" | "expiring" | "expired" | "draft"
       message_priority: "normal" | "important" | "urgent"
+      organization_type: "mgi_media" | "mgi_communications" | "gateway"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1776,6 +1876,7 @@ export const Constants = {
       communication_type: ["partner", "authority", "internal"],
       document_status: ["valid", "expiring", "expired", "draft"],
       message_priority: ["normal", "important", "urgent"],
+      organization_type: ["mgi_media", "mgi_communications", "gateway"],
     },
   },
 } as const
