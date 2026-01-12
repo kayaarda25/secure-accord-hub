@@ -41,19 +41,19 @@ export function PartnerOverview() {
       case "active":
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded status-success">
-            Aktiv
+            Active
           </span>
         );
       case "pending":
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded status-warning">
-            Ausstehend
+            Pending
           </span>
         );
       case "inactive":
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded status-info">
-            Inaktiv
+            Inactive
           </span>
         );
       default:
@@ -68,19 +68,19 @@ export function PartnerOverview() {
   return (
     <div className="card-state p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-foreground">Partner & Behörden</h3>
+        <h3 className="font-semibold text-foreground">Partners & Authorities</h3>
         <button className="text-sm text-accent hover:text-accent/80 transition-colors">
-          Alle Partner
+          All Partners
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-muted-foreground">Laden...</div>
+        <div className="text-center py-8 text-muted-foreground">Loading...</div>
       ) : partners.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Inbox className="h-10 w-10 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            Keine Partner oder Behörden vorhanden
+            No partners or authorities available
           </p>
         </div>
       ) : (
@@ -92,7 +92,7 @@ export function PartnerOverview() {
                   Partner
                 </th>
                 <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  Land
+                  Country
                 </th>
                 <th className="text-left py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
@@ -121,7 +121,7 @@ export function PartnerOverview() {
                           {partner.name}
                         </p>
                         <p className="text-xs text-muted-foreground capitalize">
-                          {partner.type === "authority" ? "Behörde" : "Partner"}
+                          {partner.type === "authority" ? "Authority" : "Partner"}
                         </p>
                       </div>
                     </div>

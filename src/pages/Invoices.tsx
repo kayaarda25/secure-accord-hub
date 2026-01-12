@@ -43,11 +43,11 @@ interface Invoice {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
-  draft: { label: "Entwurf", variant: "secondary", icon: FileText },
-  sent: { label: "Versendet", variant: "outline", icon: Send },
-  paid: { label: "Bezahlt", variant: "default", icon: CheckCircle },
-  overdue: { label: "Überfällig", variant: "destructive", icon: AlertCircle },
-  cancelled: { label: "Storniert", variant: "secondary", icon: AlertCircle },
+  draft: { label: "Draft", variant: "secondary", icon: FileText },
+  sent: { label: "Sent", variant: "outline", icon: Send },
+  paid: { label: "Paid", variant: "default", icon: CheckCircle },
+  overdue: { label: "Overdue", variant: "destructive", icon: AlertCircle },
+  cancelled: { label: "Cancelled", variant: "secondary", icon: AlertCircle },
 };
 
 export default function Invoices() {
@@ -58,7 +58,7 @@ export default function Invoices() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const formatCurrency = (amount: number, currency: string = "CHF") => {
-    return new Intl.NumberFormat("de-CH", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
@@ -66,7 +66,7 @@ export default function Invoices() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -94,14 +94,14 @@ export default function Invoices() {
     .reduce((sum, i) => sum + i.amount, 0);
 
   return (
-    <Layout title="Rechnungen" subtitle="Eingangs- und Ausgangsrechnungen verwalten">
+    <Layout title="Invoices" subtitle="Manage incoming and outgoing invoices">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Ausgehend</p>
+                <p className="text-sm text-muted-foreground">Outgoing</p>
                 <p className="text-2xl font-bold text-success">{formatCurrency(totalOutgoing)}</p>
               </div>
               <ArrowUpRight className="h-8 w-8 text-success" />
@@ -112,7 +112,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Eingehend</p>
+                <p className="text-sm text-muted-foreground">Incoming</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalIncoming)}</p>
               </div>
               <ArrowDownLeft className="h-8 w-8 text-muted-foreground" />
@@ -123,7 +123,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Offen</p>
+                <p className="text-sm text-muted-foreground">Open</p>
                 <p className="text-2xl font-bold text-warning">{formatCurrency(pendingAmount)}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
@@ -134,7 +134,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Überfällig</p>
+                <p className="text-sm text-muted-foreground">Overdue</p>
                 <p className="text-2xl font-bold text-destructive">{overdueCount}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-destructive" />
@@ -146,14 +146,14 @@ export default function Invoices() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
-          <TabsTrigger value="all">Alle</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="outgoing" className="flex items-center gap-2">
             <ArrowUpRight className="h-4 w-4" />
-            Ausgehend
+            Outgoing
           </TabsTrigger>
           <TabsTrigger value="incoming" className="flex items-center gap-2">
             <ArrowDownLeft className="h-4 w-4" />
-            Eingehend
+            Incoming
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -164,7 +164,7 @@ export default function Invoices() {
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Suchen..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -176,11 +176,11 @@ export default function Invoices() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Status</SelectItem>
-              <SelectItem value="draft">Entwurf</SelectItem>
-              <SelectItem value="sent">Versendet</SelectItem>
-              <SelectItem value="paid">Bezahlt</SelectItem>
-              <SelectItem value="overdue">Überfällig</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="sent">Sent</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -193,53 +193,53 @@ export default function Invoices() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Rechnung
+                New Invoice
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Neue Rechnung erstellen</DialogTitle>
+                <DialogTitle>Create New Invoice</DialogTitle>
                 <DialogDescription>
-                  Erstellen Sie eine neue Eingangs- oder Ausgangsrechnung
+                  Create a new incoming or outgoing invoice
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Typ</Label>
+                    <Label>Type</Label>
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Typ wählen" />
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="outgoing">Ausgehend</SelectItem>
-                        <SelectItem value="incoming">Eingehend</SelectItem>
+                        <SelectItem value="outgoing">Outgoing</SelectItem>
+                        <SelectItem value="incoming">Incoming</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Rechnungsnummer</Label>
-                    <Input placeholder="z.B. INV-2025-0002" />
+                    <Label>Invoice Number</Label>
+                    <Input placeholder="e.g. INV-2025-0002" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Partner</Label>
-                  <Input placeholder="Firmenname" />
+                  <Input placeholder="Company name" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Beschreibung</Label>
-                  <Textarea placeholder="Rechnungsbeschreibung..." />
+                  <Label>Description</Label>
+                  <Textarea placeholder="Invoice description..." />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Betrag</Label>
+                    <Label>Amount</Label>
                     <Input type="number" placeholder="0.00" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Währung</Label>
+                    <Label>Currency</Label>
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Währung" />
+                        <SelectValue placeholder="Currency" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CHF">CHF</SelectItem>
@@ -251,21 +251,21 @@ export default function Invoices() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Rechnungsdatum</Label>
+                    <Label>Invoice Date</Label>
                     <Input type="date" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Fälligkeitsdatum</Label>
+                    <Label>Due Date</Label>
                     <Input type="date" />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Abbrechen
+                  Cancel
                 </Button>
                 <Button onClick={() => setCreateDialogOpen(false)}>
-                  Erstellen
+                  Create
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -278,37 +278,37 @@ export default function Invoices() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5" />
-            Rechnungen
+            Invoices
           </CardTitle>
           <CardDescription>
-            {filteredInvoices.length} Rechnungen gefunden
+            {filteredInvoices.length} invoices found
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredInvoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Keine Rechnungen vorhanden</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">No invoices available</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Erstellen Sie Ihre erste Rechnung, um zu beginnen.
+                Create your first invoice to get started.
               </p>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Rechnung
+                New Invoice
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nummer</TableHead>
-                  <TableHead>Typ</TableHead>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Partner</TableHead>
-                  <TableHead>Beschreibung</TableHead>
-                  <TableHead>Fällig</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -322,12 +322,12 @@ export default function Invoices() {
                         {inv.type === "outgoing" ? (
                           <Badge variant="outline" className="flex items-center gap-1 w-fit text-success border-success">
                             <ArrowUpRight className="h-3 w-3" />
-                            Ausgehend
+                            Outgoing
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="flex items-center gap-1 w-fit">
                             <ArrowDownLeft className="h-3 w-3" />
-                            Eingehend
+                            Incoming
                           </Badge>
                         )}
                       </TableCell>

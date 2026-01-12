@@ -38,11 +38,11 @@ export function ActivityFeed() {
   const getActionLabel = (action: string) => {
     switch (action) {
       case "CREATE":
-        return "Erstellt";
+        return "Created";
       case "UPDATE":
-        return "Aktualisiert";
+        return "Updated";
       case "DELETE":
-        return "Gelöscht";
+        return "Deleted";
       default:
         return action;
     }
@@ -50,12 +50,12 @@ export function ActivityFeed() {
 
   const getTableLabel = (table: string) => {
     const labels: Record<string, string> = {
-      profiles: "Profil",
-      user_roles: "Benutzerrolle",
-      opex_expenses: "OPEX-Ausgabe",
-      cost_centers: "Kostenstelle",
-      organizations: "Organisation",
-      communication_threads: "Kommunikation",
+      profiles: "Profile",
+      user_roles: "User Role",
+      opex_expenses: "OPEX Expense",
+      cost_centers: "Cost Center",
+      organizations: "Organization",
+      communication_threads: "Communication",
     };
     return labels[table] || table;
   };
@@ -67,23 +67,23 @@ export function ActivityFeed() {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (hours < 1) return "Gerade eben";
-    if (hours < 24) return `Vor ${hours} Stunden`;
-    if (days < 7) return `Vor ${days} Tagen`;
-    return date.toLocaleDateString("de-CH");
+    if (hours < 1) return "Just now";
+    if (hours < 24) return `${hours} hours ago`;
+    if (days < 7) return `${days} days ago`;
+    return date.toLocaleDateString("en-US");
   };
 
   return (
     <div className="card-state p-6">
-      <h3 className="font-semibold text-foreground mb-4">Letzte Aktivitäten</h3>
+      <h3 className="font-semibold text-foreground mb-4">Recent Activities</h3>
       
       {loading ? (
-        <div className="text-center py-8 text-muted-foreground">Laden...</div>
+        <div className="text-center py-8 text-muted-foreground">Loading...</div>
       ) : activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Inbox className="h-10 w-10 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            Noch keine Aktivitäten vorhanden
+            No activities yet
           </p>
         </div>
       ) : (
@@ -114,7 +114,7 @@ export function ActivityFeed() {
       )}
 
       <button className="w-full mt-4 py-2 text-sm text-accent hover:text-accent/80 transition-colors">
-        Alle Aktivitäten anzeigen →
+        View all activities →
       </button>
     </div>
   );
