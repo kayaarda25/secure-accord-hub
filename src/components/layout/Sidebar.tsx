@@ -59,6 +59,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const navigation: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
+      { name: "Calendar", href: "/calendar", icon: Calendar },
       { name: "Tasks", href: "/tasks", icon: CheckSquare },
     ];
 
@@ -67,7 +68,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       // Only show basic items while loading
       items.push({ name: "Documents", href: "/documents", icon: FileText });
       items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
-      items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
       return items;
     }
 
@@ -122,9 +122,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
     // Communication (always visible)
     items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
-
-    // Calendar (always visible)
-    items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
 
     return items;
   }, [permissions, permissionsLoading]);
