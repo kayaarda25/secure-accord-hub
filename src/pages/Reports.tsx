@@ -495,7 +495,7 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Detailed OPEX Table */}
+              {/* Detailed OPEX Table - Old Format */}
               <Card>
                 <CardHeader>
                   <CardTitle>OPEX-Details aller Organisationen</CardTitle>
@@ -503,7 +503,7 @@ export default function Reports() {
                     Alle eingereichten Ausgaben von MGI Media, MGI Communications und Gateway
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                   {opexDetails.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -513,53 +513,76 @@ export default function Reports() {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead>Nr.</TableHead>
-                            <TableHead>Organisation</TableHead>
-                            <TableHead>Kostenstelle</TableHead>
-                            <TableHead>Titel</TableHead>
-                            <TableHead>Kategorie</TableHead>
-                            <TableHead>Datum</TableHead>
-                            <TableHead className="text-right">Betrag</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Eingereicht von</TableHead>
+                          <TableRow className="bg-muted/30">
+                            <TableHead className="font-semibold">Nr.</TableHead>
+                            <TableHead className="font-semibold">Organisation</TableHead>
+                            <TableHead className="font-semibold">Kostenstelle</TableHead>
+                            <TableHead className="font-semibold">Titel</TableHead>
+                            <TableHead className="font-semibold">Kategorie</TableHead>
+                            <TableHead className="font-semibold">Datum</TableHead>
+                            <TableHead className="font-semibold text-right">Betrag</TableHead>
+                            <TableHead className="font-semibold">Status</TableHead>
+                            <TableHead className="font-semibold">Eingereicht von</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {opexDetails.slice(0, 50).map((expense) => (
-                            <TableRow key={expense.id}>
-                              <TableCell className="font-mono text-sm">{expense.expense_number}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={
-                                  expense.organization_name === "MGI Media"
-                                    ? "border-blue-500/30 text-blue-600"
-                                    : expense.organization_name === "MGI Communications"
-                                    ? "border-purple-500/30 text-purple-600"
-                                    : "border-green-500/30 text-green-600"
-                                }>
-                                  {expense.organization_name}
-                                </Badge>
+                          {opexDetails.map((expense) => (
+                            <TableRow key={expense.id} className="hover:bg-muted/20">
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {expense.expense_number}
                               </TableCell>
-                              <TableCell className="text-sm">{expense.cost_center_name}</TableCell>
-                              <TableCell className="font-medium max-w-[200px] truncate">{expense.title}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{expense.category || "–"}</TableCell>
+                              <TableCell>
+                                <span className={`text-sm font-medium ${
+                                  expense.organization_name === "MGI Media"
+                                    ? "text-blue-600"
+                                    : expense.organization_name === "MGI Communications"
+                                    ? "text-purple-600"
+                                    : "text-green-600"
+                                }`}>
+                                  {expense.organization_name}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {expense.cost_center_name}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {expense.title}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {expense.category || "–"}
+                              </TableCell>
                               <TableCell className="text-sm">
                                 {format(new Date(expense.expense_date), "dd.MM.yyyy", { locale: de })}
                               </TableCell>
-                              <TableCell className="text-right font-medium">
+                              <TableCell className="text-right font-semibold">
                                 {formatCurrency(expense.amount, expense.currency)}
                               </TableCell>
-                              <TableCell>{getStatusBadge(expense.status)}</TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{expense.submitted_by_name}</TableCell>
+                              <TableCell>
+                                <span className={`text-sm ${
+                                  expense.status === "approved_finance"
+                                    ? "text-green-600"
+                                    : expense.status === "rejected"
+                                    ? "text-red-600"
+                                    : expense.status === "approved_supervisor"
+                                    ? "text-blue-600"
+                                    : "text-yellow-600"
+                                }`}>
+                                  {expense.status === "approved_finance"
+                                    ? "Genehmigt"
+                                    : expense.status === "rejected"
+                                    ? "Abgelehnt"
+                                    : expense.status === "approved_supervisor"
+                                    ? "Vorgesetzter OK"
+                                    : "Ausstehend"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {expense.submitted_by_name}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                      {opexDetails.length > 50 && (
-                        <div className="text-center py-4 text-sm text-muted-foreground">
-                          Zeige 50 von {opexDetails.length} Einträgen
-                        </div>
-                      )}
                     </div>
                   )}
                 </CardContent>
