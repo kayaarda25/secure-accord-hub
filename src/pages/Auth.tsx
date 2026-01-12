@@ -5,16 +5,16 @@ import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email("Ungültige E-Mail-Adresse"),
-  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen haben"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 const signupSchema = loginSchema.extend({
-  firstName: z.string().min(1, "Vorname ist erforderlich"),
-  lastName: z.string().min(1, "Nachname ist erforderlich"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwörter stimmen nicht überein",
+  message: "Passwords do not match",
   path: ["confirmPassword"],
 });
 
@@ -57,7 +57,7 @@ export default function Auth() {
         const { error } = await signIn(email, password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
-            setError("Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.");
+            setError("Invalid credentials. Please check your email and password.");
           } else {
             setError(error.message);
           }
@@ -79,16 +79,16 @@ export default function Auth() {
         const { error } = await signUp(email, password, firstName, lastName);
         if (error) {
           if (error.message.includes("already registered")) {
-            setError("Diese E-Mail-Adresse ist bereits registriert.");
+            setError("This email address is already registered.");
           } else {
             setError(error.message);
           }
         } else {
-          setSuccess("Konto erfolgreich erstellt! Sie werden weitergeleitet...");
+          setSuccess("Account created successfully! You will be redirected...");
         }
       }
     } catch (err) {
-      setError("Ein unerwarteter Fehler ist aufgetreten.");
+      setError("An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +112,7 @@ export default function Auth() {
           </div>
           <h1 className="text-2xl font-semibold text-foreground">MGI × AFRIKA</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Staatliche Kooperationsplattform
+            Government Cooperation Platform
           </p>
         </div>
 
@@ -121,12 +121,12 @@ export default function Auth() {
           <div className="flex items-center gap-2 mb-6">
             <Shield size={20} className="text-success" />
             <span className="text-xs text-muted-foreground uppercase tracking-wider">
-              Sichere Anmeldung
+              Secure Login
             </span>
           </div>
 
           <h2 className="text-xl font-semibold text-foreground mb-6">
-            {isLogin ? "Anmelden" : "Registrieren"}
+            {isLogin ? "Sign In" : "Sign Up"}
           </h2>
 
           {error && (
@@ -146,27 +146,27 @@ export default function Auth() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Vorname
+                    First Name
                   </label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="Max"
+                    placeholder="John"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Nachname
+                    Last Name
                   </label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="Mustermann"
+                    placeholder="Doe"
                     required
                   />
                 </div>
@@ -175,21 +175,21 @@ export default function Auth() {
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                E-Mail
+                Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="name@beispiel.ch"
+                placeholder="name@example.com"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                Passwort
+                Password
               </label>
               <div className="relative">
                 <input
@@ -213,7 +213,7 @@ export default function Auth() {
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Passwort bestätigen
+                  Confirm Password
                 </label>
                 <input
                   type="password"
@@ -232,7 +232,7 @@ export default function Auth() {
               className="w-full py-3 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 glow-gold"
             >
               {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-              {isLogin ? "Anmelden" : "Registrieren"}
+              {isLogin ? "Sign In" : "Sign Up"}
             </button>
           </form>
 
@@ -246,16 +246,16 @@ export default function Auth() {
               className="text-sm text-accent hover:text-accent/80 transition-colors"
             >
               {isLogin
-                ? "Noch kein Konto? Jetzt registrieren"
-                : "Bereits registriert? Jetzt anmelden"}
+                ? "Don't have an account? Sign up now"
+                : "Already registered? Sign in"}
             </button>
           </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Geschützt durch höchste Sicherheitsstandards
+          Protected by the highest security standards
           <br />
-          Datenhaltung ausschließlich in der Schweiz
+          Data stored exclusively in Switzerland
         </p>
       </div>
     </div>

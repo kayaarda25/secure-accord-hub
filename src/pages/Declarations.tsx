@@ -39,18 +39,18 @@ interface Declaration {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  vat: "MWST",
-  income: "Einkommenssteuer",
-  customs: "Zoll",
-  other: "Sonstige",
+  vat: "VAT",
+  income: "Income Tax",
+  customs: "Customs",
+  other: "Other",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
-  draft: { label: "Entwurf", variant: "secondary", icon: Edit },
-  pending: { label: "Ausstehend", variant: "outline", icon: Clock },
-  submitted: { label: "Eingereicht", variant: "default", icon: FileText },
-  approved: { label: "Genehmigt", variant: "default", icon: CheckCircle },
-  rejected: { label: "Abgelehnt", variant: "destructive", icon: AlertCircle },
+  draft: { label: "Draft", variant: "secondary", icon: Edit },
+  pending: { label: "Pending", variant: "outline", icon: Clock },
+  submitted: { label: "Submitted", variant: "default", icon: FileText },
+  approved: { label: "Approved", variant: "default", icon: CheckCircle },
+  rejected: { label: "Rejected", variant: "destructive", icon: AlertCircle },
 };
 
 export default function Declarations() {
@@ -60,7 +60,7 @@ export default function Declarations() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const formatCurrency = (amount: number, currency: string = "CHF") => {
-    return new Intl.NumberFormat("de-CH", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
@@ -68,7 +68,7 @@ export default function Declarations() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -91,14 +91,14 @@ export default function Declarations() {
   }).length;
 
   return (
-    <Layout title="Deklarationen" subtitle="Steuererklärungen und behördliche Meldungen">
+    <Layout title="Declarations" subtitle="Tax declarations and regulatory filings">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Gesamt</p>
+                <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold">{declarations.length}</p>
               </div>
               <FileText className="h-8 w-8 text-muted-foreground" />
@@ -109,7 +109,7 @@ export default function Declarations() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Ausstehend</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold text-warning">{pendingCount}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
@@ -120,7 +120,7 @@ export default function Declarations() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Fällig in 30 Tagen</p>
+                <p className="text-sm text-muted-foreground">Due in 30 Days</p>
                 <p className="text-2xl font-bold text-destructive">{upcomingDeadlines}</p>
               </div>
               <Calendar className="h-8 w-8 text-destructive" />
@@ -131,7 +131,7 @@ export default function Declarations() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Genehmigt</p>
+                <p className="text-sm text-muted-foreground">Approved</p>
                 <p className="text-2xl font-bold text-success">
                   {declarations.filter((d) => d.status === "approved").length}
                 </p>
@@ -148,7 +148,7 @@ export default function Declarations() {
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Suchen..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -157,14 +157,14 @@ export default function Declarations() {
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-full sm:w-40">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Typ" />
+              <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Typen</SelectItem>
-              <SelectItem value="vat">MWST</SelectItem>
-              <SelectItem value="income">Einkommenssteuer</SelectItem>
-              <SelectItem value="customs">Zoll</SelectItem>
-              <SelectItem value="other">Sonstige</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="vat">VAT</SelectItem>
+              <SelectItem value="income">Income Tax</SelectItem>
+              <SelectItem value="customs">Customs</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -177,56 +177,56 @@ export default function Declarations() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Deklaration
+                New Declaration
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Neue Deklaration erstellen</DialogTitle>
+                <DialogTitle>Create New Declaration</DialogTitle>
                 <DialogDescription>
-                  Erstellen Sie eine neue Steuerdeklaration oder behördliche Meldung
+                  Create a new tax declaration or regulatory filing
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Titel</Label>
-                  <Input placeholder="z.B. MWST-Deklaration Q1 2025" />
+                  <Label>Title</Label>
+                  <Input placeholder="e.g. VAT Declaration Q1 2025" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Typ</Label>
+                    <Label>Type</Label>
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Typ wählen" />
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="vat">MWST</SelectItem>
-                        <SelectItem value="income">Einkommenssteuer</SelectItem>
-                        <SelectItem value="customs">Zoll</SelectItem>
-                        <SelectItem value="other">Sonstige</SelectItem>
+                        <SelectItem value="vat">VAT</SelectItem>
+                        <SelectItem value="income">Income Tax</SelectItem>
+                        <SelectItem value="customs">Customs</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Periode</Label>
-                    <Input placeholder="z.B. Q1 2025" />
+                    <Label>Period</Label>
+                    <Input placeholder="e.g. Q1 2025" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Fälligkeitsdatum</Label>
+                  <Label>Due Date</Label>
                   <Input type="date" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Bemerkungen</Label>
-                  <Textarea placeholder="Optionale Bemerkungen..." />
+                  <Label>Notes</Label>
+                  <Textarea placeholder="Optional notes..." />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Abbrechen
+                  Cancel
                 </Button>
                 <Button onClick={() => setCreateDialogOpen(false)}>
-                  Erstellen
+                  Create
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -237,36 +237,36 @@ export default function Declarations() {
       {/* Declarations Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Deklarationen</CardTitle>
+          <CardTitle>Declarations</CardTitle>
           <CardDescription>
-            {filteredDeclarations.length} Deklarationen gefunden
+            {filteredDeclarations.length} declarations found
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredDeclarations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Keine Deklarationen vorhanden</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">No declarations available</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Erstellen Sie Ihre erste Deklaration, um zu beginnen.
+                Create your first declaration to get started.
               </p>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Deklaration
+                New Declaration
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nummer</TableHead>
-                  <TableHead>Titel</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead>Periode</TableHead>
-                  <TableHead>Fällig</TableHead>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

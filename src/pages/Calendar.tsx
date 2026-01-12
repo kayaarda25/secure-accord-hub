@@ -16,30 +16,30 @@ import { useState } from "react";
 const events = [
   {
     id: 1,
-    title: "Lizenzverlängerung Uganda",
+    title: "Uganda License Renewal",
     date: "2024-10-28",
-    time: "Frist",
+    time: "Deadline",
     type: "deadline",
     priority: "critical",
-    description: "Telekom-Lizenz muss erneuert werden",
+    description: "Telecom license must be renewed",
   },
   {
     id: 2,
-    title: "Q3 Quartalsabrechnung",
+    title: "Q3 Quarterly Statement",
     date: "2024-10-31",
-    time: "Frist",
+    time: "Deadline",
     type: "finance",
     priority: "warning",
-    description: "Finanzberichte an Partner",
+    description: "Financial reports to partners",
   },
   {
     id: 3,
-    title: "Partner-Review Meeting",
+    title: "Partner Review Meeting",
     date: "2024-11-05",
     time: "10:00",
     type: "meeting",
     priority: "normal",
-    location: "Zürich / Video",
+    location: "Zurich / Video",
     attendees: ["MGI AG", "URA", "MTN"],
   },
   {
@@ -50,16 +50,16 @@ const events = [
     type: "meeting",
     priority: "normal",
     location: "Bern",
-    attendees: ["Vorstand", "Geschäftsführung"],
+    attendees: ["Board", "Management"],
   },
   {
     id: 5,
-    title: "Vertragsverlängerung MTN",
+    title: "MTN Contract Extension",
     date: "2024-11-15",
-    time: "Frist",
+    time: "Deadline",
     type: "contract",
     priority: "normal",
-    description: "Revenue-Share Vertrag",
+    description: "Revenue-Share Agreement",
   },
   {
     id: 6,
@@ -68,14 +68,14 @@ const events = [
     time: "09:00",
     type: "meeting",
     priority: "warning",
-    location: "Zürich",
-    attendees: ["KPMG", "Interne Revision"],
+    location: "Zurich",
+    attendees: ["KPMG", "Internal Audit"],
   },
 ];
 
 const months = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember"
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
 ];
 
 export default function Calendar() {
@@ -113,13 +113,13 @@ export default function Calendar() {
       case "critical":
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded status-critical">
-            Kritisch
+            Critical
           </span>
         );
       case "warning":
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded status-warning">
-            Wichtig
+            Important
           </span>
         );
       default:
@@ -128,7 +128,7 @@ export default function Calendar() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       weekday: "short",
       day: "numeric",
       month: "short",
@@ -160,9 +160,9 @@ export default function Calendar() {
   };
 
   return (
-    <Layout title="Kalender & Fristen" subtitle="Übersicht aller wichtigen Termine">
+    <Layout title="Calendar & Deadlines" subtitle="Overview of all important dates">
       {/* Action Bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
@@ -196,16 +196,16 @@ export default function Calendar() {
         </div>
         <button className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold">
           <Plus size={16} />
-          Neuer Termin
+          New Event
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar Grid */}
-        <div className="lg:col-span-2 card-state p-6">
+        <div className="lg:col-span-2 card-state p-4 sm:p-6">
           {/* Weekday Headers */}
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"].map((day) => (
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
               <div
                 key={day}
                 className="text-center text-xs font-medium text-muted-foreground py-2"
@@ -225,7 +225,7 @@ export default function Calendar() {
               return (
                 <div
                   key={index}
-                  className={`min-h-[80px] p-2 rounded-lg border transition-colors ${
+                  className={`min-h-[60px] sm:min-h-[80px] p-1 sm:p-2 rounded-lg border transition-colors ${
                     day
                       ? "border-border/50 hover:border-border cursor-pointer"
                       : "border-transparent"
@@ -234,13 +234,13 @@ export default function Calendar() {
                   {day && (
                     <>
                       <span
-                        className={`text-sm font-medium ${
+                        className={`text-xs sm:text-sm font-medium ${
                           isToday ? "text-accent" : "text-foreground"
                         }`}
                       >
                         {day}
                       </span>
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 space-y-1 hidden sm:block">
                         {dayEvents.slice(0, 2).map((event) => (
                           <div
                             key={event.id}
@@ -257,10 +257,21 @@ export default function Calendar() {
                         ))}
                         {dayEvents.length > 2 && (
                           <span className="text-xs text-muted-foreground">
-                            +{dayEvents.length - 2} mehr
+                            +{dayEvents.length - 2} more
                           </span>
                         )}
                       </div>
+                      {dayEvents.length > 0 && (
+                        <div className="sm:hidden mt-1">
+                          <div className={`w-2 h-2 rounded-full ${
+                            dayEvents.some(e => e.priority === "critical")
+                              ? "bg-destructive"
+                              : dayEvents.some(e => e.priority === "warning")
+                              ? "bg-warning"
+                              : "bg-accent"
+                          }`} />
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -271,7 +282,7 @@ export default function Calendar() {
 
         {/* Upcoming Events */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-foreground">Anstehende Termine</h3>
+          <h3 className="font-semibold text-foreground">Upcoming Events</h3>
           {events.map((event, index) => (
             <div
               key={event.id}
@@ -285,12 +296,12 @@ export default function Calendar() {
                   {getEventIcon(event.type)}
                   <span className="text-xs uppercase tracking-wider">
                     {event.type === "deadline"
-                      ? "Frist"
+                      ? "Deadline"
                       : event.type === "meeting"
                       ? "Meeting"
                       : event.type === "finance"
-                      ? "Finanzen"
-                      : "Vertrag"}
+                      ? "Finance"
+                      : "Contract"}
                   </span>
                 </div>
                 {getPriorityBadge(event.priority)}
@@ -300,7 +311,7 @@ export default function Calendar() {
                 <div className="flex items-center gap-2">
                   <CalendarIcon size={12} />
                   <span>{formatDate(event.date)}</span>
-                  {event.time !== "Frist" && (
+                  {event.time !== "Deadline" && (
                     <>
                       <Clock size={12} className="ml-2" />
                       <span>{event.time}</span>

@@ -70,20 +70,17 @@ const Index = () => {
       const stats: Record<string, CompanyStats> = {};
 
       for (const company of companies) {
-        // Get employee count
         const { count: employeeCount } = await supabase
           .from("profiles")
           .select("*", { count: "exact", head: true })
           .eq("organization_id", company.id);
 
-        // Get pending expenses count
         const { count: pendingExpenses } = await supabase
           .from("opex_expenses")
           .select("*, cost_centers!inner(organization_id)", { count: "exact", head: true })
           .eq("cost_centers.organization_id", company.id)
           .eq("status", "pending");
 
-        // Get budget info
         const { data: costCenters } = await supabase
           .from("cost_centers")
           .select("budget_annual, budget_used")
@@ -107,7 +104,7 @@ const Index = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("de-CH", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "CHF",
       minimumFractionDigits: 0,
@@ -138,13 +135,13 @@ const Index = () => {
   return (
     <Layout
       title="Dashboard"
-      subtitle="Übersicht"
+      subtitle="Overview"
     >
       {/* Company Tabs for Management View */}
       {isManagement && companies.length > 0 && (
         <Tabs value={selectedCompany} onValueChange={setSelectedCompany} className="mb-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="all">Alle Firmen</TabsTrigger>
+            <TabsTrigger value="all">All Companies</TabsTrigger>
             {companies.map((company) => (
               <TabsTrigger key={company.id} value={company.id}>
                 {company.name}
@@ -179,14 +176,14 @@ const Index = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground flex items-center gap-2">
                             <Users className="h-4 w-4" />
-                            Mitarbeiter
+                            Employees
                           </span>
                           <span className="font-semibold">{stats.employeeCount}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground flex items-center gap-2">
                             <Receipt className="h-4 w-4" />
-                            Offene OPEX
+                            Pending OPEX
                           </span>
                           <span className="font-semibold">{stats.pendingExpenses}</span>
                         </div>
@@ -204,7 +201,7 @@ const Index = () => {
                           />
                         </div>
                         <p className="text-xs text-muted-foreground text-right">
-                          {budgetPercent}% verwendet
+                          {budgetPercent}% used
                         </p>
                       </div>
                     </CardContent>
@@ -216,29 +213,29 @@ const Index = () => {
             {/* Global KPI Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <MetricCard
-                title="Gesamtbudget"
+                title="Total Budget"
                 value={formatCurrency(totalStats.totalBudget)}
-                changeLabel="Alle Firmen"
+                changeLabel="All companies"
                 icon={<Wallet size={20} className="text-accent" />}
                 variant="accent"
               />
               <MetricCard
-                title="Mitarbeiter Gesamt"
+                title="Total Employees"
                 value={totalStats.employees.toString()}
-                changeLabel="Aktive Benutzer"
+                changeLabel="Active users"
                 icon={<Users size={20} className="text-success" />}
                 variant="success"
               />
               <MetricCard
-                title="Offene OPEX"
+                title="Pending OPEX"
                 value={totalStats.pendingExpenses.toString()}
-                changeLabel="Zur Genehmigung"
+                changeLabel="Awaiting approval"
                 icon={<Receipt size={20} className="text-info" />}
               />
               <MetricCard
-                title="Firmen"
+                title="Companies"
                 value={companies.length.toString()}
-                changeLabel="Interne Organisationen"
+                changeLabel="Internal organizations"
                 icon={<Building2 size={20} className="text-muted-foreground" />}
               />
             </div>
@@ -260,29 +257,29 @@ const Index = () => {
                 {/* Company-specific KPI Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <MetricCard
-                    title="Jahresbudget"
+                    title="Annual Budget"
                     value={formatCurrency(stats.totalBudget)}
-                    changeLabel={`${budgetPercent}% verwendet`}
+                    changeLabel={`${budgetPercent}% used`}
                     icon={<Wallet size={20} className="text-accent" />}
                     variant="accent"
                   />
                   <MetricCard
-                    title="Verbrauchtes Budget"
+                    title="Budget Used"
                     value={formatCurrency(stats.usedBudget)}
-                    changeLabel="Bisherige Ausgaben"
+                    changeLabel="Expenses to date"
                     icon={<Wallet size={20} className="text-success" />}
                     variant="success"
                   />
                   <MetricCard
-                    title="Mitarbeiter"
+                    title="Employees"
                     value={stats.employeeCount.toString()}
-                    changeLabel="Aktive Benutzer"
+                    changeLabel="Active users"
                     icon={<Users size={20} className="text-info" />}
                   />
                   <MetricCard
-                    title="Offene OPEX"
+                    title="Pending OPEX"
                     value={stats.pendingExpenses.toString()}
-                    changeLabel="Zur Genehmigung"
+                    changeLabel="Awaiting approval"
                     icon={<Receipt size={20} className="text-muted-foreground" />}
                   />
                 </div>
@@ -308,29 +305,29 @@ const Index = () => {
           {/* KPI Metrics from database */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
-              title="Gesamtbudget"
+              title="Total Budget"
               value={formatCurrency(totalStats.totalBudget)}
-              changeLabel="Alle Kostenstellen"
+              changeLabel="All cost centers"
               icon={<Wallet size={20} className="text-accent" />}
               variant="accent"
             />
             <MetricCard
-              title="Mitarbeiter"
+              title="Employees"
               value={totalStats.employees.toString()}
-              changeLabel="Registrierte Benutzer"
+              changeLabel="Registered users"
               icon={<Users size={20} className="text-success" />}
               variant="success"
             />
             <MetricCard
-              title="Offene OPEX"
+              title="Pending OPEX"
               value={totalStats.pendingExpenses.toString()}
-              changeLabel="Zur Genehmigung"
+              changeLabel="Awaiting approval"
               icon={<Receipt size={20} className="text-info" />}
             />
             <MetricCard
-              title="Firmen"
+              title="Companies"
               value={companies.length.toString()}
-              changeLabel="Interne Organisationen"
+              changeLabel="Internal organizations"
               icon={<Building2 size={20} className="text-muted-foreground" />}
             />
           </div>

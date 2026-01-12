@@ -37,9 +37,9 @@ interface Organization {
 
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrator",
-  state: "Staat",
+  state: "State",
   management: "Management",
-  finance: "Finanzen",
+  finance: "Finance",
   partner: "Partner",
 };
 
@@ -61,7 +61,6 @@ export default function UsersPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   
-  // Form state for creating users
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -84,7 +83,6 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
@@ -92,14 +90,12 @@ export default function UsersPage() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch all user roles
       const { data: allRoles, error: rolesError } = await supabase
         .from("user_roles")
         .select("*");
 
       if (rolesError) throw rolesError;
 
-      // Combine profiles with roles
       const usersWithRoles: UserWithRoles[] = (profiles || []).map((profile) => {
         const userRoles = (allRoles || [])
           .filter((r) => r.user_id === profile.user_id)
@@ -122,7 +118,7 @@ export default function UsersPage() {
       setUsers(usersWithRoles);
     } catch (error) {
       console.error("Error fetching users:", error);
-      toast.error("Fehler beim Laden der Benutzer");
+      toast.error("Error loading users");
     } finally {
       setLoading(false);
     }
@@ -130,11 +126,7 @@ export default function UsersPage() {
 
   const fetchOrganizations = async () => {
     try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .order("name");
-
+      const { data, error } = await supabase.from("organizations").select("id, name").order("name");
       if (error) throw error;
       setOrganizations(data || []);
     } catch (error) {
@@ -144,12 +136,11 @@ export default function UsersPage() {
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password) {
-      toast.error("E-Mail und Passwort sind erforderlich");
+      toast.error("Email and password are required");
       return;
     }
 
     try {
-      // Call edge function to create user (admin only)
       const { data, error } = await supabase.functions.invoke("admin-create-user", {
         body: {
           email: newUser.email,
@@ -165,92 +156,57 @@ export default function UsersPage() {
 
       if (error) throw error;
 
-      await logAction("CREATE", "profiles", data.userId, null, {
-        email: newUser.email,
-        roles: newUser.roles,
-      });
+      await logAction("CREATE", "profiles", data.userId, null, { email: newUser.email, roles: newUser.roles });
 
-      toast.success("Benutzer erfolgreich erstellt");
+      toast.success("User created successfully");
       setCreateDialogOpen(false);
-      setNewUser({
-        email: "",
-        password: "",
-        firstName: "",
-        lastName: "",
-        department: "",
-        position: "",
-        organizationId: "",
-        roles: [],
-      });
+      setNewUser({ email: "", password: "", firstName: "", lastName: "", department: "", position: "", organizationId: "", roles: [] });
       fetchUsers();
     } catch (error: any) {
       console.error("Error creating user:", error);
-      toast.error(error.message || "Fehler beim Erstellen des Benutzers");
+      toast.error(error.message || "Error creating user");
     }
   };
 
   const handleUpdateRoles = async (userId: string, roles: AppRole[]) => {
     try {
-      // Delete existing roles
-      const { error: deleteError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-
+      const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
       if (deleteError) throw deleteError;
 
-      // Insert new roles
       if (roles.length > 0) {
-        const roleInserts = roles.map((role) => ({
-          user_id: userId,
-          role: role,
-          granted_by: user?.id,
-        }));
-
-        const { error: insertError } = await supabase
-          .from("user_roles")
-          .insert(roleInserts);
-
+        const roleInserts = roles.map((role) => ({ user_id: userId, role: role, granted_by: user?.id }));
+        const { error: insertError } = await supabase.from("user_roles").insert(roleInserts);
         if (insertError) throw insertError;
       }
 
       await logAction("UPDATE", "user_roles", userId, null, { roles });
-
-      toast.success("Rollen erfolgreich aktualisiert");
+      toast.success("Roles updated successfully");
       setEditDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error) {
       console.error("Error updating roles:", error);
-      toast.error("Fehler beim Aktualisieren der Rollen");
+      toast.error("Error updating roles");
     }
   };
 
   const handleToggleActive = async (userId: string, isActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_active: !isActive })
-        .eq("user_id", userId);
-
+      const { error } = await supabase.from("profiles").update({ is_active: !isActive }).eq("user_id", userId);
       if (error) throw error;
-
       await logAction("UPDATE", "profiles", userId, { is_active: isActive }, { is_active: !isActive });
-
-      toast.success(isActive ? "Benutzer deaktiviert" : "Benutzer aktiviert");
+      toast.success(isActive ? "User deactivated" : "User activated");
       fetchUsers();
     } catch (error) {
       console.error("Error toggling user status:", error);
-      toast.error("Fehler beim Ändern des Benutzerstatus");
+      toast.error("Error changing user status");
     }
   };
 
   const toggleRole = (role: AppRole) => {
     setNewUser((prev) => ({
       ...prev,
-      roles: prev.roles.includes(role)
-        ? prev.roles.filter((r) => r !== role)
-        : [...prev.roles, role],
+      roles: prev.roles.includes(role) ? prev.roles.filter((r) => r !== role) : [...prev.roles, role],
     }));
   };
 
@@ -258,28 +214,21 @@ export default function UsersPage() {
     if (!selectedUser) return;
     setSelectedUser((prev) => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        roles: prev.roles.includes(role)
-          ? prev.roles.filter((r) => r !== role)
-          : [...prev.roles, role],
-      };
+      return { ...prev, roles: prev.roles.includes(role) ? prev.roles.filter((r) => r !== role) : [...prev.roles, role] };
     });
   };
 
   if (!isAdmin) {
     return (
-      <Layout title="Zugriff verweigert">
+      <Layout title="Access Denied">
         <div className="flex items-center justify-center h-[60vh]">
           <Card className="max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <Shield className="h-6 w-6" />
-                Zugriff verweigert
+                Access Denied
               </CardTitle>
-              <CardDescription>
-                Sie benötigen Administrator-Rechte, um auf diese Seite zuzugreifen.
-              </CardDescription>
+              <CardDescription>You need administrator privileges to access this page.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -288,236 +237,52 @@ export default function UsersPage() {
   }
 
   return (
-    <Layout title="Benutzerverwaltung" subtitle="Verwalten Sie Benutzerkonten und Rollenzuweisungen">
+    <Layout title="User Management" subtitle="Manage user accounts and role assignments">
       <div className="space-y-6">
         <div className="flex items-center justify-end">
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Neuer Benutzer
-              </Button>
+              <Button><UserPlus className="mr-2 h-4 w-4" />New User</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Neuen Benutzer erstellen</DialogTitle>
-                <DialogDescription>
-                  Erstellen Sie ein neues Benutzerkonto mit Rollenzuweisung
-                </DialogDescription>
+                <DialogTitle>Create New User</DialogTitle>
+                <DialogDescription>Create a new user account with role assignment</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">Vorname</Label>
-                    <Input
-                      id="firstName"
-                      value={newUser.firstName}
-                      onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Nachname</Label>
-                    <Input
-                      id="lastName"
-                      value={newUser.lastName}
-                      onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
-                    />
-                  </div>
+                  <div className="space-y-2"><Label htmlFor="firstName">First Name</Label><Input id="firstName" value={newUser.firstName} onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })} /></div>
+                  <div className="space-y-2"><Label htmlFor="lastName">Last Name</Label><Input id="lastName" value={newUser.lastName} onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })} /></div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-Mail *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Passwort *</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  />
-                </div>
+                <div className="space-y-2"><Label htmlFor="email">Email *</Label><Input id="email" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} /></div>
+                <div className="space-y-2"><Label htmlFor="password">Password *</Label><Input id="password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Abteilung</Label>
-                    <Select
-                      value={newUser.department}
-                      onValueChange={(value) => setNewUser({ ...newUser, department: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Abteilung wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Geschäftsführung">Geschäftsführung</SelectItem>
-                        <SelectItem value="Finanzen">Finanzen</SelectItem>
-                        <SelectItem value="Recht">Recht</SelectItem>
-                        <SelectItem value="Verwaltung">Verwaltung</SelectItem>
-                        <SelectItem value="Projektmanagement">Projektmanagement</SelectItem>
-                        <SelectItem value="Kommunikation">Kommunikation</SelectItem>
-                        <SelectItem value="IT">IT</SelectItem>
-                        <SelectItem value="Personal">Personal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Position</Label>
-                    <Select
-                      value={newUser.position}
-                      onValueChange={(value) => setNewUser({ ...newUser, position: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Position wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Geschäftsführer">Geschäftsführer</SelectItem>
-                        <SelectItem value="Abteilungsleiter">Abteilungsleiter</SelectItem>
-                        <SelectItem value="Projektleiter">Projektleiter</SelectItem>
-                        <SelectItem value="Sachbearbeiter">Sachbearbeiter</SelectItem>
-                        <SelectItem value="Referent">Referent</SelectItem>
-                        <SelectItem value="Berater">Berater</SelectItem>
-                        <SelectItem value="Assistent">Assistent</SelectItem>
-                        <SelectItem value="Praktikant">Praktikant</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="space-y-2"><Label>Department</Label><Select value={newUser.department} onValueChange={(value) => setNewUser({ ...newUser, department: value })}><SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger><SelectContent><SelectItem value="Executive">Executive</SelectItem><SelectItem value="Finance">Finance</SelectItem><SelectItem value="Legal">Legal</SelectItem><SelectItem value="Administration">Administration</SelectItem><SelectItem value="Project Management">Project Management</SelectItem><SelectItem value="Communication">Communication</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="HR">HR</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-2"><Label>Position</Label><Select value={newUser.position} onValueChange={(value) => setNewUser({ ...newUser, position: value })}><SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger><SelectContent><SelectItem value="CEO">CEO</SelectItem><SelectItem value="Department Head">Department Head</SelectItem><SelectItem value="Project Manager">Project Manager</SelectItem><SelectItem value="Specialist">Specialist</SelectItem><SelectItem value="Consultant">Consultant</SelectItem><SelectItem value="Assistant">Assistant</SelectItem><SelectItem value="Intern">Intern</SelectItem></SelectContent></Select></div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Organisation</Label>
-                  <Select
-                    value={newUser.organizationId}
-                    onValueChange={(value) => setNewUser({ ...newUser, organizationId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Organisation wählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Rollen</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                      <div key={role} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`role-${role}`}
-                          checked={newUser.roles.includes(role)}
-                          onCheckedChange={() => toggleRole(role)}
-                        />
-                        <label
-                          htmlFor={`role-${role}`}
-                          className="text-sm font-medium cursor-pointer"
-                        >
-                          {ROLE_LABELS[role]}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <div className="space-y-2"><Label>Organization</Label><Select value={newUser.organizationId} onValueChange={(value) => setNewUser({ ...newUser, organizationId: value })}><SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger><SelectContent>{organizations.map((org) => (<SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>))}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Roles</Label><div className="flex flex-wrap gap-2">{(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (<div key={role} className="flex items-center space-x-2"><Checkbox id={`role-${role}`} checked={newUser.roles.includes(role)} onCheckedChange={() => toggleRole(role)} /><label htmlFor={`role-${role}`} className="text-sm font-medium cursor-pointer">{ROLE_LABELS[role]}</label></div>))}</div></div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Abbrechen
-                </Button>
-                <Button onClick={handleCreateUser}>Erstellen</Button>
-              </DialogFooter>
+              <DialogFooter><Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button><Button onClick={handleCreateUser}>Create</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UsersIcon className="h-5 w-5" />
-              Benutzer
-            </CardTitle>
-            <CardDescription>
-              {users.length} Benutzer im System
-            </CardDescription>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" />Users</CardTitle><CardDescription>{users.length} users in system</CardDescription></CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Laden...
-              </div>
-            ) : (
+            {loading ? (<div className="text-center py-8 text-muted-foreground">Loading...</div>) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>E-Mail</TableHead>
-                    <TableHead>Abteilung</TableHead>
-                    <TableHead>Rollen</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aktionen</TableHead>
-                  </TableRow>
-                </TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Department</TableHead><TableHead>Roles</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {users.map((u) => (
                     <TableRow key={u.id} className={!u.is_active ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">
-                        {u.first_name || u.last_name
-                          ? `${u.first_name || ""} ${u.last_name || ""}`.trim()
-                          : "-"}
-                      </TableCell>
+                      <TableCell className="font-medium">{u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : "-"}</TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>{u.department || "-"}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {u.roles.length > 0 ? (
-                            u.roles.map((role) => (
-                              <Badge
-                                key={role}
-                                className={ROLE_COLORS[role]}
-                              >
-                                {ROLE_LABELS[role]}
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-muted-foreground text-sm">Keine Rollen</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={u.is_active ? "default" : "secondary"}>
-                          {u.is_active ? "Aktiv" : "Inaktiv"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleActive(u.user_id, u.is_active)}
-                          >
-                            {u.is_active ? (
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            ) : (
-                              <Shield className="h-4 w-4 text-green-500" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
+                      <TableCell><div className="flex flex-wrap gap-1">{u.roles.length > 0 ? u.roles.map((role) => (<Badge key={role} className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>)) : (<span className="text-muted-foreground text-sm">No roles</span>)}</div></TableCell>
+                      <TableCell><Badge variant={u.is_active ? "default" : "secondary"}>{u.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                      <TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => handleToggleActive(u.user_id, u.is_active)}>{u.is_active ? (<Trash2 className="h-4 w-4 text-destructive" />) : (<Shield className="h-4 w-4 text-green-500" />)}</Button></div></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -526,51 +291,11 @@ export default function UsersPage() {
           </CardContent>
         </Card>
 
-        {/* Edit Roles Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rollen bearbeiten</DialogTitle>
-              <DialogDescription>
-                {selectedUser?.email}
-              </DialogDescription>
-            </DialogHeader>
-            {selectedUser && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Rollen</Label>
-                  <div className="flex flex-wrap gap-4">
-                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                      <div key={role} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`edit-role-${role}`}
-                          checked={selectedUser.roles.includes(role)}
-                          onCheckedChange={() => toggleEditRole(role)}
-                        />
-                        <label
-                          htmlFor={`edit-role-${role}`}
-                          className="text-sm font-medium cursor-pointer"
-                        >
-                          {ROLE_LABELS[role]}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button
-                onClick={() =>
-                  selectedUser && handleUpdateRoles(selectedUser.user_id, selectedUser.roles)
-                }
-              >
-                Speichern
-              </Button>
-            </DialogFooter>
+            <DialogHeader><DialogTitle>Edit Roles</DialogTitle><DialogDescription>{selectedUser?.email}</DialogDescription></DialogHeader>
+            {selectedUser && (<div className="space-y-4"><div className="space-y-2"><Label>Roles</Label><div className="flex flex-wrap gap-4">{(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (<div key={role} className="flex items-center space-x-2"><Checkbox id={`edit-role-${role}`} checked={selectedUser.roles.includes(role)} onCheckedChange={() => toggleEditRole(role)} /><label htmlFor={`edit-role-${role}`} className="text-sm font-medium cursor-pointer">{ROLE_LABELS[role]}</label></div>))}</div></div></div>)}
+            <DialogFooter><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button><Button onClick={() => selectedUser && handleUpdateRoles(selectedUser.user_id, selectedUser.roles)}>Save</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
