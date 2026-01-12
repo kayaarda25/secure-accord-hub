@@ -156,6 +156,33 @@ export default function Communication() {
   useEffect(() => {
     if (selectedThread) {
       fetchMessages(selectedThread.id);
+
+      // Set up realtime subscription for messages
+      const channel = supabase
+        .channel(`messages-${selectedThread.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'communication_messages',
+            filter: `thread_id=eq.${selectedThread.id}`,
+          },
+          (payload) => {
+            console.log('New message received:', payload);
+            const newMsg = payload.new as Message;
+            setMessages((prev) => {
+              // Avoid duplicates
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [selectedThread]);
 
