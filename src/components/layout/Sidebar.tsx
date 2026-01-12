@@ -12,15 +12,35 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   Users,
   Globe,
   LogOut,
+  FileSpreadsheet,
+  Banknote,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  children?: { name: string; href: string; icon: typeof LayoutDashboard }[];
+}
+
+const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Finanzen", href: "/finances", icon: Wallet },
+  { 
+    name: "Finanzen", 
+    href: "/finances", 
+    icon: Wallet,
+    children: [
+      { name: "Übersicht", href: "/finances", icon: Wallet },
+      { name: "Deklarationen", href: "/finances/declarations", icon: FileSpreadsheet },
+      { name: "Rechnungen", href: "/finances/invoices", icon: Banknote },
+    ]
+  },
   { name: "OPEX", href: "/opex", icon: Receipt },
   { name: "Verträge & Dokumente", href: "/documents", icon: FileText },
   { name: "Kommunikation", href: "/communication", icon: MessageSquare },
@@ -94,7 +114,39 @@ export function Sidebar() {
       <nav className="flex-1 py-4 px-3 overflow-y-auto">
         <div className="space-y-1">
           {navigation.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive = location.pathname === item.href || 
+              (item.children && item.children.some(c => location.pathname === c.href));
+            const hasChildren = item.children && item.children.length > 0;
+
+            if (hasChildren && !collapsed) {
+              return (
+                <Collapsible key={item.name} defaultOpen={isActive}>
+                  <CollapsibleTrigger className={`nav-link w-full justify-between ${isActive ? "nav-link-active" : ""}`}>
+                    <div className="flex items-center gap-3">
+                      <item.icon size={20} className={isActive ? "text-accent" : ""} />
+                      <span>{item.name}</span>
+                    </div>
+                    <ChevronDown size={16} className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                    {item.children.map((child) => {
+                      const isChildActive = location.pathname === child.href;
+                      return (
+                        <NavLink
+                          key={child.name}
+                          to={child.href}
+                          className={`nav-link text-sm ${isChildActive ? "nav-link-active" : ""}`}
+                        >
+                          <child.icon size={16} className={isChildActive ? "text-accent" : ""} />
+                          <span>{child.name}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            }
+
             return (
               <NavLink
                 key={item.name}
