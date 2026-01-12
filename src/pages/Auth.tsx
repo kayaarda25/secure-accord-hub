@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -29,15 +31,34 @@ export default function Auth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [show2FAVerify, setShow2FAVerify] = useState(false);
 
   const { signIn, signUp, user, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user && !isLoading) {
+      // Check if user needs to complete 2FA
+      checkMfaRequirement();
+    }
+  }, [user, isLoading]);
+
+  const checkMfaRequirement = async () => {
+    try {
+      const { data: { currentLevel, nextLevel } } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      
+      if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+        // User has MFA enabled but hasn't verified yet
+        setShow2FAVerify(true);
+      } else {
+        // User is fully authenticated
+        navigate("/");
+      }
+    } catch (err) {
+      // If error, assume no MFA needed
       navigate("/");
     }
-  }, [user, isLoading, navigate]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +279,17 @@ export default function Auth() {
           Data stored exclusively in Switzerland
         </p>
       </div>
+
+      {/* 2FA Verification Dialog */}
+      <TwoFactorVerify
+        open={show2FAVerify}
+        onOpenChange={setShow2FAVerify}
+        onSuccess={() => navigate("/")}
+        onCancel={async () => {
+          await supabase.auth.signOut();
+          setShow2FAVerify(false);
+        }}
+      />
     </div>
   );
 }

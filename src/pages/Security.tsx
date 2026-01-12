@@ -3,17 +3,16 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Smartphone, Key, Monitor, Clock, MapPin, LogOut, AlertTriangle, CheckCircle, Lock } from "lucide-react";
+import { Smartphone, Key, Monitor, Clock, MapPin, LogOut, AlertTriangle, CheckCircle, Lock, Shield, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
+import { TwoFactorSetup } from "@/components/security/TwoFactorSetup";
+import { DisableTwoFactor } from "@/components/security/DisableTwoFactor";
+
 interface UserSession {
   id: string;
   device_info: string | null;
@@ -23,6 +22,7 @@ interface UserSession {
   created_at: string;
   is_active: boolean;
 }
+
 interface SecuritySettings {
   id: string;
   two_factor_enabled: boolean;
@@ -34,76 +34,94 @@ export default function Security() {
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const {
-    user
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [show2FADisable, setShow2FADisable] = useState(false);
+  const [hasMfaFactor, setHasMfaFactor] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
   useEffect(() => {
     if (user) {
       fetchSecurityData();
+      checkMfaFactors();
     }
   }, [user]);
+
   const fetchSecurityData = async () => {
     if (!user) return;
     setIsLoading(true);
 
     // Fetch sessions
-    const {
-      data: sessionsData
-    } = await supabase.from("user_sessions").select("*").eq("user_id", user.id).order("last_active_at", {
-      ascending: false
-    });
+    const { data: sessionsData } = await supabase
+      .from("user_sessions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("last_active_at", { ascending: false });
+    
     if (sessionsData) {
       setSessions(sessionsData);
     }
 
     // Fetch or create security settings
-    const {
-      data: settingsData
-    } = await supabase.from("security_settings").select("*").eq("user_id", user.id).single();
+    const { data: settingsData } = await supabase
+      .from("security_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+    
     if (settingsData) {
       setSettings(settingsData);
     } else {
       // Create default settings
-      const {
-        data: newSettings
-      } = await supabase.from("security_settings").insert({
-        user_id: user.id,
-        two_factor_enabled: false,
-        session_timeout_minutes: 60
-      }).select().single();
+      const { data: newSettings } = await supabase
+        .from("security_settings")
+        .insert({
+          user_id: user.id,
+          two_factor_enabled: false,
+          session_timeout_minutes: 60
+        })
+        .select()
+        .single();
+      
       if (newSettings) {
         setSettings(newSettings);
       }
     }
     setIsLoading(false);
   };
-  const handleToggle2FA = async () => {
-    if (!settings || !user) return;
-    const newValue = !settings.two_factor_enabled;
-    const {
-      error
-    } = await supabase.from("security_settings").update({
-      two_factor_enabled: newValue
-    }).eq("user_id", user.id);
-    if (error) {
-      toast({
-        title: "Fehler",
-        description: "Einstellung konnte nicht geändert werden",
-        variant: "destructive"
-      });
-    } else {
-      setSettings({
-        ...settings,
-        two_factor_enabled: newValue
-      });
-      toast({
-        title: newValue ? "2FA aktiviert" : "2FA deaktiviert",
-        description: newValue ? "Zwei-Faktor-Authentifizierung wurde aktiviert" : "Zwei-Faktor-Authentifizierung wurde deaktiviert"
-      });
+
+  const checkMfaFactors = async () => {
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      if (factors && factors.totp.length > 0) {
+        setHasMfaFactor(true);
+      } else {
+        setHasMfaFactor(false);
+      }
+    } catch (err) {
+      console.error("Error checking MFA factors:", err);
     }
+  };
+
+  const handle2FAToggle = () => {
+    if (hasMfaFactor) {
+      setShow2FADisable(true);
+    } else {
+      setShow2FASetup(true);
+    }
+  };
+
+  const handle2FASetupSuccess = () => {
+    setHasMfaFactor(true);
+    setSettings(prev => prev ? { ...prev, two_factor_enabled: true } : null);
+    toast({
+      title: "2FA aktiviert",
+      description: "Zwei-Faktor-Authentifizierung wurde erfolgreich aktiviert"
+    });
+  };
+
+  const handle2FADisableSuccess = () => {
+    setHasMfaFactor(false);
+    setSettings(prev => prev ? { ...prev, two_factor_enabled: false } : null);
   };
   const handleUpdateTimeout = async (minutes: number) => {
     if (!settings || !user) return;
@@ -239,17 +257,23 @@ export default function Security() {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {settings?.two_factor_enabled ? <CheckCircle className="h-5 w-5 text-green-500" /> : <AlertTriangle className="h-5 w-5 text-amber-500" />}
+                  {hasMfaFactor ? <ShieldCheck className="h-5 w-5 text-green-500" /> : <AlertTriangle className="h-5 w-5 text-amber-500" />}
                   <div>
                     <p className="font-medium">
-                      {settings?.two_factor_enabled ? "Aktiviert" : "Nicht aktiviert"}
+                      {hasMfaFactor ? "Aktiviert" : "Nicht aktiviert"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {settings?.two_factor_enabled ? "Ihr Konto ist durch 2FA geschützt" : "Aktivieren Sie 2FA für zusätzliche Sicherheit"}
+                      {hasMfaFactor ? "Ihr Konto ist durch 2FA geschützt" : "Aktivieren Sie 2FA für zusätzliche Sicherheit"}
                     </p>
                   </div>
                 </div>
-                <Switch checked={settings?.two_factor_enabled || false} onCheckedChange={handleToggle2FA} />
+                <Button 
+                  variant={hasMfaFactor ? "outline" : "default"}
+                  size="sm"
+                  onClick={handle2FAToggle}
+                >
+                  {hasMfaFactor ? "Deaktivieren" : "Aktivieren"}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -389,5 +413,19 @@ export default function Security() {
           </Card>
         </div>
       </div>
+
+      {/* 2FA Setup Dialog */}
+      <TwoFactorSetup 
+        open={show2FASetup} 
+        onOpenChange={setShow2FASetup}
+        onSuccess={handle2FASetupSuccess}
+      />
+
+      {/* 2FA Disable Dialog */}
+      <DisableTwoFactor
+        open={show2FADisable}
+        onOpenChange={setShow2FADisable}
+        onSuccess={handle2FADisableSuccess}
+      />
     </Layout>;
 }
