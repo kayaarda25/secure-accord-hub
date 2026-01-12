@@ -1,1 +1,7 @@
 project_id = "ctkozjqdvhtvabxhxlth"
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.opex-reminder]
+verify_jwt = false
