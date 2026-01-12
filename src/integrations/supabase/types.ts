@@ -1703,6 +1703,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_task: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_perform_action: {
         Args: { _action: string; _user_id: string }
         Returns: boolean
@@ -1727,6 +1731,10 @@ export type Database = {
         Returns: boolean
       }
       is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
+      is_task_creator: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "state" | "management" | "finance" | "partner" | "admin"
