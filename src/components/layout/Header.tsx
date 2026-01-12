@@ -1,13 +1,13 @@
-import { Bell, Search, Shield, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Bell, Search, Shield, Clock, Menu } from "lucide-react";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  onMenuClick?: () => void;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
-  const currentDate = new Date().toLocaleDateString("de-CH", {
+export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
+  const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -15,23 +15,35 @@ export function Header({ title, subtitle }: HeaderProps) {
   });
 
   return (
-    <header className="h-16 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-40">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-        {subtitle && (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+    <header className="h-16 border-b border-border bg-background/50 backdrop-blur-sm flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40">
+      <div className="flex items-center gap-3">
+        {/* Mobile menu button */}
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors lg:hidden"
+          >
+            <Menu size={20} />
+          </button>
         )}
+        
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+          {subtitle && (
+            <p className="text-sm text-muted-foreground hidden sm:block">{subtitle}</p>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Date & Time */}
-        <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground">
           <Clock size={14} />
           <span>{currentDate}</span>
         </div>
 
         {/* Security Status */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-success/10 border border-success/20">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-success/10 border border-success/20">
           <Shield size={14} className="text-success" />
           <span className="text-xs font-medium text-success">Secure</span>
         </div>

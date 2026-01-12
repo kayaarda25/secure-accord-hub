@@ -19,6 +19,8 @@ import {
   LogOut,
   FileSpreadsheet,
   Banknote,
+  Menu,
+  X,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -32,30 +34,35 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { 
-    name: "Finanzen", 
+    name: "Finances", 
     href: "/finances", 
     icon: Wallet,
     children: [
-      { name: "Übersicht", href: "/finances", icon: Wallet },
-      { name: "Deklarationen", href: "/finances/declarations", icon: FileSpreadsheet },
-      { name: "Rechnungen", href: "/finances/invoices", icon: Banknote },
+      { name: "Overview", href: "/finances", icon: Wallet },
+      { name: "Declarations", href: "/finances/declarations", icon: FileSpreadsheet },
+      { name: "Invoices", href: "/finances/invoices", icon: Banknote },
     ]
   },
   { name: "OPEX", href: "/opex", icon: Receipt },
-  { name: "Verträge & Dokumente", href: "/documents", icon: FileText },
-  { name: "Kommunikation", href: "/communication", icon: MessageSquare },
-  { name: "Kalender & Fristen", href: "/calendar", icon: Calendar },
+  { name: "Documents", href: "/documents", icon: FileText },
+  { name: "Communication", href: "/communication", icon: MessageSquare },
+  { name: "Calendar", href: "/calendar", icon: Calendar },
 ];
 
 const secondaryNav = [
-  { name: "Partner", href: "/partners", icon: Building2 },
-  { name: "Behörden", href: "/authorities", icon: Globe },
-  { name: "Benutzer", href: "/users", icon: Users },
-  { name: "Sicherheit", href: "/security", icon: Shield },
-  { name: "Einstellungen", href: "/settings", icon: Settings },
+  { name: "Partners", href: "/partners", icon: Building2 },
+  { name: "Authorities", href: "/authorities", icon: Globe },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "Security", href: "/security", icon: Shield },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -66,30 +73,33 @@ export function Sidebar() {
     navigate("/auth");
   };
 
+  const handleNavClick = () => {
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   const getRoleBadge = () => {
-    if (roles.includes("state")) return "Staat";
+    if (roles.includes("admin")) return "Admin";
+    if (roles.includes("state")) return "State";
     if (roles.includes("management")) return "Management";
     if (roles.includes("finance")) return "Finance";
     if (roles.includes("partner")) return "Partner";
-    return "Benutzer";
+    return "User";
   };
 
-  return (
-    <aside
-      className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-50 ${
-        collapsed ? "w-20" : "w-64"
-      }`}
-    >
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center glow-gold">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center glow-gold">
               <span className="text-accent font-bold text-lg">M</span>
             </div>
             <div>
               <h1 className="font-semibold text-sidebar-accent-foreground text-sm">
-                MGI × AFRIKA
+                MGI × AFRICA
               </h1>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 State Cooperation
@@ -98,16 +108,25 @@ export function Sidebar() {
           </div>
         )}
         {collapsed && (
-          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mx-auto glow-gold">
+          <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center mx-auto glow-gold">
             <span className="text-accent font-bold text-lg">M</span>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-colors"
+          className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-colors hidden lg:block"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
+        {/* Mobile close button */}
+        {onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-colors lg:hidden"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Primary Navigation */}
@@ -135,6 +154,7 @@ export function Sidebar() {
                         <NavLink
                           key={child.name}
                           to={child.href}
+                          onClick={handleNavClick}
                           className={`nav-link text-sm ${isChildActive ? "nav-link-active" : ""}`}
                         >
                           <child.icon size={16} className={isChildActive ? "text-accent" : ""} />
@@ -151,6 +171,7 @@ export function Sidebar() {
               <NavLink
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={`nav-link ${isActive ? "nav-link-active" : ""} ${
                   collapsed ? "justify-center px-2" : ""
                 }`}
@@ -175,6 +196,7 @@ export function Sidebar() {
                 <NavLink
                   key={item.name}
                   to={item.href}
+                  onClick={handleNavClick}
                   className={`nav-link ${isActive ? "nav-link-active" : ""} ${
                     collapsed ? "justify-center px-2" : ""
                   }`}
@@ -193,15 +215,15 @@ export function Sidebar() {
       <div className="p-4 border-t border-sidebar-border">
         {!collapsed ? (
           <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">
+            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
+              <span className="text-sm font-medium text-accent">
                 {profile?.first_name?.[0] || "U"}
                 {profile?.last_name?.[0] || ""}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-accent-foreground truncate">
-                {profile?.first_name || "Benutzer"} {profile?.last_name || ""}
+                {profile?.first_name || "User"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
                 {getRoleBadge()}
@@ -209,29 +231,59 @@ export function Sidebar() {
             </div>
             <button
               onClick={handleSignOut}
-              className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
-              title="Abmelden"
+              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              title="Sign out"
             >
               <LogOut size={16} />
             </button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">
+            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
+              <span className="text-sm font-medium text-accent">
                 {profile?.first_name?.[0] || "U"}
               </span>
             </div>
             <button
               onClick={handleSignOut}
-              className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
-              title="Abmelden"
+              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              title="Sign out"
             >
               <LogOut size={16} />
             </button>
           </div>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300 z-50 hidden lg:flex ${
+          collapsed ? "w-20" : "w-64"
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 z-50 lg:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
