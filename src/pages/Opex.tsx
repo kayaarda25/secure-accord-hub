@@ -498,7 +498,10 @@ export default function Opex() {
 
       {/* Cost Centers Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {costCenters.slice(0, 4).map((cc, index) => {
+      {costCenters
+        .filter((cc) => !cc.name.includes("Allgemein") && !cc.name.includes("Projekte"))
+        .slice(0, 4)
+        .map((cc, index) => {
           const usagePercent = cc.budget_annual > 0 
             ? Math.round((cc.budget_used / cc.budget_annual) * 100) 
             : 0;
