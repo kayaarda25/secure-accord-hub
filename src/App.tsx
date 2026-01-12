@@ -12,6 +12,7 @@ import Documents from "./pages/Documents";
 import Calendar from "./pages/Calendar";
 import Opex from "./pages/Opex";
 import Communication from "./pages/Communication";
+import UsersPage from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -93,8 +94,8 @@ const App = () => (
             <Route
               path="/users"
               element={
-                <ProtectedRoute>
-                  <Index />
+                <ProtectedRoute requiredRoles={["admin"]}>
+                  <UsersPage />
                 </ProtectedRoute>
               }
             />
