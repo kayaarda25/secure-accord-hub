@@ -20,10 +20,12 @@ import {
   Palette,
   Globe,
   Save,
+  PenTool,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { SignaturePad } from "@/components/settings/SignaturePad";
 
 interface NotificationPreferences {
   id: string;
@@ -153,10 +155,14 @@ export default function Settings() {
   return (
     <Layout title="Einstellungen" subtitle="Profil und Präferenzen verwalten">
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profil
+          </TabsTrigger>
+          <TabsTrigger value="signature" className="flex items-center gap-2">
+            <PenTool className="h-4 w-4" />
+            Signatur
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
@@ -250,6 +256,11 @@ export default function Settings() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Signature Tab */}
+        <TabsContent value="signature">
+          <SignaturePad />
         </TabsContent>
 
         {/* Notifications Tab */}

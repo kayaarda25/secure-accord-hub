@@ -778,6 +778,7 @@ export type Database = {
           rejection_reason: string | null
           requested_by: string
           signature_comment: string | null
+          signature_image: string | null
           signed_at: string | null
           signer_id: string
           status: string
@@ -791,6 +792,7 @@ export type Database = {
           rejection_reason?: string | null
           requested_by: string
           signature_comment?: string | null
+          signature_image?: string | null
           signed_at?: string | null
           signer_id: string
           status?: string
@@ -804,6 +806,7 @@ export type Database = {
           rejection_reason?: string | null
           requested_by?: string
           signature_comment?: string | null
+          signature_image?: string | null
           signed_at?: string | null
           signer_id?: string
           status?: string
@@ -1349,6 +1352,9 @@ export type Database = {
           organization_id: string | null
           phone: string | null
           position: string | null
+          signature_data: string | null
+          signature_initials: string | null
+          signature_type: string | null
           updated_at: string
           user_id: string
         }
@@ -1364,6 +1370,9 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           position?: string | null
+          signature_data?: string | null
+          signature_initials?: string | null
+          signature_type?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1379,6 +1388,9 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           position?: string | null
+          signature_data?: string | null
+          signature_initials?: string | null
+          signature_type?: string | null
           updated_at?: string
           user_id?: string
         }

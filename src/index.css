@@ -85,6 +85,13 @@
   }
 }
 
+/* Signature Font - Cursive style */
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600&display=swap');
+
+.font-signature {
+  font-family: 'Dancing Script', cursive;
+}
+
 @layer base {
   * {
     @apply border-border;
