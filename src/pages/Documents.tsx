@@ -330,10 +330,18 @@ export default function Documents() {
     if (!userProfile) return null;
 
     if (userProfile.signature_type === "image" && userProfile.signature_data) {
-      // Get signed URL from storage
-      const { data } = await supabase.storage
+      // Check if it's already a base64 data URL (old format)
+      if (userProfile.signature_data.startsWith("data:image")) {
+        return userProfile.signature_data;
+      }
+      // Otherwise, get signed URL from storage (new format)
+      const { data, error } = await supabase.storage
         .from("signatures")
         .createSignedUrl(userProfile.signature_data, 86400); // 24 hours
+      if (error) {
+        console.error("Error getting signature URL:", error);
+        return null;
+      }
       return data?.signedUrl || null;
     }
     if (userProfile.signature_type === "text" && userProfile.signature_initials) {
@@ -352,6 +360,11 @@ export default function Documents() {
     if (!userProfile) return { image: null, initials: null };
 
     if (userProfile.signature_type === "image" && userProfile.signature_data) {
+      // Check if it's already a base64 data URL (old format)
+      if (userProfile.signature_data.startsWith("data:image")) {
+        return { image: userProfile.signature_data, initials: null };
+      }
+      // Otherwise, get signed URL from storage (new format)
       const { data } = await supabase.storage
         .from("signatures")
         .createSignedUrl(userProfile.signature_data, 86400);

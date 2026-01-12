@@ -55,12 +55,17 @@ export function SignaturePad({ onSave }: SignaturePadProps) {
         setInitials(profileData.signature_initials);
       }
       if (profileData.signature_type === "image" && profileData.signature_data) {
-        // signature_data now contains the storage path
-        const { data } = await supabase.storage
-          .from("signatures")
-          .createSignedUrl(profileData.signature_data, 3600);
-        if (data?.signedUrl) {
-          setExistingSignatureUrl(data.signedUrl);
+        // Check if it's already a base64 data URL (old format)
+        if (profileData.signature_data.startsWith("data:image")) {
+          setExistingSignatureUrl(profileData.signature_data);
+        } else {
+          // Otherwise, get signed URL from storage (new format)
+          const { data } = await supabase.storage
+            .from("signatures")
+            .createSignedUrl(profileData.signature_data, 3600);
+          if (data?.signedUrl) {
+            setExistingSignatureUrl(data.signedUrl);
+          }
         }
         setSignatureType("draw");
       }
