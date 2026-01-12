@@ -166,7 +166,7 @@ export default function Documents() {
 
       if (docError) throw docError;
 
-      // Create signature requests
+      // Create signature requests and send email notifications
       if (formData.signers.length > 0 && docData) {
         const signatureRequests = formData.signers.map((signerId) => ({
           document_id: docData.id,
@@ -176,6 +176,33 @@ export default function Documents() {
         }));
 
         await supabase.from("document_signatures").insert(signatureRequests);
+
+        // Get current user's profile for requester name
+        const currentUserProfile = profiles.find(p => p.user_id === user.id);
+        const requesterName = currentUserProfile 
+          ? `${currentUserProfile.first_name || ''} ${currentUserProfile.last_name || ''}`.trim() || currentUserProfile.email
+          : user.email || 'Ein Benutzer';
+
+        // Send email notifications to each signer
+        for (const signerId of formData.signers) {
+          const signerProfile = profiles.find(p => p.user_id === signerId);
+          if (signerProfile) {
+            try {
+              await supabase.functions.invoke('send-signature-request', {
+                body: {
+                  signerEmail: signerProfile.email,
+                  signerName: `${signerProfile.first_name || ''} ${signerProfile.last_name || ''}`.trim(),
+                  documentName: formData.name || selectedFile.name,
+                  requesterName,
+                  documentUrl: `${window.location.origin}/documents`,
+                },
+              });
+            } catch (emailError) {
+              console.error('Error sending signature request email:', emailError);
+              // Continue even if email fails
+            }
+          }
+        }
       }
 
       await logAction("CREATE", "documents", docData?.id);
