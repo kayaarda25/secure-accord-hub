@@ -21,6 +21,7 @@ import {
   Clock,
   AlertCircle,
   Calendar,
+  Inbox,
 } from "lucide-react";
 
 interface Declaration {
@@ -36,59 +37,6 @@ interface Declaration {
   currency: string;
   organization: string;
 }
-
-const mockDeclarations: Declaration[] = [
-  {
-    id: "1",
-    number: "DECL-2024-001",
-    title: "MWST-Deklaration Q4 2024",
-    type: "vat",
-    period: "Q4 2024",
-    dueDate: "2025-01-31",
-    submittedDate: "2025-01-15",
-    status: "approved",
-    amount: 45000,
-    currency: "CHF",
-    organization: "MGI M",
-  },
-  {
-    id: "2",
-    number: "DECL-2024-002",
-    title: "Einkommenssteuer 2024",
-    type: "income",
-    period: "2024",
-    dueDate: "2025-03-31",
-    status: "pending",
-    amount: 125000,
-    currency: "CHF",
-    organization: "MGI C",
-  },
-  {
-    id: "3",
-    number: "DECL-2024-003",
-    title: "Zollanmeldung Import",
-    type: "customs",
-    period: "Dezember 2024",
-    dueDate: "2025-01-15",
-    submittedDate: "2025-01-10",
-    status: "submitted",
-    amount: 8500,
-    currency: "CHF",
-    organization: "Gateway",
-  },
-  {
-    id: "4",
-    number: "DECL-2025-001",
-    title: "MWST-Deklaration Q1 2025",
-    type: "vat",
-    period: "Q1 2025",
-    dueDate: "2025-04-30",
-    status: "draft",
-    amount: 0,
-    currency: "CHF",
-    organization: "MGI M",
-  },
-];
 
 const TYPE_LABELS: Record<string, string> = {
   vat: "MWST",
@@ -106,7 +54,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
 };
 
 export default function Declarations() {
-  const [declarations] = useState<Declaration[]>(mockDeclarations);
+  const [declarations] = useState<Declaration[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -295,56 +243,70 @@ export default function Declarations() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nummer</TableHead>
-                <TableHead>Titel</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead>Periode</TableHead>
-                <TableHead>Fällig</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Betrag</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDeclarations.map((decl) => {
-                const statusConfig = STATUS_CONFIG[decl.status];
-                const StatusIcon = statusConfig.icon;
-                return (
-                  <TableRow key={decl.id}>
-                    <TableCell className="font-mono text-sm">{decl.number}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{decl.title}</p>
-                        <p className="text-xs text-muted-foreground">{decl.organization}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{TYPE_LABELS[decl.type]}</Badge>
-                    </TableCell>
-                    <TableCell>{decl.period}</TableCell>
-                    <TableCell>{formatDate(decl.dueDate)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
-                        <StatusIcon className="h-3 w-3" />
-                        {statusConfig.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {decl.amount > 0 ? formatCurrency(decl.amount, decl.currency) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {filteredDeclarations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">Keine Deklarationen vorhanden</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Erstellen Sie Ihre erste Deklaration, um zu beginnen.
+              </p>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Neue Deklaration
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nummer</TableHead>
+                  <TableHead>Titel</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Periode</TableHead>
+                  <TableHead>Fällig</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Betrag</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDeclarations.map((decl) => {
+                  const statusConfig = STATUS_CONFIG[decl.status];
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <TableRow key={decl.id}>
+                      <TableCell className="font-mono text-sm">{decl.number}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{decl.title}</p>
+                          <p className="text-xs text-muted-foreground">{decl.organization}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{TYPE_LABELS[decl.type]}</Badge>
+                      </TableCell>
+                      <TableCell>{decl.period}</TableCell>
+                      <TableCell>{formatDate(decl.dueDate)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {decl.amount > 0 ? formatCurrency(decl.amount, decl.currency) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </Layout>

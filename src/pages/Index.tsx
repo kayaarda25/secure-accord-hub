@@ -12,10 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Wallet,
-  TrendingUp,
   Building2,
-  FileText,
-  AlertTriangle,
   Users,
   Receipt,
 } from "lucide-react";
@@ -33,7 +30,7 @@ interface CompanyStats {
 }
 
 const Index = () => {
-  const { profile, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   const [companies, setCompanies] = useState<Organization[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>("all");
   const [companyStats, setCompanyStats] = useState<Record<string, CompanyStats>>({});
@@ -140,25 +137,9 @@ const Index = () => {
 
   return (
     <Layout
-      title="Executive Dashboard"
-      subtitle="MGI × AFRIKA Staatliche Kooperation"
+      title="Dashboard"
+      subtitle="Übersicht"
     >
-      {/* Alert Banner */}
-      <div className="mb-6 p-4 rounded-lg bg-warning/10 border border-warning/20 flex items-center gap-3 animate-fade-in">
-        <AlertTriangle size={20} className="text-warning flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">
-            Lizenzverlängerung Uganda läuft in 7 Tagen ab
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Bitte überprüfen Sie die Dokumente und leiten Sie die Verlängerung ein.
-          </p>
-        </div>
-        <button className="px-4 py-2 text-sm font-medium text-warning hover:text-warning/80 transition-colors">
-          Details →
-        </button>
-      </div>
-
       {/* Company Tabs for Management View */}
       {isManagement && companies.length > 0 && (
         <Tabs value={selectedCompany} onValueChange={setSelectedCompany} className="mb-6">
@@ -270,6 +251,9 @@ const Index = () => {
               totalBudget: 0,
               usedBudget: 0,
             };
+            const budgetPercent = stats.totalBudget > 0 
+              ? Math.round((stats.usedBudget / stats.totalBudget) * 100) 
+              : 0;
 
             return (
               <TabsContent key={company.id} value={company.id} className="mt-6">
@@ -278,7 +262,7 @@ const Index = () => {
                   <MetricCard
                     title="Jahresbudget"
                     value={formatCurrency(stats.totalBudget)}
-                    changeLabel={`${Math.round((stats.usedBudget / stats.totalBudget) * 100) || 0}% verwendet`}
+                    changeLabel={`${budgetPercent}% verwendet`}
                     icon={<Wallet size={20} className="text-accent" />}
                     variant="accent"
                   />
@@ -286,7 +270,7 @@ const Index = () => {
                     title="Verbrauchtes Budget"
                     value={formatCurrency(stats.usedBudget)}
                     changeLabel="Bisherige Ausgaben"
-                    icon={<TrendingUp size={20} className="text-success" />}
+                    icon={<Wallet size={20} className="text-success" />}
                     variant="success"
                   />
                   <MetricCard
@@ -321,36 +305,33 @@ const Index = () => {
       {/* Non-Management View or No Companies */}
       {(!isManagement || companies.length === 0) && (
         <>
-          {/* KPI Metrics */}
+          {/* KPI Metrics from database */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
-              title="Gesamtumsatz YTD"
-              value="CHF 5.96M"
-              change={18.5}
-              changeLabel="vs. Vorjahr"
+              title="Gesamtbudget"
+              value={formatCurrency(totalStats.totalBudget)}
+              changeLabel="Alle Kostenstellen"
               icon={<Wallet size={20} className="text-accent" />}
               variant="accent"
             />
             <MetricCard
-              title="Netto-Ertrag"
-              value="CHF 3.82M"
-              change={12.3}
-              changeLabel="vs. Vorjahr"
-              icon={<TrendingUp size={20} className="text-success" />}
+              title="Mitarbeiter"
+              value={totalStats.employees.toString()}
+              changeLabel="Registrierte Benutzer"
+              icon={<Users size={20} className="text-success" />}
               variant="success"
             />
             <MetricCard
-              title="Aktive Partner"
-              value="12"
-              change={2}
-              changeLabel="Neue Partner Q4"
-              icon={<Building2 size={20} className="text-info" />}
+              title="Offene OPEX"
+              value={totalStats.pendingExpenses.toString()}
+              changeLabel="Zur Genehmigung"
+              icon={<Receipt size={20} className="text-info" />}
             />
             <MetricCard
-              title="Offene Verträge"
-              value="8"
-              changeLabel="3 zur Verlängerung"
-              icon={<FileText size={20} className="text-muted-foreground" />}
+              title="Firmen"
+              value={companies.length.toString()}
+              changeLabel="Interne Organisationen"
+              icon={<Building2 size={20} className="text-muted-foreground" />}
             />
           </div>
 

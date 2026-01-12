@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText,
   Plus,
@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Banknote,
+  Inbox,
 } from "lucide-react";
 
 interface Invoice {
@@ -41,75 +42,6 @@ interface Invoice {
   organization: string;
 }
 
-const mockInvoices: Invoice[] = [
-  {
-    id: "1",
-    number: "INV-2024-0156",
-    type: "outgoing",
-    partner: "MTN Uganda",
-    description: "Revenue Share Q4 2024",
-    issueDate: "2024-12-15",
-    dueDate: "2025-01-15",
-    paidDate: "2025-01-10",
-    status: "paid",
-    amount: 125000,
-    currency: "CHF",
-    organization: "MGI M",
-  },
-  {
-    id: "2",
-    number: "INV-2024-0157",
-    type: "outgoing",
-    partner: "Airtel Africa",
-    description: "Lizenzgebühren Dezember 2024",
-    issueDate: "2024-12-20",
-    dueDate: "2025-01-20",
-    status: "sent",
-    amount: 89000,
-    currency: "USD",
-    organization: "MGI C",
-  },
-  {
-    id: "3",
-    number: "INV-2024-0158",
-    type: "incoming",
-    partner: "Tech Solutions AG",
-    description: "IT-Beratung Dezember",
-    issueDate: "2024-12-28",
-    dueDate: "2025-01-28",
-    status: "sent",
-    amount: 28000,
-    currency: "CHF",
-    organization: "Gateway",
-  },
-  {
-    id: "4",
-    number: "INV-2024-0145",
-    type: "outgoing",
-    partner: "URA Uganda",
-    description: "Serviceleistungen Q3",
-    issueDate: "2024-11-15",
-    dueDate: "2024-12-15",
-    status: "overdue",
-    amount: 45000,
-    currency: "USD",
-    organization: "MGI M",
-  },
-  {
-    id: "5",
-    number: "INV-2025-0001",
-    type: "outgoing",
-    partner: "Vodafone Ghana",
-    description: "Consulting Services Januar",
-    issueDate: "2025-01-05",
-    dueDate: "2025-02-05",
-    status: "draft",
-    amount: 35000,
-    currency: "EUR",
-    organization: "MGI C",
-  },
-];
-
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
   draft: { label: "Entwurf", variant: "secondary", icon: FileText },
   sent: { label: "Versendet", variant: "outline", icon: Send },
@@ -119,7 +51,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
 };
 
 export default function Invoices() {
-  const [invoices] = useState<Invoice[]>(mockInvoices);
+  const [invoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -353,66 +285,80 @@ export default function Invoices() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nummer</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead>Partner</TableHead>
-                <TableHead>Beschreibung</TableHead>
-                <TableHead>Fällig</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Betrag</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInvoices.map((inv) => {
-                const statusConfig = STATUS_CONFIG[inv.status];
-                const StatusIcon = statusConfig.icon;
-                return (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-mono text-sm">{inv.number}</TableCell>
-                    <TableCell>
-                      {inv.type === "outgoing" ? (
-                        <Badge variant="outline" className="flex items-center gap-1 w-fit text-success border-success">
-                          <ArrowUpRight className="h-3 w-3" />
-                          Ausgehend
+          {filteredInvoices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">Keine Rechnungen vorhanden</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Erstellen Sie Ihre erste Rechnung, um zu beginnen.
+              </p>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Neue Rechnung
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nummer</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Partner</TableHead>
+                  <TableHead>Beschreibung</TableHead>
+                  <TableHead>Fällig</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Betrag</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInvoices.map((inv) => {
+                  const statusConfig = STATUS_CONFIG[inv.status];
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-sm">{inv.number}</TableCell>
+                      <TableCell>
+                        {inv.type === "outgoing" ? (
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit text-success border-success">
+                            <ArrowUpRight className="h-3 w-3" />
+                            Ausgehend
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                            <ArrowDownLeft className="h-3 w-3" />
+                            Eingehend
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{inv.partner}</p>
+                          <p className="text-xs text-muted-foreground">{inv.organization}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-48 truncate">{inv.description}</TableCell>
+                      <TableCell>{formatDate(inv.dueDate)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig.label}
                         </Badge>
-                      ) : (
-                        <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                          <ArrowDownLeft className="h-3 w-3" />
-                          Eingehend
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{inv.partner}</p>
-                        <p className="text-xs text-muted-foreground">{inv.organization}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-48 truncate">{inv.description}</TableCell>
-                    <TableCell>{formatDate(inv.dueDate)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
-                        <StatusIcon className="h-3 w-3" />
-                        {statusConfig.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(inv.amount, inv.currency)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(inv.amount, inv.currency)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </Layout>
