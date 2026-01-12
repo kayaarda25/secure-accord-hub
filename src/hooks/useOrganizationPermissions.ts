@@ -32,11 +32,8 @@ const defaultPermissions: OrganizationPermissions = {
   isMgi: false,
 };
 
-// Debug: Log when permissions are fetched
-const DEBUG = true;
-
 export function useOrganizationPermissions() {
-  const { user, profile, hasRole } = useAuth();
+  const { user, profile } = useAuth();
   const [permissions, setPermissions] = useState<OrganizationPermissions>(defaultPermissions);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,10 +53,6 @@ export function useOrganizationPermissions() {
           .eq("id", profile.organization_id)
           .single();
 
-        if (DEBUG) {
-          console.log("Org fetch result:", { org, orgError, organization_id: profile.organization_id });
-        }
-
         if (orgError || !org?.org_type) {
           console.error("Error fetching organization:", orgError);
           setPermissions(defaultPermissions);
@@ -76,10 +69,6 @@ export function useOrganizationPermissions() {
           .eq("org_type", orgType)
           .single();
 
-        if (DEBUG) {
-          console.log("Permissions fetch result:", { perms, permsError, orgType });
-        }
-
         if (permsError || !perms) {
           console.error("Error fetching permissions:", permsError);
           setPermissions(defaultPermissions);
@@ -87,28 +76,19 @@ export function useOrganizationPermissions() {
           return;
         }
 
-        // Admin override - admins can do everything
-        const isAdmin = hasRole("admin");
-
-        const newPermissions = {
-          canCreateDeclarations: isAdmin || perms.can_create_declarations,
-          canCreateInvoices: isAdmin || perms.can_create_invoices,
-          canCreateOpex: isAdmin || perms.can_create_opex,
-          canCreateBudget: isAdmin || perms.can_create_budget,
-          canViewDeclarations: isAdmin || perms.can_view_declarations,
-          canViewInvoices: isAdmin || perms.can_view_invoices,
-          canViewOpex: isAdmin || perms.can_view_opex,
-          canViewBudget: isAdmin || perms.can_view_budget,
+        setPermissions({
+          canCreateDeclarations: perms.can_create_declarations,
+          canCreateInvoices: perms.can_create_invoices,
+          canCreateOpex: perms.can_create_opex,
+          canCreateBudget: perms.can_create_budget,
+          canViewDeclarations: perms.can_view_declarations,
+          canViewInvoices: perms.can_view_invoices,
+          canViewOpex: perms.can_view_opex,
+          canViewBudget: perms.can_view_budget,
           orgType,
           isGateway: orgType === "gateway",
           isMgi: orgType === "mgi_media" || orgType === "mgi_communications",
-        };
-
-        if (DEBUG) {
-          console.log("Setting permissions:", newPermissions);
-        }
-
-        setPermissions(newPermissions);
+        });
       } catch (error) {
         console.error("Error in fetchPermissions:", error);
         setPermissions(defaultPermissions);
@@ -118,7 +98,7 @@ export function useOrganizationPermissions() {
     }
 
     fetchPermissions();
-  }, [user, profile?.organization_id, hasRole]);
+  }, [user, profile?.organization_id]);
 
   return { permissions, isLoading };
 }

@@ -52,6 +52,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useToast } from "@/hooks/use-toast";
 
 interface CostCenter {
@@ -92,9 +93,11 @@ export default function BudgetPlanning() {
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { user, hasAnyRole } = useAuth();
+  const { permissions: orgPerms, isLoading: orgPermsLoading } = useOrganizationPermissions();
   const { toast } = useToast();
 
-  const canManage = hasAnyRole(["admin", "management", "finance"]);
+  const canViewBudget = orgPerms.canViewBudget || orgPerms.canCreateBudget;
+  const canManage = canViewBudget && orgPerms.canCreateBudget && hasAnyRole(["admin", "management", "finance"]);
 
   useEffect(() => {
     fetchData();
@@ -239,7 +242,17 @@ export default function BudgetPlanning() {
 
   return (
     <Layout title="Budget & Planung" subtitle="Jahresbudgets planen und überwachen">
-      {/* Budget Alerts */}
+      {orgPermsLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Laden...</div>
+      ) : !canViewBudget ? (
+        <div className="card-state p-8 max-w-md">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Zugriff verweigert</h2>
+          <p className="text-muted-foreground">
+            Sie haben keine Berechtigung, diese Seite anzuzeigen.
+          </p>
+        </div>
+      ) : (
+        <>
       {overBudgetCenters.length > 0 && (
         <Card className="mb-6 border-warning bg-warning/5">
           <CardContent className="py-4">
@@ -484,15 +497,9 @@ export default function BudgetPlanning() {
               </TableHeader>
               <TableBody>
                 {budgetPlans.map((plan) => (
-                  <TableRow key={plan.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{getCostCenterName(plan.cost_center_id)}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {getCostCenterCode(plan.cost_center_id)}
-                        </p>
-                      </div>
-                    </TableCell>
+        </>
+      )}
+      {/* Budget Alerts */}
                     <TableCell className="text-right">
                       {plan.q1_amount?.toLocaleString("de-CH")}
                     </TableCell>
