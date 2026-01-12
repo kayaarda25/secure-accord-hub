@@ -59,8 +59,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const navigation: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
-      { name: "Calendar", href: "/calendar", icon: Calendar },
-      { name: "Tasks", href: "/tasks", icon: CheckSquare },
     ];
 
     // Don't show permission-based items while loading
@@ -68,6 +66,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       // Only show basic items while loading
       items.push({ name: "Documents", href: "/documents", icon: FileText });
       items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
+      items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
+      items.push({ name: "Tasks", href: "/tasks", icon: CheckSquare });
       return items;
     }
 
@@ -122,6 +122,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
     // Communication (always visible)
     items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
+
+    // Calendar and Tasks at the bottom
+    items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
+    items.push({ name: "Tasks", href: "/tasks", icon: CheckSquare });
 
     return items;
   }, [permissions, permissionsLoading]);
