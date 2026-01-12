@@ -17,6 +17,12 @@ import Opex from "./pages/Opex";
 import Communication from "./pages/Communication";
 import UsersPage from "./pages/Users";
 import NotFound from "./pages/NotFound";
+import Partners from "./pages/Partners";
+import Authorities from "./pages/Authorities";
+import BudgetPlanning from "./pages/BudgetPlanning";
+import Reports from "./pages/Reports";
+import Security from "./pages/Security";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -105,7 +111,7 @@ const App = () => (
               path="/partners"
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <Partners />
                 </ProtectedRoute>
               }
             />
@@ -113,7 +119,23 @@ const App = () => (
               path="/authorities"
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <Authorities />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/budget"
+              element={
+                <ProtectedRoute>
+                  <BudgetPlanning />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <Reports />
                 </ProtectedRoute>
               }
             />
@@ -129,7 +151,7 @@ const App = () => (
               path="/security"
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <Security />
                 </ProtectedRoute>
               }
             />
@@ -137,7 +159,7 @@ const App = () => (
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <Settings />
                 </ProtectedRoute>
               }
             />

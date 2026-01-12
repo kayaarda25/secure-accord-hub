@@ -53,6 +53,160 @@ export type Database = {
         }
         Relationships: []
       }
+      budget_alerts: {
+        Row: {
+          cost_center_id: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          threshold_percent: number | null
+        }
+        Insert: {
+          cost_center_id?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          threshold_percent?: number | null
+        }
+        Update: {
+          cost_center_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          threshold_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_alerts_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_forecasts: {
+        Row: {
+          actual_amount: number | null
+          budget_plan_id: string | null
+          created_at: string | null
+          created_by: string
+          forecast_amount: number
+          forecast_date: string
+          id: string
+          notes: string | null
+          variance: number | null
+        }
+        Insert: {
+          actual_amount?: number | null
+          budget_plan_id?: string | null
+          created_at?: string | null
+          created_by: string
+          forecast_amount: number
+          forecast_date: string
+          id?: string
+          notes?: string | null
+          variance?: number | null
+        }
+        Update: {
+          actual_amount?: number | null
+          budget_plan_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          forecast_amount?: number
+          forecast_date?: string
+          id?: string
+          notes?: string | null
+          variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_forecasts_budget_plan_id_fkey"
+            columns: ["budget_plan_id"]
+            isOneToOne: false
+            referencedRelation: "budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_plans: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cost_center_id: string | null
+          created_at: string | null
+          created_by: string
+          fiscal_year: number
+          id: string
+          notes: string | null
+          organization_id: string | null
+          planned_amount: number
+          q1_amount: number | null
+          q2_amount: number | null
+          q3_amount: number | null
+          q4_amount: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cost_center_id?: string | null
+          created_at?: string | null
+          created_by: string
+          fiscal_year: number
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          planned_amount?: number
+          q1_amount?: number | null
+          q2_amount?: number | null
+          q3_amount?: number | null
+          q4_amount?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cost_center_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          fiscal_year?: number
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          planned_amount?: number
+          q1_amount?: number | null
+          q2_amount?: number | null
+          q3_amount?: number | null
+          q4_amount?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_plans_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_plans_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_event_participants: {
         Row: {
           event_id: string
@@ -293,6 +447,125 @@ export type Database = {
           },
         ]
       }
+      contacts: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          email: string | null
+          id: string
+          is_primary: boolean | null
+          name: string
+          notes: string | null
+          organization_id: string | null
+          phone: string | null
+          position: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          name: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          position?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          name?: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          position?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          contract_number: string | null
+          created_at: string | null
+          created_by: string
+          currency: string | null
+          document_id: string | null
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          organization_id: string | null
+          start_date: string | null
+          status: string | null
+          updated_at: string | null
+          value: number | null
+        }
+        Insert: {
+          contract_number?: string | null
+          created_at?: string | null
+          created_by: string
+          currency?: string | null
+          document_id?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          organization_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value?: number | null
+        }
+        Update: {
+          contract_number?: string | null
+          created_at?: string | null
+          created_by?: string
+          currency?: string | null
+          document_id?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_centers: {
         Row: {
           budget_annual: number | null
@@ -351,6 +624,7 @@ export type Database = {
           created_at: string
           declaration_number: string
           declaration_type: string
+          finance_comment: string | null
           gia_incoming_cost: Json | null
           gia_outgoing_revenue: Json | null
           grx_fiscalization: number | null
@@ -366,9 +640,15 @@ export type Database = {
           opex_mgi: number | null
           period_end: string
           period_start: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           status: string
           submitted_at: string
           submitted_by: string
+          supervisor_approved_at: string | null
+          supervisor_comment: string | null
+          supervisor_id: string | null
           total_gia_balance: number | null
           total_mgi_balance: number | null
           updated_at: string
@@ -380,6 +660,7 @@ export type Database = {
           created_at?: string
           declaration_number: string
           declaration_type: string
+          finance_comment?: string | null
           gia_incoming_cost?: Json | null
           gia_outgoing_revenue?: Json | null
           grx_fiscalization?: number | null
@@ -395,9 +676,15 @@ export type Database = {
           opex_mgi?: number | null
           period_end: string
           period_start: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string
           submitted_by: string
+          supervisor_approved_at?: string | null
+          supervisor_comment?: string | null
+          supervisor_id?: string | null
           total_gia_balance?: number | null
           total_mgi_balance?: number | null
           updated_at?: string
@@ -409,6 +696,7 @@ export type Database = {
           created_at?: string
           declaration_number?: string
           declaration_type?: string
+          finance_comment?: string | null
           gia_incoming_cost?: Json | null
           gia_outgoing_revenue?: Json | null
           grx_fiscalization?: number | null
@@ -424,9 +712,15 @@ export type Database = {
           opex_mgi?: number | null
           period_end?: string
           period_start?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string
           submitted_by?: string
+          supervisor_approved_at?: string | null
+          supervisor_comment?: string | null
+          supervisor_id?: string | null
           total_gia_balance?: number | null
           total_mgi_balance?: number | null
           updated_at?: string
@@ -711,6 +1005,84 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          approval_notifications: boolean | null
+          budget_notifications: boolean | null
+          calendar_notifications: boolean | null
+          created_at: string | null
+          document_notifications: boolean | null
+          email_enabled: boolean | null
+          expense_notifications: boolean | null
+          id: string
+          push_enabled: boolean | null
+          task_notifications: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approval_notifications?: boolean | null
+          budget_notifications?: boolean | null
+          calendar_notifications?: boolean | null
+          created_at?: string | null
+          document_notifications?: boolean | null
+          email_enabled?: boolean | null
+          expense_notifications?: boolean | null
+          id?: string
+          push_enabled?: boolean | null
+          task_notifications?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approval_notifications?: boolean | null
+          budget_notifications?: boolean | null
+          calendar_notifications?: boolean | null
+          created_at?: string | null
+          document_notifications?: boolean | null
+          email_enabled?: boolean | null
+          expense_notifications?: boolean | null
+          id?: string
+          push_enabled?: boolean | null
+          task_notifications?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       opex_expenses: {
         Row: {
           amount: number
@@ -980,6 +1352,87 @@ export type Database = {
           },
         ]
       }
+      scheduled_reports: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          filters: Json | null
+          format: string | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_run_at: string | null
+          name: string
+          next_run_at: string | null
+          recipients: string[]
+          report_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          filters?: Json | null
+          format?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string | null
+          recipients: string[]
+          report_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          filters?: Json | null
+          format?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          recipients?: string[]
+          report_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          allowed_ips: string[] | null
+          backup_codes: string[] | null
+          id: string
+          session_timeout_minutes: number | null
+          two_factor_enabled: boolean | null
+          two_factor_secret: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allowed_ips?: string[] | null
+          backup_codes?: string[] | null
+          id?: string
+          session_timeout_minutes?: number | null
+          two_factor_enabled?: boolean | null
+          two_factor_secret?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allowed_ips?: string[] | null
+          backup_codes?: string[] | null
+          id?: string
+          session_timeout_minutes?: number | null
+          two_factor_enabled?: boolean | null
+          two_factor_secret?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       task_participants: {
         Row: {
           id: string
@@ -1074,6 +1527,30 @@ export type Database = {
           },
         ]
       }
+      user_dashboard_layouts: {
+        Row: {
+          created_at: string | null
+          id: string
+          layout: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          layout?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          layout?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           granted_at: string
@@ -1094,6 +1571,39 @@ export type Database = {
           granted_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string | null
+          device_info: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_active_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
