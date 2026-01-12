@@ -344,20 +344,46 @@ export default function UsersPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="department">Abteilung</Label>
-                    <Input
-                      id="department"
+                    <Label>Abteilung</Label>
+                    <Select
                       value={newUser.department}
-                      onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                    />
+                      onValueChange={(value) => setNewUser({ ...newUser, department: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Abteilung wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Geschäftsführung">Geschäftsführung</SelectItem>
+                        <SelectItem value="Finanzen">Finanzen</SelectItem>
+                        <SelectItem value="Recht">Recht</SelectItem>
+                        <SelectItem value="Verwaltung">Verwaltung</SelectItem>
+                        <SelectItem value="Projektmanagement">Projektmanagement</SelectItem>
+                        <SelectItem value="Kommunikation">Kommunikation</SelectItem>
+                        <SelectItem value="IT">IT</SelectItem>
+                        <SelectItem value="Personal">Personal</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input
-                      id="position"
+                    <Label>Position</Label>
+                    <Select
                       value={newUser.position}
-                      onChange={(e) => setNewUser({ ...newUser, position: e.target.value })}
-                    />
+                      onValueChange={(value) => setNewUser({ ...newUser, position: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Position wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Geschäftsführer">Geschäftsführer</SelectItem>
+                        <SelectItem value="Abteilungsleiter">Abteilungsleiter</SelectItem>
+                        <SelectItem value="Projektleiter">Projektleiter</SelectItem>
+                        <SelectItem value="Sachbearbeiter">Sachbearbeiter</SelectItem>
+                        <SelectItem value="Referent">Referent</SelectItem>
+                        <SelectItem value="Berater">Berater</SelectItem>
+                        <SelectItem value="Assistent">Assistent</SelectItem>
+                        <SelectItem value="Praktikant">Praktikant</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
