@@ -738,7 +738,7 @@ export default function Opex() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Cost Center *
+                    Organization *
                   </label>
                   <select
                     value={formData.cost_center_id}
@@ -748,12 +748,14 @@ export default function Opex() {
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                   >
-                    <option value="">Select cost center</option>
-                    {costCenters.map((cc) => (
-                      <option key={cc.id} value={cc.id}>
-                        {cc.code} - {cc.name} {cc.country ? `(${cc.country})` : ""}
-                      </option>
-                    ))}
+                    <option value="">Select organization</option>
+                    {costCenters
+                      .filter((cc) => !cc.name.includes("Allgemein") && !cc.name.includes("Projekte"))
+                      .map((cc) => (
+                        <option key={cc.id} value={cc.id}>
+                          {cc.code.startsWith('MGIM') ? 'MGI Media' : cc.code.startsWith('MGIC') ? 'MGI Communications' : 'Gateway'}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div>
