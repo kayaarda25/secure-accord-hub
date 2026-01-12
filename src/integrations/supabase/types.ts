@@ -779,6 +779,7 @@ export type Database = {
           requested_by: string
           signature_comment: string | null
           signature_image: string | null
+          signature_position: string | null
           signed_at: string | null
           signer_id: string
           status: string
@@ -793,6 +794,7 @@ export type Database = {
           requested_by: string
           signature_comment?: string | null
           signature_image?: string | null
+          signature_position?: string | null
           signed_at?: string | null
           signer_id: string
           status?: string
@@ -807,6 +809,7 @@ export type Database = {
           requested_by?: string
           signature_comment?: string | null
           signature_image?: string | null
+          signature_position?: string | null
           signed_at?: string | null
           signer_id?: string
           status?: string
