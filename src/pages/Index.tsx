@@ -187,22 +187,6 @@ const Index = () => {
                           </span>
                           <span className="font-semibold">{stats.pendingExpenses}</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Wallet className="h-4 w-4" />
-                            Budget
-                          </span>
-                          <span className="font-semibold">{formatCurrency(stats.totalBudget)}</span>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full ${budgetPercent > 80 ? 'bg-destructive' : budgetPercent > 60 ? 'bg-warning' : 'bg-success'}`}
-                            style={{ width: `${Math.min(budgetPercent, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground text-right">
-                          {budgetPercent}% used
-                        </p>
                       </div>
                     </CardContent>
                   </Card>
