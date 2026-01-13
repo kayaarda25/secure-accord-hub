@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Shield, Clock, Menu, Timer } from "lucide-react";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface HeaderProps {
   title: string;
@@ -80,6 +81,9 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
           <Shield size={14} className="text-success" />
           <span className="text-xs font-medium text-success">Secure</span>
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* Global Search */}
         <GlobalSearch />

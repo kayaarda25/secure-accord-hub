@@ -3,7 +3,9 @@ import { Layout } from "@/components/layout/Layout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useExport } from "@/hooks/useExport";
 import { supabase } from "@/integrations/supabase/client";
+import { ExportMenu } from "@/components/export/ExportMenu";
 import {
   Receipt,
   Plus,
@@ -57,6 +59,7 @@ interface OpexExpense {
 export default function Opex() {
   const { user, hasAnyRole } = useAuth();
   const { logAction } = useAuditLog();
+  const { isExporting, exportToCSV, exportToExcel, exportToPDF } = useExport();
   const [expenses, setExpenses] = useState<OpexExpense[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -451,10 +454,71 @@ export default function Opex() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-muted rounded-lg text-sm font-medium text-foreground hover:bg-muted/80 transition-colors flex items-center gap-2">
-            <Download size={16} />
-            Export
-          </button>
+          <ExportMenu
+            onExportCSV={() => exportToCSV(
+              expenses.map(e => ({
+                expense_number: e.expense_number,
+                title: e.title,
+                cost_center: e.cost_center?.code || "N/A",
+                amount: e.amount,
+                currency: e.currency,
+                status: e.status,
+                date: formatDate(e.submitted_at),
+              })),
+              [
+                { key: "expense_number", label: "Nr." },
+                { key: "title", label: "Titel" },
+                { key: "cost_center", label: "Kostenstelle" },
+                { key: "amount", label: "Betrag" },
+                { key: "currency", label: "Währung" },
+                { key: "status", label: "Status" },
+                { key: "date", label: "Datum" },
+              ],
+              { filename: "opex-export", title: "OPEX Ausgaben" }
+            )}
+            onExportExcel={() => exportToExcel(
+              expenses.map(e => ({
+                expense_number: e.expense_number,
+                title: e.title,
+                cost_center: e.cost_center?.code || "N/A",
+                amount: e.amount,
+                currency: e.currency,
+                status: e.status,
+                date: formatDate(e.submitted_at),
+              })),
+              [
+                { key: "expense_number", label: "Nr." },
+                { key: "title", label: "Titel" },
+                { key: "cost_center", label: "Kostenstelle" },
+                { key: "amount", label: "Betrag" },
+                { key: "currency", label: "Währung" },
+                { key: "status", label: "Status" },
+                { key: "date", label: "Datum" },
+              ],
+              { filename: "opex-export", title: "OPEX Ausgaben" }
+            )}
+            onExportPDF={() => exportToPDF(
+              expenses.map(e => ({
+                expense_number: e.expense_number,
+                title: e.title,
+                cost_center: e.cost_center?.code || "N/A",
+                amount: formatCurrency(e.amount, e.currency),
+                status: e.status,
+                date: formatDate(e.submitted_at),
+              })),
+              [
+                { key: "expense_number", label: "Nr." },
+                { key: "title", label: "Titel" },
+                { key: "cost_center", label: "Kostenstelle" },
+                { key: "amount", label: "Betrag" },
+                { key: "status", label: "Status" },
+                { key: "date", label: "Datum" },
+              ],
+              { filename: "opex-export", title: "OPEX Ausgaben", subtitle: `Stand: ${new Date().toLocaleDateString("de-DE")}` }
+            )}
+            isExporting={isExporting}
+            disabled={expenses.length === 0}
+          />
           <button
             onClick={() => setShowNewExpense(true)}
             className="px-4 py-2 bg-accent text-accent-foreground rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
