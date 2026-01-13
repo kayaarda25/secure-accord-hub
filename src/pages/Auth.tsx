@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Mail, Building2 } from "lucide-react";
 import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
+import { Badge } from "@/components/ui/badge";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -21,7 +22,17 @@ const signupSchema = loginSchema.extend({
   path: ["confirmPassword"],
 });
 
+interface InvitationData {
+  email: string;
+  department: string | null;
+  position: string | null;
+  organizationName: string | null;
+}
+
 export default function Auth() {
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get("invitation");
+  
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,17 +47,68 @@ export default function Auth() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [remainingAttempts, setRemainingAttempts] = useState(5);
   
+  // Invitation state
+  const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
+  const [isLoadingInvitation, setIsLoadingInvitation] = useState(false);
+  const [invitationError, setInvitationError] = useState<string | null>(null);
+  
   const { checkIfBlocked, logAttempt, maxAttempts, lockoutMinutes } = useLoginProtection();
 
   const { signIn, signUp, user, isLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Load invitation data if token is present
   useEffect(() => {
-    if (user && !isLoading) {
+    if (invitationToken) {
+      loadInvitation();
+    }
+  }, [invitationToken]);
+
+  const loadInvitation = async () => {
+    setIsLoadingInvitation(true);
+    setInvitationError(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("get-invitation", {
+        body: null,
+        headers: {},
+      });
+
+      // Use fetch directly since we need query params
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-invitation?token=${invitationToken}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setInvitationError(result.error || "Ungültige Einladung");
+        return;
+      }
+
+      setInvitationData(result);
+      setEmail(result.email);
+      setIsLogin(false); // Switch to signup mode for invitations
+    } catch (err) {
+      console.error("Error loading invitation:", err);
+      setInvitationError("Fehler beim Laden der Einladung");
+    } finally {
+      setIsLoadingInvitation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && !isLoading && !invitationToken) {
       // Check if user needs to complete 2FA
       checkMfaRequirement();
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, invitationToken]);
 
   const checkMfaRequirement = async () => {
     try {
@@ -65,8 +127,72 @@ export default function Auth() {
     }
   };
 
+  const handleInvitationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const validation = signupSchema.safeParse({
+        email,
+        password,
+        firstName,
+        lastName,
+        confirmPassword,
+      });
+      
+      if (!validation.success) {
+        setError(validation.error.errors[0].message);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Accept the invitation via edge function
+      const { data, error: fnError } = await supabase.functions.invoke("accept-invitation", {
+        body: {
+          token: invitationToken,
+          password,
+          firstName,
+          lastName,
+        },
+      });
+
+      if (fnError) {
+        setError(fnError.message || "Fehler beim Akzeptieren der Einladung");
+        return;
+      }
+
+      if (data?.error) {
+        setError(data.error);
+        return;
+      }
+
+      // Auto-login after successful registration
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        setSuccess("Konto erfolgreich erstellt! Bitte melden Sie sich an.");
+        // Clear invitation token from URL and show login
+        navigate("/auth");
+        setIsLogin(true);
+      } else {
+        setSuccess("Willkommen! Sie werden weitergeleitet...");
+        setTimeout(() => navigate("/"), 1500);
+      }
+    } catch (err) {
+      setError("Ein unerwarteter Fehler ist aufgetreten.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If this is an invitation, use the invitation flow
+    if (invitationToken && invitationData) {
+      return handleInvitationSubmit(e);
+    }
+    
     setError(null);
     setSuccess(null);
     setIsSubmitting(true);
@@ -112,29 +238,8 @@ export default function Auth() {
           await logAttempt(email, true);
         }
       } else {
-        const validation = signupSchema.safeParse({
-          email,
-          password,
-          firstName,
-          lastName,
-          confirmPassword,
-        });
-        if (!validation.success) {
-          setError(validation.error.errors[0].message);
-          setIsSubmitting(false);
-          return;
-        }
-
-        const { error } = await signUp(email, password, firstName, lastName);
-        if (error) {
-          if (error.message.includes("already registered")) {
-            setError("This email address is already registered.");
-          } else {
-            setError(error.message);
-          }
-        } else {
-          setSuccess("Account created successfully! You will be redirected...");
-        }
+        // Regular signup is disabled - users must be invited
+        setError("Registrierung ist nur per Einladung möglich. Bitte kontaktieren Sie einen Administrator.");
       }
     } catch (err) {
       setError("An unexpected error occurred.");
@@ -143,10 +248,33 @@ export default function Auth() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingInvitation) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  // Invitation error state
+  if (invitationToken && invitationError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="card-state p-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mb-4">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Ungültige Einladung</h2>
+            <p className="text-muted-foreground mb-6">{invitationError}</p>
+            <button
+              onClick={() => navigate("/auth")}
+              className="px-6 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+            >
+              Zur Anmeldung
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -167,6 +295,35 @@ export default function Auth() {
 
         {/* Auth Card */}
         <div className="card-state p-8">
+          {/* Invitation Banner */}
+          {invitationData && (
+            <div className="mb-6 p-4 rounded-lg bg-accent/10 border border-accent/20">
+              <div className="flex items-center gap-2 text-accent font-medium mb-2">
+                <Mail className="h-4 w-4" />
+                Sie wurden eingeladen!
+              </div>
+              <div className="space-y-1 text-sm">
+                <p className="text-muted-foreground">
+                  <span className="text-foreground font-medium">{invitationData.email}</span>
+                </p>
+                {invitationData.organizationName && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">{invitationData.organizationName}</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {invitationData.department && (
+                    <Badge variant="secondary">{invitationData.department}</Badge>
+                  )}
+                  {invitationData.position && (
+                    <Badge variant="outline">{invitationData.position}</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mb-6">
             <Shield size={20} className="text-success" />
             <span className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -175,7 +332,7 @@ export default function Auth() {
           </div>
 
           <h2 className="text-xl font-semibold text-foreground mb-6">
-            {isLogin ? "Sign In" : "Sign Up"}
+            {invitationData ? "Konto erstellen" : (isLogin ? "Anmelden" : "Registrieren")}
           </h2>
 
           {isBlocked && (
@@ -203,31 +360,32 @@ export default function Auth() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+            {/* Name fields for invitation signup */}
+            {invitationData && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    First Name
+                    Vorname *
                   </label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="John"
+                    placeholder="Max"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Last Name
+                    Nachname *
                   </label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    placeholder="Doe"
+                    placeholder="Mustermann"
                     required
                   />
                 </div>
@@ -236,21 +394,22 @@ export default function Auth() {
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                Email
+                E-Mail
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                 placeholder="name@example.com"
                 required
+                disabled={!!invitationData}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                Password
+                Passwort {invitationData && "*"}
               </label>
               <div className="relative">
                 <input
@@ -271,10 +430,10 @@ export default function Auth() {
               </div>
             </div>
 
-            {!isLogin && (
+            {invitationData && (
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Confirm Password
+                  Passwort bestätigen *
                 </label>
                 <input
                   type="password"
@@ -289,28 +448,21 @@ export default function Auth() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isBlocked}
               className="w-full py-3 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 glow-gold"
             >
               {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-              {isLogin ? "Sign In" : "Sign Up"}
+              {invitationData ? "Konto erstellen" : (isLogin ? "Anmelden" : "Registrieren")}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-                setSuccess(null);
-              }}
-              className="text-sm text-accent hover:text-accent/80 transition-colors"
-            >
-              {isLogin
-                ? "Don't have an account? Sign up now"
-                : "Already registered? Sign in"}
-            </button>
-          </div>
+          {!invitationData && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Registrierung ist nur per Einladung möglich.
+              </p>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
