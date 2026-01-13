@@ -110,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <h2 style="color: #D4AF37; margin-top: 0;">${title}</h2>
                   <p style="color: #cccccc; line-height: 1.6;">${message}</p>
                   ${link ? `
-                    <a href="${supabaseUrl.replace('.supabase.co', '.lovable.app')}${link}" 
+                    <a href="${link}"
                        style="display: inline-block; background: #D4AF37; color: #000; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; font-weight: bold;">
                       Details anzeigen
                     </a>
