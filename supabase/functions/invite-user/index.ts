@@ -53,7 +53,32 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get admin's organization
+    const { data: adminProfile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", requestingUser.id)
+      .single();
+
+    if (profileError || !adminProfile?.organization_id) {
+      return new Response(
+        JSON.stringify({ error: "Admin muss einer Organisation zugewiesen sein" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { email, department, position, organizationId, roles } = await req.json();
+
+    // Verify admin can only invite to their own organization
+    if (organizationId && organizationId !== adminProfile.organization_id) {
+      return new Response(
+        JSON.stringify({ error: "Sie können nur Benutzer für Ihre eigene Organisation einladen" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Use admin's organization if not specified
+    const targetOrganizationId = organizationId || adminProfile.organization_id;
 
     if (!email) {
       return new Response(
@@ -91,13 +116,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create invitation record
+    // Create invitation record with admin's organization
     const { data: invitation, error: invitationError } = await supabaseAdmin
       .from("user_invitations")
       .insert({
         email,
         invited_by: requestingUser.id,
-        organization_id: organizationId || null,
+        organization_id: targetOrganizationId,
         department,
         position,
         roles: roles || [],

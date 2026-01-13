@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send } from "lucide-react";
+import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2 } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -67,11 +67,12 @@ const ROLE_COLORS: Record<AppRole, string> = {
 };
 
 export default function UsersPage() {
-  const { hasRole, user } = useAuth();
+  const { hasRole, user, profile } = useAuth();
   const { logAction } = useAuditLog();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [adminOrganization, setAdminOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -82,25 +83,47 @@ export default function UsersPage() {
     email: "",
     department: "",
     position: "",
-    organizationId: "",
     roles: [] as AppRole[],
   });
 
   const isAdmin = hasRole("admin");
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && profile?.organization_id) {
+      fetchAdminOrganization();
       fetchUsers();
       fetchInvitations();
       fetchOrganizations();
     }
-  }, [isAdmin]);
+  }, [isAdmin, profile?.organization_id]);
+
+  const fetchAdminOrganization = async () => {
+    if (!profile?.organization_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", profile.organization_id)
+        .single();
+      
+      if (!error && data) {
+        setAdminOrganization(data);
+      }
+    } catch (error) {
+      console.error("Error fetching admin organization:", error);
+    }
+  };
 
   const fetchUsers = async () => {
+    if (!profile?.organization_id) return;
+    
     try {
+      // Only fetch users from the admin's organization
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
+        .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -140,10 +163,14 @@ export default function UsersPage() {
   };
 
   const fetchInvitations = async () => {
+    if (!profile?.organization_id) return;
+    
     try {
+      // Only fetch invitations for the admin's organization
       const { data, error } = await supabase
         .from("user_invitations")
         .select("*")
+        .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -169,15 +196,21 @@ export default function UsersPage() {
       return;
     }
 
+    if (!profile?.organization_id) {
+      toast.error("Keine Organisation zugewiesen");
+      return;
+    }
+
     setIsInviting(true);
 
     try {
+      // Always use the admin's organization
       const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
           email: newInvite.email,
           department: newInvite.department || null,
           position: newInvite.position || null,
-          organizationId: newInvite.organizationId || null,
+          organizationId: profile.organization_id,
           roles: newInvite.roles,
         },
       });
@@ -211,7 +244,7 @@ export default function UsersPage() {
       }
 
       setInviteDialogOpen(false);
-      setNewInvite({ email: "", department: "", position: "", organizationId: "", roles: [] });
+      setNewInvite({ email: "", department: "", position: "", roles: [] });
       fetchInvitations();
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -303,7 +336,7 @@ export default function UsersPage() {
     return <Badge className="bg-amber-500 text-white"><Mail className="h-3 w-3 mr-1" />Ausstehend</Badge>;
   };
 
-  if (!isAdmin) {
+  if (!isAdmin || !profile?.organization_id) {
     return (
       <Layout title="Zugriff verweigert">
         <div className="flex items-center justify-center h-[60vh]">
@@ -322,8 +355,18 @@ export default function UsersPage() {
   }
 
   return (
-    <Layout title="Benutzerverwaltung" subtitle="Benutzer einladen und Rollen verwalten">
+    <Layout 
+      title="Benutzerverwaltung" 
+      subtitle={adminOrganization ? `${adminOrganization.name} - Benutzer einladen und Rollen verwalten` : "Benutzer einladen und Rollen verwalten"}
+    >
       <div className="space-y-6">
+        {/* Organization Badge */}
+        {adminOrganization && (
+          <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20 w-fit">
+            <Building2 className="h-4 w-4 text-accent" />
+            <span className="text-sm font-medium">Organisation: {adminOrganization.name}</span>
+          </div>
+        )}
         <div className="flex items-center justify-end">
           <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
@@ -380,17 +423,17 @@ export default function UsersPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Organisation</Label>
-                  <Select value={newInvite.organizationId} onValueChange={(value) => setNewInvite({ ...newInvite, organizationId: value })}>
-                    <SelectTrigger><SelectValue placeholder="Organisation auswählen" /></SelectTrigger>
-                    <SelectContent>
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Show the organization (read-only) */}
+                {adminOrganization && (
+                  <div className="space-y-2">
+                    <Label>Organisation</Label>
+                    <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg border border-border">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{adminOrganization.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Neue Benutzer werden automatisch Ihrer Organisation zugewiesen.</p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Rollen</Label>
