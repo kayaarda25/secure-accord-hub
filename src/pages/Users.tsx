@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2 } from "lucide-react";
+import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2, RefreshCw, Link } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -268,6 +268,69 @@ export default function UsersPage() {
     } catch (error) {
       console.error("Error cancelling invitation:", error);
       toast.error("Fehler beim Abbrechen der Einladung");
+    }
+  };
+
+  const handleResendInvitation = async (invitation: Invitation) => {
+    setIsInviting(true);
+    try {
+      // First cancel the old invitation
+      await supabase
+        .from("user_invitations")
+        .update({ status: "cancelled" })
+        .eq("id", invitation.id);
+
+      // Create new invitation via edge function
+      const { data, error } = await supabase.functions.invoke("invite-user", {
+        body: {
+          email: invitation.email,
+          department: invitation.department,
+          position: invitation.position,
+          organizationId: invitation.organization_id,
+          roles: invitation.roles || [],
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      toast.success("Einladung erneut gesendet!", {
+        description: `Eine neue E-Mail wurde an ${invitation.email} gesendet.`,
+      });
+
+      fetchInvitations();
+    } catch (error: any) {
+      console.error("Error resending invitation:", error);
+      toast.error(error.message || "Fehler beim erneuten Senden");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleCopyInvitationLink = async (invitationId: string) => {
+    try {
+      // Get the invitation token
+      const { data, error } = await supabase
+        .from("user_invitations")
+        .select("token")
+        .eq("id", invitationId)
+        .single();
+
+      if (error) throw error;
+
+      const invitationUrl = `${window.location.origin}/auth?invitation=${data.token}`;
+      await navigator.clipboard.writeText(invitationUrl);
+      
+      toast.success("Einladungslink kopiert!", {
+        description: "Der Link wurde in die Zwischenablage kopiert.",
+      });
+    } catch (error) {
+      console.error("Error copying invitation link:", error);
+      toast.error("Fehler beim Kopieren des Links");
     }
   };
 
@@ -595,16 +658,41 @@ export default function UsersPage() {
                             {format(new Date(inv.created_at), "dd.MM.yyyy HH:mm", { locale: de })}
                           </TableCell>
                           <TableCell className="text-right">
-                            {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleCancelInvitation(inv.id)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <div className="flex items-center justify-end gap-1">
+                              {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleCopyInvitationLink(inv.id)}
+                                    title="Link kopieren"
+                                  >
+                                    <Link className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleCancelInvitation(inv.id)}
+                                    className="text-destructive hover:text-destructive"
+                                    title="Abbrechen"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                              {(inv.status === "expired" || (inv.status === "pending" && new Date(inv.expires_at) <= new Date())) && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleResendInvitation(inv)}
+                                  disabled={isInviting}
+                                  title="Erneut senden"
+                                  className="text-accent hover:text-accent"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${isInviting ? "animate-spin" : ""}`} />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
