@@ -1683,6 +1683,59 @@ export type Database = {
         }
         Relationships: []
       }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          department: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          organization_id: string | null
+          position: string | null
+          roles: Database["public"]["Enums"]["app_role"][] | null
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          department?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          organization_id?: string | null
+          position?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][] | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          organization_id?: string | null
+          position?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][] | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           granted_at: string

@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon } from "lucide-react";
+import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 type AppRole = "admin" | "state" | "management" | "finance" | "partner";
 
@@ -33,6 +36,18 @@ interface UserWithRoles {
 interface Organization {
   id: string;
   name: string;
+}
+
+interface Invitation {
+  id: string;
+  email: string;
+  department: string | null;
+  position: string | null;
+  organization_id: string | null;
+  roles: AppRole[];
+  status: string;
+  expires_at: string;
+  created_at: string;
 }
 
 const ROLE_LABELS: Record<AppRole, string> = {
@@ -55,17 +70,16 @@ export default function UsersPage() {
   const { hasRole, user } = useAuth();
   const { logAction } = useAuditLog();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
+  const [isInviting, setIsInviting] = useState(false);
   
-  const [newUser, setNewUser] = useState({
+  const [newInvite, setNewInvite] = useState({
     email: "",
-    password: "",
-    firstName: "",
-    lastName: "",
     department: "",
     position: "",
     organizationId: "",
@@ -77,6 +91,7 @@ export default function UsersPage() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      fetchInvitations();
       fetchOrganizations();
     }
   }, [isAdmin]);
@@ -118,9 +133,23 @@ export default function UsersPage() {
       setUsers(usersWithRoles);
     } catch (error) {
       console.error("Error fetching users:", error);
-      toast.error("Error loading users");
+      toast.error("Fehler beim Laden der Benutzer");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_invitations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setInvitations(data || []);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
     }
   };
 
@@ -134,37 +163,78 @@ export default function UsersPage() {
     }
   };
 
-  const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password) {
-      toast.error("Email and password are required");
+  const handleInviteUser = async () => {
+    if (!newInvite.email) {
+      toast.error("E-Mail-Adresse ist erforderlich");
       return;
     }
 
+    setIsInviting(true);
+
     try {
-      const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
-          email: newUser.email,
-          password: newUser.password,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          department: newUser.department,
-          position: newUser.position,
-          organizationId: newUser.organizationId || null,
-          roles: newUser.roles,
+          email: newInvite.email,
+          department: newInvite.department || null,
+          position: newInvite.position || null,
+          organizationId: newInvite.organizationId || null,
+          roles: newInvite.roles,
         },
       });
 
       if (error) throw error;
 
-      await logAction("CREATE", "profiles", data.userId, null, { email: newUser.email, roles: newUser.roles });
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
 
-      toast.success("User created successfully");
-      setCreateDialogOpen(false);
-      setNewUser({ email: "", password: "", firstName: "", lastName: "", department: "", position: "", organizationId: "", roles: [] });
-      fetchUsers();
+      await logAction("CREATE", "user_invitations", data.invitationId, null, { email: newInvite.email, roles: newInvite.roles });
+
+      toast.success("Einladung erfolgreich gesendet!", {
+        description: `Eine E-Mail wurde an ${newInvite.email} gesendet.`,
+      });
+
+      // Show invitation link in case email fails
+      if (data?.invitationUrl) {
+        toast.info("Einladungslink", {
+          description: "Der Link kann auch manuell geteilt werden.",
+          action: {
+            label: "Kopieren",
+            onClick: () => {
+              navigator.clipboard.writeText(data.invitationUrl);
+              toast.success("Link kopiert!");
+            },
+          },
+          duration: 10000,
+        });
+      }
+
+      setInviteDialogOpen(false);
+      setNewInvite({ email: "", department: "", position: "", organizationId: "", roles: [] });
+      fetchInvitations();
     } catch (error: any) {
-      console.error("Error creating user:", error);
-      toast.error(error.message || "Error creating user");
+      console.error("Error inviting user:", error);
+      toast.error(error.message || "Fehler beim Senden der Einladung");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from("user_invitations")
+        .update({ status: "cancelled" })
+        .eq("id", invitationId);
+
+      if (error) throw error;
+
+      toast.success("Einladung abgebrochen");
+      fetchInvitations();
+    } catch (error) {
+      console.error("Error cancelling invitation:", error);
+      toast.error("Fehler beim Abbrechen der Einladung");
     }
   };
 
@@ -180,13 +250,13 @@ export default function UsersPage() {
       }
 
       await logAction("UPDATE", "user_roles", userId, null, { roles });
-      toast.success("Roles updated successfully");
+      toast.success("Rollen erfolgreich aktualisiert");
       setEditDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error) {
       console.error("Error updating roles:", error);
-      toast.error("Error updating roles");
+      toast.error("Fehler beim Aktualisieren der Rollen");
     }
   };
 
@@ -195,16 +265,16 @@ export default function UsersPage() {
       const { error } = await supabase.from("profiles").update({ is_active: !isActive }).eq("user_id", userId);
       if (error) throw error;
       await logAction("UPDATE", "profiles", userId, { is_active: isActive }, { is_active: !isActive });
-      toast.success(isActive ? "User deactivated" : "User activated");
+      toast.success(isActive ? "Benutzer deaktiviert" : "Benutzer aktiviert");
       fetchUsers();
     } catch (error) {
       console.error("Error toggling user status:", error);
-      toast.error("Error changing user status");
+      toast.error("Fehler beim Ändern des Benutzerstatus");
     }
   };
 
   const toggleRole = (role: AppRole) => {
-    setNewUser((prev) => ({
+    setNewInvite((prev) => ({
       ...prev,
       roles: prev.roles.includes(role) ? prev.roles.filter((r) => r !== role) : [...prev.roles, role],
     }));
@@ -218,17 +288,32 @@ export default function UsersPage() {
     });
   };
 
+  const getStatusBadge = (status: string, expiresAt: string) => {
+    const isExpired = new Date(expiresAt) < new Date();
+    
+    if (status === "accepted") {
+      return <Badge className="bg-green-500 text-white"><CheckCircle className="h-3 w-3 mr-1" />Akzeptiert</Badge>;
+    }
+    if (status === "cancelled") {
+      return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" />Abgebrochen</Badge>;
+    }
+    if (status === "expired" || isExpired) {
+      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Abgelaufen</Badge>;
+    }
+    return <Badge className="bg-amber-500 text-white"><Mail className="h-3 w-3 mr-1" />Ausstehend</Badge>;
+  };
+
   if (!isAdmin) {
     return (
-      <Layout title="Access Denied">
+      <Layout title="Zugriff verweigert">
         <div className="flex items-center justify-center h-[60vh]">
           <Card className="max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <Shield className="h-6 w-6" />
-                Access Denied
+                Zugriff verweigert
               </CardTitle>
-              <CardDescription>You need administrator privileges to access this page.</CardDescription>
+              <CardDescription>Sie benötigen Administrator-Rechte, um auf diese Seite zuzugreifen.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -237,65 +322,288 @@ export default function UsersPage() {
   }
 
   return (
-    <Layout title="User Management" subtitle="Manage user accounts and role assignments">
+    <Layout title="Benutzerverwaltung" subtitle="Benutzer einladen und Rollen verwalten">
       <div className="space-y-6">
         <div className="flex items-center justify-end">
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
-              <Button><UserPlus className="mr-2 h-4 w-4" />New User</Button>
+              <Button><Mail className="mr-2 h-4 w-4" />Benutzer einladen</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>Create a new user account with role assignment</DialogDescription>
+                <DialogTitle>Neuen Benutzer einladen</DialogTitle>
+                <DialogDescription>Senden Sie eine Einladung per E-Mail. Der Benutzer kann dann sein eigenes Passwort und Namen festlegen.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label htmlFor="firstName">First Name</Label><Input id="firstName" value={newUser.firstName} onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })} /></div>
-                  <div className="space-y-2"><Label htmlFor="lastName">Last Name</Label><Input id="lastName" value={newUser.lastName} onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-Mail-Adresse *</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="name@example.com"
+                    value={newInvite.email} 
+                    onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })} 
+                  />
                 </div>
-                <div className="space-y-2"><Label htmlFor="email">Email *</Label><Input id="email" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} /></div>
-                <div className="space-y-2"><Label htmlFor="password">Password *</Label><Input id="password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></div>
+                
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Department</Label><Select value={newUser.department} onValueChange={(value) => setNewUser({ ...newUser, department: value })}><SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger><SelectContent><SelectItem value="Executive">Executive</SelectItem><SelectItem value="Finance">Finance</SelectItem><SelectItem value="Legal">Legal</SelectItem><SelectItem value="Administration">Administration</SelectItem><SelectItem value="Project Management">Project Management</SelectItem><SelectItem value="Communication">Communication</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="HR">HR</SelectItem></SelectContent></Select></div>
-                  <div className="space-y-2"><Label>Position</Label><Select value={newUser.position} onValueChange={(value) => setNewUser({ ...newUser, position: value })}><SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger><SelectContent><SelectItem value="CEO">CEO</SelectItem><SelectItem value="Department Head">Department Head</SelectItem><SelectItem value="Project Manager">Project Manager</SelectItem><SelectItem value="Specialist">Specialist</SelectItem><SelectItem value="Consultant">Consultant</SelectItem><SelectItem value="Assistant">Assistant</SelectItem><SelectItem value="Intern">Intern</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-2">
+                    <Label>Abteilung</Label>
+                    <Select value={newInvite.department} onValueChange={(value) => setNewInvite({ ...newInvite, department: value })}>
+                      <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Executive">Executive</SelectItem>
+                        <SelectItem value="Finance">Finanzen</SelectItem>
+                        <SelectItem value="Legal">Recht</SelectItem>
+                        <SelectItem value="Administration">Administration</SelectItem>
+                        <SelectItem value="Project Management">Projektmanagement</SelectItem>
+                        <SelectItem value="Communication">Kommunikation</SelectItem>
+                        <SelectItem value="IT">IT</SelectItem>
+                        <SelectItem value="HR">Personal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Position</Label>
+                    <Select value={newInvite.position} onValueChange={(value) => setNewInvite({ ...newInvite, position: value })}>
+                      <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CEO">CEO</SelectItem>
+                        <SelectItem value="Department Head">Abteilungsleiter</SelectItem>
+                        <SelectItem value="Project Manager">Projektmanager</SelectItem>
+                        <SelectItem value="Specialist">Spezialist</SelectItem>
+                        <SelectItem value="Consultant">Berater</SelectItem>
+                        <SelectItem value="Assistant">Assistent</SelectItem>
+                        <SelectItem value="Intern">Praktikant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2"><Label>Organization</Label><Select value={newUser.organizationId} onValueChange={(value) => setNewUser({ ...newUser, organizationId: value })}><SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger><SelectContent>{organizations.map((org) => (<SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>))}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Roles</Label><div className="flex flex-wrap gap-2">{(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (<div key={role} className="flex items-center space-x-2"><Checkbox id={`role-${role}`} checked={newUser.roles.includes(role)} onCheckedChange={() => toggleRole(role)} /><label htmlFor={`role-${role}`} className="text-sm font-medium cursor-pointer">{ROLE_LABELS[role]}</label></div>))}</div></div>
+
+                <div className="space-y-2">
+                  <Label>Organisation</Label>
+                  <Select value={newInvite.organizationId} onValueChange={(value) => setNewInvite({ ...newInvite, organizationId: value })}>
+                    <SelectTrigger><SelectValue placeholder="Organisation auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Rollen</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
+                      <div key={role} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`role-${role}`} 
+                          checked={newInvite.roles.includes(role)} 
+                          onCheckedChange={() => toggleRole(role)} 
+                        />
+                        <label htmlFor={`role-${role}`} className="text-sm font-medium cursor-pointer">
+                          {ROLE_LABELS[role]}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <DialogFooter><Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button><Button onClick={handleCreateUser}>Create</Button></DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Abbrechen</Button>
+                <Button onClick={handleInviteUser} disabled={isInviting}>
+                  {isInviting ? (
+                    <>Wird gesendet...</>
+                  ) : (
+                    <><Send className="mr-2 h-4 w-4" />Einladung senden</>
+                  )}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" />Users</CardTitle><CardDescription>{users.length} users in system</CardDescription></CardHeader>
-          <CardContent>
-            {loading ? (<div className="text-center py-8 text-muted-foreground">Loading...</div>) : (
-              <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Department</TableHead><TableHead>Roles</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {users.map((u) => (
-                    <TableRow key={u.id} className={!u.is_active ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">{u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : "-"}</TableCell>
-                      <TableCell>{u.email}</TableCell>
-                      <TableCell>{u.department || "-"}</TableCell>
-                      <TableCell><div className="flex flex-wrap gap-1">{u.roles.length > 0 ? u.roles.map((role) => (<Badge key={role} className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>)) : (<span className="text-muted-foreground text-sm">No roles</span>)}</div></TableCell>
-                      <TableCell><Badge variant={u.is_active ? "default" : "secondary"}>{u.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => handleToggleActive(u.user_id, u.is_active)}>{u.is_active ? (<Trash2 className="h-4 w-4 text-destructive" />) : (<Shield className="h-4 w-4 text-green-500" />)}</Button></div></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="users" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <UsersIcon className="h-4 w-4" />
+              Benutzer ({users.length})
+            </TabsTrigger>
+            <TabsTrigger value="invitations" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Einladungen ({invitations.filter(i => i.status === "pending").length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UsersIcon className="h-5 w-5" />
+                  Registrierte Benutzer
+                </CardTitle>
+                <CardDescription>{users.length} Benutzer im System</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-8 text-muted-foreground">Laden...</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>E-Mail</TableHead>
+                        <TableHead>Abteilung</TableHead>
+                        <TableHead>Rollen</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Aktionen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((u) => (
+                        <TableRow key={u.id} className={!u.is_active ? "opacity-50" : ""}>
+                          <TableCell className="font-medium">
+                            {u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : "-"}
+                          </TableCell>
+                          <TableCell>{u.email}</TableCell>
+                          <TableCell>{u.department || "-"}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {u.roles.length > 0 ? u.roles.map((role) => (
+                                <Badge key={role} className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>
+                              )) : (
+                                <span className="text-muted-foreground text-sm">Keine Rollen</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={u.is_active ? "default" : "secondary"}>
+                              {u.is_active ? "Aktiv" : "Inaktiv"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleToggleActive(u.user_id, u.is_active)}>
+                                {u.is_active ? (
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                ) : (
+                                  <Shield className="h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="invitations">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Einladungen
+                </CardTitle>
+                <CardDescription>Versendete Einladungen verwalten</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {invitations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">Keine Einladungen vorhanden</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>E-Mail</TableHead>
+                        <TableHead>Abteilung</TableHead>
+                        <TableHead>Position</TableHead>
+                        <TableHead>Rollen</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Erstellt am</TableHead>
+                        <TableHead className="text-right">Aktionen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invitations.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="font-medium">{inv.email}</TableCell>
+                          <TableCell>{inv.department || "-"}</TableCell>
+                          <TableCell>{inv.position || "-"}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {inv.roles && inv.roles.length > 0 ? inv.roles.map((role) => (
+                                <Badge key={role} className={ROLE_COLORS[role]} variant="secondary">
+                                  {ROLE_LABELS[role]}
+                                </Badge>
+                              )) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(inv.status, inv.expires_at)}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {format(new Date(inv.created_at), "dd.MM.yyyy HH:mm", { locale: de })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCancelInvitation(inv.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Edit Roles</DialogTitle><DialogDescription>{selectedUser?.email}</DialogDescription></DialogHeader>
-            {selectedUser && (<div className="space-y-4"><div className="space-y-2"><Label>Roles</Label><div className="flex flex-wrap gap-4">{(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (<div key={role} className="flex items-center space-x-2"><Checkbox id={`edit-role-${role}`} checked={selectedUser.roles.includes(role)} onCheckedChange={() => toggleEditRole(role)} /><label htmlFor={`edit-role-${role}`} className="text-sm font-medium cursor-pointer">{ROLE_LABELS[role]}</label></div>))}</div></div></div>)}
-            <DialogFooter><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button><Button onClick={() => selectedUser && handleUpdateRoles(selectedUser.user_id, selectedUser.roles)}>Save</Button></DialogFooter>
+            <DialogHeader>
+              <DialogTitle>Rollen bearbeiten</DialogTitle>
+              <DialogDescription>{selectedUser?.email}</DialogDescription>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Rollen</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
+                      <div key={role} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`edit-role-${role}`} 
+                          checked={selectedUser.roles.includes(role)} 
+                          onCheckedChange={() => toggleEditRole(role)} 
+                        />
+                        <label htmlFor={`edit-role-${role}`} className="text-sm font-medium cursor-pointer">
+                          {ROLE_LABELS[role]}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
+              <Button onClick={() => selectedUser && handleUpdateRoles(selectedUser.user_id, selectedUser.roles)}>Speichern</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
