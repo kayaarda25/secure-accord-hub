@@ -23,9 +23,51 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+    // Authorization check - verify the caller's identity
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create a client with the user's auth token to verify identity
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      console.error("Authorization failed:", authError?.message || "No user found");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log(`Report generation requested by user: ${user.id}`);
+
+    // Create admin client for database operations (only after auth validation)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user has permission to generate reports (admin, management, or finance role)
+    const { data: hasPermission } = await supabase.rpc('has_any_role', {
+      _user_id: user.id,
+      _roles: ['admin', 'management', 'finance']
+    });
+
+    if (!hasPermission) {
+      console.error(`User ${user.id} attempted to generate report without permission`);
+      return new Response(
+        JSON.stringify({ error: "Forbidden - Insufficient permissions to generate reports" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const { 
       report_type, 
@@ -36,7 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
       scheduled_report_id 
     } = await req.json() as ReportRequest;
 
-    console.log(`Generating ${report_type} report in ${format} format`);
+    console.log(`Generating ${report_type} report in ${format} format for user ${user.id}`);
 
     // Fetch data based on report type
     let reportData: any = {};
