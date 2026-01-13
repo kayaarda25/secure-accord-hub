@@ -25,11 +25,58 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+    // Authorization check - verify the caller's identity
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create a client with the user's auth token to verify identity
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      console.error("Authorization failed:", authError?.message || "No user found");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log(`Authenticated user: ${user.id}`);
+
+    // Create admin client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { user_id, type, title, message, link, send_email } = await req.json() as NotificationRequest;
+
+    // Authorization: Users can only send notifications to themselves OR must have admin/management role
+    if (user_id !== user.id) {
+      // Check if caller has permission to send notifications to other users
+      const { data: hasPermission } = await supabase.rpc('has_any_role', {
+        _user_id: user.id,
+        _roles: ['admin', 'management', 'finance']
+      });
+
+      if (!hasPermission) {
+        console.error(`User ${user.id} attempted to send notification to ${user_id} without permission`);
+        return new Response(
+          JSON.stringify({ error: "Forbidden - Cannot send notifications to other users" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      console.log(`User ${user.id} has permission to send notification to ${user_id}`);
+    }
 
     console.log(`Creating notification for user ${user_id}: ${title}`);
 
