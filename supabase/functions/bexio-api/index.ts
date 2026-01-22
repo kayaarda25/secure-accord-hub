@@ -118,9 +118,9 @@ serve(async (req: Request) => {
 
     if (tokensError || !tokens) {
       return new Response(
-        JSON.stringify({ error: "Bexio not connected", connected: false }),
+        JSON.stringify({ connected: false }),
         {
-          status: 401,
+          status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
