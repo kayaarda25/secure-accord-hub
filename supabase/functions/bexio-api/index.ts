@@ -451,6 +451,7 @@ serve(async (req: Request) => {
       case "attach_file_to_bill": {
         // Attach file(s) to an existing purchase bill
         // Expects: data.bill_id (UUID), data.attachment_ids (array of file UUIDs)
+        // Bexio v4 PUT requires ALL mandatory fields, so we must preserve the entire bill and add attachments.
         if (!data?.bill_id || !data?.attachment_ids) {
           throw new Error("attach_file_to_bill: missing bill_id or attachment_ids");
         }
@@ -465,11 +466,23 @@ serve(async (req: Request) => {
         const currentBill = await parseBexioResponse(getBillResp, "get_bill_for_attach");
 
         // Merge existing attachment_ids with new ones
-        const existingAttachments = currentBill.attachment_ids || [];
+        const existingAttachments: string[] = currentBill.attachment_ids || [];
         const allAttachments = [...new Set([...existingAttachments, ...data.attachment_ids])];
 
-        // Update bill with attachment_ids
-        const updatePayload = {
+        // Bexio v4 PUT requires ALL mandatory fields; build payload from currentBill + updated attachments
+        const updatePayload: Record<string, any> = {
+          supplier_id: currentBill.supplier_id,
+          contact_partner_id: currentBill.contact_partner_id ?? currentBill.supplier_id,
+          title: currentBill.title,
+          vendor_ref: currentBill.vendor_ref ?? null,
+          address: currentBill.address,
+          currency_code: currentBill.currency_code,
+          bill_date: currentBill.bill_date,
+          due_date: currentBill.due_date,
+          manual_amount: currentBill.manual_amount ?? true,
+          item_net: currentBill.item_net ?? false,
+          amount_man: currentBill.amount_man ?? currentBill.amount_calc ?? 0,
+          line_items: currentBill.line_items ?? [],
           attachment_ids: allAttachments,
         };
 
