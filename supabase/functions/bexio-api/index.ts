@@ -337,8 +337,6 @@ serve(async (req: Request) => {
           line_items: [
             {
               position: 0,
-              // name = line item description (supported in v4)
-              name: data.line_description || data.notes || data.title || `${data.invoice_number || "Rechnung"}`,
               amount: totalAmount,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
