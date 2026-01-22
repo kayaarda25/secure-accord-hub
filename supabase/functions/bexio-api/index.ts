@@ -329,6 +329,80 @@ serve(async (req: Request) => {
         result = await parseBexioResponse(bexioResponse, action);
         break;
 
+      case "upload_file": {
+        // Upload a file to Bexio Files (Inbox)
+        // Expects: data.file_base64 (base64 encoded), data.filename, data.mime_type
+        if (!data?.file_base64 || !data?.filename) {
+          throw new Error("upload_file: missing file_base64 or filename");
+        }
+
+        // Decode base64 to binary
+        const binaryString = atob(data.file_base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const mimeType = data.mime_type || "application/pdf";
+        const blob = new Blob([bytes], { type: mimeType });
+
+        const formData = new FormData();
+        formData.append("file", blob, data.filename);
+
+        console.log(`Uploading file to Bexio: ${data.filename} (${bytes.length} bytes)`);
+
+        bexioResponse = await fetch(`${BEXIO_API_URL}/3.0/files`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+          body: formData,
+        });
+        result = await parseBexioResponse(bexioResponse, action);
+        break;
+      }
+
+      case "attach_file_to_bill": {
+        // Attach file(s) to an existing purchase bill
+        // Expects: data.bill_id (UUID), data.attachment_ids (array of file UUIDs)
+        if (!data?.bill_id || !data?.attachment_ids) {
+          throw new Error("attach_file_to_bill: missing bill_id or attachment_ids");
+        }
+
+        // First get current bill to preserve existing data
+        const getBillResp = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(data.bill_id)}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        });
+        const currentBill = await parseBexioResponse(getBillResp, "get_bill_for_attach");
+
+        // Merge existing attachment_ids with new ones
+        const existingAttachments = currentBill.attachment_ids || [];
+        const allAttachments = [...new Set([...existingAttachments, ...data.attachment_ids])];
+
+        // Update bill with attachment_ids
+        const updatePayload = {
+          attachment_ids: allAttachments,
+        };
+
+        console.log(`Attaching files to bill ${data.bill_id}:`, allAttachments);
+
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(data.bill_id)}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(updatePayload),
+        });
+        result = await parseBexioResponse(bexioResponse, action);
+        break;
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
