@@ -261,14 +261,25 @@ serve(async (req: Request) => {
           ? toNumber(data.booking_account_id)
           : (Number.isFinite(toNumber(data.account_id)) ? toNumber(data.account_id) : 99);
 
-        // Tax ID: use provided, or infer (22 = standard Swiss VAT, null = no VAT)
+        // Tax ID: map vat_rate to correct Bexio tax_id
+        // Bexio tax IDs: 22 = 8.1% (alt), 35 = 7.7% (VM77), 36 = 2.5% (red), null = no VAT
         const vatRate = toNumber(data.vat_rate);
         const hasVat = Number.isFinite(vatRate) && vatRate > 0;
-        const taxId = (data?.tax_id === null)
-          ? null
-          : (Number.isFinite(toNumber(data.tax_id))
-            ? toNumber(data.tax_id)
-            : (hasVat ? 22 : null));
+        let taxId: number | null = null;
+        if (data?.tax_id !== null && Number.isFinite(toNumber(data.tax_id))) {
+          taxId = toNumber(data.tax_id);
+        } else if (hasVat) {
+          // Map common Swiss VAT rates to Bexio tax_ids
+          if (vatRate >= 7.5 && vatRate <= 8.1) {
+            taxId = 35; // 7.7% (VM77 - Mat/DL Vorsteuer)
+          } else if (vatRate >= 2.4 && vatRate <= 2.6) {
+            taxId = 36; // 2.5% reduced rate
+          } else if (vatRate >= 3.7 && vatRate <= 3.9) {
+            taxId = 37; // 3.8% Sondersatz Beherbergung
+          } else {
+            taxId = 35; // Default to 7.7% if rate is provided but doesn't match
+          }
+        }
 
         // Build address OBJECT as expected by v4 (we verified via GET /4.0/purchase/bills/{id}).
         // We try to parse Swiss-style addresses like: "Street 1, 8005 Zürich".
@@ -324,6 +335,8 @@ serve(async (req: Request) => {
           contact_partner_id: Number.isFinite(toNumber(data.contact_partner_id))
             ? toNumber(data.contact_partner_id)
             : supplierId,
+          // document_nr = Invoice "Nr." field in Bexio
+          document_nr: data.invoice_number || null,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.payment_reference || data.vendor_ref || null,
           address: addressObj,
