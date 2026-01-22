@@ -221,21 +221,23 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Bexio v4 Purchase API
-        // Endpoint: /4.0/purchase/bills
-        // IMPORTANT: Bexio v4 Purchase Bills expects line_items with:
-        // - amount (monetary amount)
-        // - booking_account_id
-        // - tax_id (nullable)
-        // and rejects typical description fields like name/text/description.
-        // We derived this from real bill details fetched via GET /4.0/purchase/bills/{id}.
+        // Bexio v4 Purchase Bills API
+        // Endpoint: POST /4.0/purchase/bills
+        // REQUIRED FIELDS (based on 400 error):
+        // - supplier_id: number
+        // - contact_partner_id: number (can be same as supplier_id for companies without contact persons)
+        // - address: string (supplier address as text)
+        // - manual_amount: number (total gross amount)
+        // - item_net: number (net amount per line item)
+        // - line_items[].position: number (0-indexed position)
+        
         const supplierId = toNumber(data.vendor_id ?? data.contact_id);
         if (!Number.isFinite(supplierId)) {
           throw new Error("create_invoice: missing/invalid supplier_id (vendor_id/contact_id)");
         }
 
-        const unitPrice = toNumber(data.amount);
-        if (!Number.isFinite(unitPrice)) {
+        const totalAmount = toNumber(data.amount);
+        if (!Number.isFinite(totalAmount)) {
           throw new Error("create_invoice: missing/invalid amount");
         }
 
@@ -243,28 +245,41 @@ serve(async (req: Request) => {
           ? toNumber(data.booking_account_id)
           : (Number.isFinite(toNumber(data.account_id)) ? toNumber(data.account_id) : 99);
 
-        // If caller provides tax_id we use it (can be null). Otherwise: infer from VAT presence.
-        const vatAmount = toNumber(data.vat_amount);
+        // Calculate net amount (assume 7.7% VAT if VAT present, otherwise net = gross)
         const vatRate = toNumber(data.vat_rate);
-        const hasVat = (Number.isFinite(vatAmount) && vatAmount > 0) || (Number.isFinite(vatRate) && vatRate > 0);
+        const hasVat = Number.isFinite(vatRate) && vatRate > 0;
+        const netAmount = hasVat ? totalAmount / (1 + vatRate / 100) : totalAmount;
 
+        // Tax ID: use provided, or infer (22 = standard Swiss VAT, null = no VAT)
         const taxId = (data?.tax_id === null)
           ? null
           : (Number.isFinite(toNumber(data.tax_id))
             ? toNumber(data.tax_id)
             : (hasVat ? 22 : null));
 
+        // Build address string from vendor data
+        const addressParts = [
+          data.vendor_name,
+          data.vendor_address,
+        ].filter(Boolean);
+        const addressString = addressParts.length > 0 ? addressParts.join(", ") : data.vendor_name || "Lieferant";
+
         const payload: Record<string, any> = {
           supplier_id: supplierId,
+          contact_partner_id: supplierId, // Use supplier ID if no specific contact partner
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.vendor_ref || data.invoice_number || null,
+          address: addressString,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
           due_date: data.due_date || null,
+          manual_amount: totalAmount,
+          item_net: netAmount,
           line_items: [
             {
-              // Do NOT send name/text/description here
-              amount: unitPrice,
+              position: 0,
+              amount: totalAmount,
+              item_net: netAmount,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
             },
