@@ -118,19 +118,25 @@ Falls ein Feld nicht gefunden wird, setze null. Antworte NUR mit dem JSON-Objekt
     // Parse the JSON response - handle potential markdown wrapping
     let extractedData;
     try {
-      // Remove potential markdown code blocks
+      // Remove potential markdown code blocks (various formats)
       let cleanContent = content.trim();
-      if (cleanContent.startsWith("```json")) {
-        cleanContent = cleanContent.slice(7);
-      } else if (cleanContent.startsWith("```")) {
-        cleanContent = cleanContent.slice(3);
+      
+      // Handle ```json\n...\n``` format using regex
+      const jsonBlockMatch = cleanContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonBlockMatch) {
+        cleanContent = jsonBlockMatch[1].trim();
+      } else {
+        // Try to find JSON object directly
+        const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanContent = jsonMatch[0];
+        }
       }
-      if (cleanContent.endsWith("```")) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
-      extractedData = JSON.parse(cleanContent.trim());
+      
+      extractedData = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error("Failed to parse AI response:", content);
+      console.error("Parse error:", parseError);
       throw new Error("Could not parse invoice data");
     }
 
