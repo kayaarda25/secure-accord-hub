@@ -216,23 +216,27 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Bexio v4 Purchase API - minimal payload
+        // Bexio v4 Purchase API
         // Endpoint: /4.0/purchase/bills
+        // Notes from live responses:
+        // - top-level "gross" exists on returned objects; "total_gross" is rejected
+        // - "line_items" is accepted, but per-item field "description" is rejected
+        // So we send a line_items array using "text" (common Bexio wording) and omit total fields.
         const payload: Record<string, any> = {
           supplier_id: data.vendor_id || data.contact_id,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
+          vendor_ref: data.vendor_ref || data.invoice_number || null,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
-          total_gross: Number(data.amount),
+          due_date: data.due_date || null,
+          line_items: [
+            {
+              text: data.title || data.vendor_name || "Lieferantenrechnung",
+              amount: 1,
+              unit_price: Number(data.amount),
+            },
+          ],
         };
-
-        // Add optional fields if provided
-        if (data.vendor_ref || data.invoice_number) {
-          payload.vendor_ref = data.vendor_ref || data.invoice_number;
-        }
-        if (data.due_date) {
-          payload.due_date = data.due_date;
-        }
 
         console.log("Creating purchase bill (v4) with payload:", JSON.stringify(payload));
 
