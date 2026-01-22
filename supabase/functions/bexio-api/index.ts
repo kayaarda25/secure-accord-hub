@@ -329,15 +329,18 @@ serve(async (req: Request) => {
 
         // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
         // Note: v4 line_items do NOT support "description" field - Bexio returns 400 if included
+        // Bexio v4: "Nr." field is auto-generated. Include invoice_number in title for reference.
+        const titleWithNr = data.invoice_number 
+          ? `${data.invoice_number} - ${data.vendor_name}` 
+          : data.title || `Rechnung - ${data.vendor_name}`;
+        
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           // contact_partner_id = internal contact person (if provided), otherwise supplier
           contact_partner_id: Number.isFinite(toNumber(data.contact_partner_id))
             ? toNumber(data.contact_partner_id)
             : supplierId,
-          // document_nr = Invoice "Nr." field in Bexio
-          document_nr: data.invoice_number || null,
-          title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
+          title: data.title || titleWithNr,
           vendor_ref: data.payment_reference || data.vendor_ref || null,
           address: addressObj,
           currency_code: (data.currency || "CHF") as string,
