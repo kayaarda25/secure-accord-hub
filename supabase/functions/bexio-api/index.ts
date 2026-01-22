@@ -216,7 +216,7 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Bexio v4 Purchase API uses "supplier_id" (not "vendor_id")
+        // Bexio v4 Purchase API
         // Endpoint: /4.0/purchase/bills
         const payload = {
           supplier_id: data.vendor_id || data.contact_id,
@@ -225,11 +225,11 @@ serve(async (req: Request) => {
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || null,
           due_date: data.due_date || null,
-          // Minimal positions; adjust accounts/taxes in Bexio if needed.
-          positions: [
+          // v4 API uses "line_items" instead of "positions"
+          line_items: [
             {
-              text: data.title || data.vendor_name || "Lieferantenrechnung",
-              amount: 1,
+              description: data.title || data.vendor_name || "Lieferantenrechnung",
+              quantity: 1,
               unit_price: Number(data.amount),
             },
           ],
