@@ -8,7 +8,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -21,10 +20,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  User,
   Calendar,
   FileText,
-  Clock,
   Send,
   AlertTriangle,
   CheckCheck,
@@ -115,7 +112,7 @@ export function InvoiceApprovalDialog({
       setComment("");
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Fehler",
         description: error.message,
@@ -171,7 +168,7 @@ export function InvoiceApprovalDialog({
               text: invoice.notes || invoice.vendor_name,
               amount: "1",
               unit_price: String(invoice.amount),
-              account_id: 1, // Default account
+              account_id: 1,
             }],
             mwst_type: 0,
             mwst_is_net: true,
@@ -188,7 +185,6 @@ export function InvoiceApprovalDialog({
 
         } catch (bexioError) {
           console.error("Bexio sync error:", bexioError);
-          // Don't fail the approval, just note it wasn't synced
         }
       }
     },
@@ -203,7 +199,7 @@ export function InvoiceApprovalDialog({
       setComment("");
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Fehler",
         description: error.message,
@@ -239,7 +235,7 @@ export function InvoiceApprovalDialog({
       setRejectionReason("");
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Fehler",
         description: error.message,
@@ -262,7 +258,7 @@ export function InvoiceApprovalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -490,7 +486,8 @@ export function InvoiceApprovalDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        {/* Footer Actions */}
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
           {canReject && rejectionReason && (
             <Button
               variant="destructive"
@@ -524,7 +521,7 @@ export function InvoiceApprovalDialog({
               Finale Freigabe
             </Button>
           )}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
