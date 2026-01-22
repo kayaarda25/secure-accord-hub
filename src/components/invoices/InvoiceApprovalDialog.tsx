@@ -323,35 +323,49 @@ export function InvoiceApprovalDialog({
 
   // Toggle embedded document preview
   const toggleDocument = async () => {
+    // Hide + cleanup
     if (showDocument) {
+      if (documentUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(documentUrl);
+      }
+      setDocumentUrl(null);
       setShowDocument(false);
       return;
     }
 
     if (!invoice.document_path) return;
-    
+
     setLoadingDocument(true);
-    const { data, error } = await supabase.storage
-      .from("creditor-invoices")
-      .createSignedUrl(invoice.document_path, 3600); // 1 hour valid
-    setLoadingDocument(false);
-    
-    if (error || !data?.signedUrl) {
+    try {
+      // Prefer direct download -> blob URL to avoid Chrome iframe blocking on signed URLs
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from("creditor-invoices")
+        .download(invoice.document_path);
+
+      if (downloadError || !fileBlob) {
+        throw downloadError ?? new Error("Download fehlgeschlagen");
+      }
+
+      const blobUrl = URL.createObjectURL(fileBlob);
+      setDocumentUrl(blobUrl);
+      setShowDocument(true);
+    } catch (e) {
       toast({
         title: "Fehler",
         description: "Dokument konnte nicht geladen werden.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setLoadingDocument(false);
     }
-    
-    setDocumentUrl(data.signedUrl);
-    setShowDocument(true);
   };
 
   // Handle dialog close - reset document state
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
+      if (documentUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(documentUrl);
+      }
       setShowDocument(false);
       setDocumentUrl(null);
     }
