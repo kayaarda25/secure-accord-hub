@@ -9,6 +9,11 @@ const corsHeaders = {
 const BEXIO_API_URL = "https://api.bexio.com";
 const BEXIO_TOKEN_URL = "https://auth.bexio.com/realms/bexio/protocol/openid-connect/token";
 
+function toNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 interface BexioTokens {
   access_token: string;
   refresh_token: string;
@@ -218,9 +223,39 @@ serve(async (req: Request) => {
       case "create_invoice": {
         // Bexio v4 Purchase API
         // Endpoint: /4.0/purchase/bills
-        // Per Bexio v4 docs: line_items uses "name" for item description
+        // IMPORTANT: Bexio v4 Purchase Bills expects line_items with:
+        // - amount (monetary amount)
+        // - booking_account_id
+        // - tax_id (nullable)
+        // and rejects typical description fields like name/text/description.
+        // We derived this from real bill details fetched via GET /4.0/purchase/bills/{id}.
+        const supplierId = toNumber(data.vendor_id ?? data.contact_id);
+        if (!Number.isFinite(supplierId)) {
+          throw new Error("create_invoice: missing/invalid supplier_id (vendor_id/contact_id)");
+        }
+
+        const unitPrice = toNumber(data.amount);
+        if (!Number.isFinite(unitPrice)) {
+          throw new Error("create_invoice: missing/invalid amount");
+        }
+
+        const bookingAccountId = Number.isFinite(toNumber(data.booking_account_id))
+          ? toNumber(data.booking_account_id)
+          : (Number.isFinite(toNumber(data.account_id)) ? toNumber(data.account_id) : 99);
+
+        // If caller provides tax_id we use it (can be null). Otherwise: infer from VAT presence.
+        const vatAmount = toNumber(data.vat_amount);
+        const vatRate = toNumber(data.vat_rate);
+        const hasVat = (Number.isFinite(vatAmount) && vatAmount > 0) || (Number.isFinite(vatRate) && vatRate > 0);
+
+        const taxId = (data?.tax_id === null)
+          ? null
+          : (Number.isFinite(toNumber(data.tax_id))
+            ? toNumber(data.tax_id)
+            : (hasVat ? 22 : null));
+
         const payload: Record<string, any> = {
-          supplier_id: data.vendor_id || data.contact_id,
+          supplier_id: supplierId,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.vendor_ref || data.invoice_number || null,
           currency_code: (data.currency || "CHF") as string,
@@ -228,9 +263,10 @@ serve(async (req: Request) => {
           due_date: data.due_date || null,
           line_items: [
             {
-              name: data.title || data.vendor_name || "Lieferantenrechnung",
-              amount: 1,
-              unit_price: Number(data.amount),
+              // Do NOT send name/text/description here
+              amount: unitPrice,
+              booking_account_id: bookingAccountId,
+              tax_id: taxId,
             },
           ],
         };
@@ -245,6 +281,19 @@ serve(async (req: Request) => {
             Accept: "application/json",
           },
           body: JSON.stringify(payload),
+        });
+        result = await parseBexioResponse(bexioResponse, action);
+        break;
+      }
+
+      case "get_bill": {
+        if (!data?.id) throw new Error("get_bill: missing id");
+
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(data.id)}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
         });
         result = await parseBexioResponse(bexioResponse, action);
         break;
