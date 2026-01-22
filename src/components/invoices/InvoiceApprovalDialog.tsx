@@ -205,10 +205,17 @@ export function InvoiceApprovalDialog({
                   mime_type: "application/pdf",
                 });
 
-                if (uploadResult?.uuid) {
-                  bexioFileId = uploadResult.uuid;
-                  console.log("Uploaded file to Bexio with ID:", bexioFileId);
-                }
+                 // Bexio returns an array: [{ id: number, uuid: string, ... }]
+                 const uploadedUuid = Array.isArray(uploadResult)
+                   ? uploadResult?.[0]?.uuid
+                   : uploadResult?.uuid;
+
+                 if (uploadedUuid) {
+                   bexioFileId = String(uploadedUuid);
+                   console.log("Uploaded file to Bexio with UUID:", bexioFileId);
+                 } else {
+                   console.warn("Bexio upload_file returned no uuid:", uploadResult);
+                 }
               }
             } catch (uploadError) {
               console.error("Document upload to Bexio failed:", uploadError);
@@ -217,7 +224,18 @@ export function InvoiceApprovalDialog({
           }
 
           // Step 3: Create creditor invoice (Lieferantenrechnung) in Bexio
-          // Include attachment_ids directly if file was uploaded, and add description
+          // Include attachment_ids directly if file was uploaded.
+          // Note: v4 purchase bills do not support a dedicated line-item description field.
+          // We therefore include the user's notes in the title (supported by the API).
+          const normalizedNotes = (invoice.notes || "")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const bexioTitleBase = `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`;
+          const bexioTitle = normalizedNotes
+            ? `${bexioTitleBase} | ${normalizedNotes}`.slice(0, 180)
+            : bexioTitleBase;
+
           const bexioInvoice = await callBexioApi("create_invoice", {
             vendor_id: vendorId,
             vendor_name: invoice.vendor_name,
@@ -230,12 +248,23 @@ export function InvoiceApprovalDialog({
             vat_rate: invoice.vat_rate || 0,
             vat_amount: invoice.vat_amount || 0,
             currency: invoice.currency || "CHF",
-            title: `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`,
-            description: invoice.notes || `${invoice.vendor_name} - ${invoice.invoice_number || "Rechnung"}`,
+            title: bexioTitle,
             attachment_ids: bexioFileId ? [bexioFileId] : [],
           });
 
-          console.log("Created Bexio purchase bill:", bexioInvoice.id, "with attachment:", bexioFileId);
+          // Fallback: ensure attachment is linked even if create endpoint ignored it
+          if (bexioFileId && bexioInvoice?.id) {
+            try {
+              await callBexioApi("attach_file_to_bill", {
+                bill_id: bexioInvoice.id,
+                attachment_ids: [bexioFileId],
+              });
+            } catch (e) {
+              console.warn("Bexio attach_file_to_bill failed (non-blocking):", e);
+            }
+          }
+
+          console.log("Created Bexio purchase bill:", bexioInvoice.id, "with attachment uuid:", bexioFileId);
 
           // Update local record with Bexio reference
           await supabase
