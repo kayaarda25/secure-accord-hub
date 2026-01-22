@@ -93,56 +93,23 @@ export function RevenueByRegion() {
       // Process declarations into regional data
       const africaCountries: CountryRevenue[] = [
         {
-          country: "Uganda",
-          countryCode: "UG",
+          country: "Südsudan",
+          countryCode: "SS",
           region: "Afrika",
           revenue: 0,
           minutes: 0,
           providers: [],
-          trend: 15.2,
+          trend: 18.5,
           monthlyData: [],
         },
         {
-          country: "Kenia",
-          countryCode: "KE",
+          country: "Angola",
+          countryCode: "AO",
           region: "Afrika",
           revenue: 0,
           minutes: 0,
           providers: [],
-          trend: 8.7,
-          monthlyData: [],
-        },
-        {
-          country: "Tansania",
-          countryCode: "TZ",
-          region: "Afrika",
-          revenue: 0,
-          minutes: 0,
-          providers: [],
-          trend: 22.3,
-          monthlyData: [],
-        },
-        {
-          country: "Ruanda",
-          countryCode: "RW",
-          region: "Afrika",
-          revenue: 0,
-          minutes: 0,
-          providers: [],
-          trend: -5.1,
-          monthlyData: [],
-        },
-      ];
-
-      const chCountries: CountryRevenue[] = [
-        {
-          country: "Schweiz",
-          countryCode: "CH",
-          region: "Schweiz",
-          revenue: 0,
-          minutes: 0,
-          providers: [],
-          trend: 6.8,
+          trend: 12.3,
           monthlyData: [],
         },
       ];
@@ -162,8 +129,8 @@ export function RevenueByRegion() {
             totalMgiMinutes += data.minutes || 0;
           });
 
-          // Distribute to African countries (weighted)
-          const weights = [0.45, 0.25, 0.20, 0.10];
+          // Distribute to African countries (weighted: Südsudan 60%, Angola 40%)
+          const weights = [0.60, 0.40];
           africaCountries.forEach((country, idx) => {
             country.revenue += totalMgiRevenue * weights[idx];
             country.minutes += totalMgiMinutes * weights[idx];
@@ -171,41 +138,29 @@ export function RevenueByRegion() {
           });
         }
 
-        // GIA outgoing = CH revenue
-        if (giaRevenue) {
-          let totalGiaRevenue = 0;
-          let totalGiaMinutes = 0;
-          Object.entries(giaRevenue).forEach(([provider, data]) => {
-            totalGiaRevenue += data.usd || 0;
-            totalGiaMinutes += data.minutes || 0;
-          });
+      });
 
-          chCountries[0].revenue += totalGiaRevenue;
-          chCountries[0].minutes += totalGiaMinutes;
-          chCountries[0].monthlyData.push({ month, revenue: totalGiaRevenue });
+      // Add sample providers for each country
+      africaCountries.forEach(country => {
+        if (country.countryCode === "SS") {
+          // Südsudan providers
+          country.providers = [
+            { name: "MTN South Sudan", revenue: country.revenue * 0.55, minutes: country.minutes * 0.55 },
+            { name: "Zain", revenue: country.revenue * 0.45, minutes: country.minutes * 0.45 },
+          ];
+        } else if (country.countryCode === "AO") {
+          // Angola providers
+          country.providers = [
+            { name: "Unitel", revenue: country.revenue * 0.50, minutes: country.minutes * 0.50 },
+            { name: "Movicel", revenue: country.revenue * 0.35, minutes: country.minutes * 0.35 },
+            { name: "Africell", revenue: country.revenue * 0.15, minutes: country.minutes * 0.15 },
+          ];
         }
       });
-
-      // Add sample providers
-      africaCountries.forEach(country => {
-        country.providers = [
-          { name: "MTN", revenue: country.revenue * 0.4, minutes: country.minutes * 0.4 },
-          { name: "Airtel", revenue: country.revenue * 0.35, minutes: country.minutes * 0.35 },
-          { name: "Safaricom", revenue: country.revenue * 0.25, minutes: country.minutes * 0.25 },
-        ];
-      });
-
-      chCountries[0].providers = [
-        { name: "Swisscom", revenue: chCountries[0].revenue * 0.5, minutes: chCountries[0].minutes * 0.5 },
-        { name: "Sunrise", revenue: chCountries[0].revenue * 0.3, minutes: chCountries[0].minutes * 0.3 },
-        { name: "Salt", revenue: chCountries[0].revenue * 0.2, minutes: chCountries[0].minutes * 0.2 },
-      ];
 
       // Build region summaries
       const africaTotal = africaCountries.reduce((sum, c) => sum + c.revenue, 0);
       const africaMinutes = africaCountries.reduce((sum, c) => sum + c.minutes, 0);
-      const chTotal = chCountries.reduce((sum, c) => sum + c.revenue, 0);
-      const chMinutes = chCountries.reduce((sum, c) => sum + c.minutes, 0);
 
       setRegionData([
         {
@@ -214,15 +169,7 @@ export function RevenueByRegion() {
           totalRevenue: africaTotal,
           totalMinutes: africaMinutes,
           countries: africaCountries,
-          trend: 12.5,
-        },
-        {
-          region: "Schweiz",
-          emoji: "🇨🇭",
-          totalRevenue: chTotal,
-          totalMinutes: chMinutes,
-          countries: chCountries,
-          trend: 6.8,
+          trend: 15.4,
         },
       ]);
 
@@ -431,8 +378,7 @@ export function RevenueByRegion() {
                     formatter={(value: number) => formatCurrency(value)}
                   />
                   <Legend />
-                  <Area type="monotone" dataKey="Afrika" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-                  <Area type="monotone" dataKey="Schweiz" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} />
+                  <Area type="monotone" dataKey="Afrika" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
