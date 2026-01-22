@@ -171,101 +171,100 @@ serve(async (req: Request) => {
     const emailPromises = participants.map(async (email) => {
       console.log(`Sending Zoom invitation to: ${email}`);
 
-      const emailResponse = await resend.emails.send({
-        from: "Meeting System <onboarding@resend.dev>",
-        to: [email],
-        subject: `Zoom-Einladung: ${meeting.title}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #2D8CFF 0%, #0B5CFF 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-              .header h1 { margin: 0; font-size: 24px; }
-              .zoom-logo { font-size: 32px; margin-bottom: 10px; }
-              .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-              .meeting-card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #2D8CFF; }
-              .meeting-detail { display: flex; align-items: center; margin: 12px 0; }
-              .meeting-detail .label { font-weight: bold; min-width: 100px; color: #666; }
-              .join-button { display: block; background: #2D8CFF; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin: 20px 0; font-size: 18px; }
-              .join-button:hover { background: #0B5CFF; }
-              .meeting-link { background: #f0f4f8; padding: 12px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 12px; margin: 15px 0; }
-              .password-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin: 15px 0; }
-              .password-box strong { color: #856404; }
-              .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #6b7280; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="zoom-logo">📹</div>
-                <h1>Zoom-Sitzung Einladung</h1>
-              </div>
-              <div class="content">
-                <p>Guten Tag,</p>
-                
-                <p>Sie wurden zu einer <strong>Zoom-Sitzung</strong> eingeladen.</p>
-                
-                <div class="meeting-card">
-                  <h2 style="margin-top: 0; color: #1a1a2e;">${meeting.title}</h2>
+      try {
+        const emailResponse = await resend.emails.send({
+          from: "Meeting System <onboarding@resend.dev>",
+          to: [email],
+          subject: `Zoom-Einladung: ${meeting.title}`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #2D8CFF 0%, #0B5CFF 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .header h1 { margin: 0; font-size: 24px; }
+                .zoom-logo { font-size: 32px; margin-bottom: 10px; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                .meeting-card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #2D8CFF; }
+                .meeting-detail { display: flex; align-items: center; margin: 12px 0; }
+                .meeting-detail .label { font-weight: bold; min-width: 100px; color: #666; }
+                .join-button { display: block; background: #2D8CFF; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; margin: 20px 0; font-size: 18px; }
+                .password-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin: 15px 0; }
+                .password-box strong { color: #856404; }
+                .meeting-link { background: #f0f4f8; padding: 12px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 12px; margin: 15px 0; }
+                .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #6b7280; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <div class="zoom-logo">📹</div>
+                  <h1>Zoom-Sitzung Einladung</h1>
+                </div>
+                <div class="content">
+                  <p>Guten Tag,</p>
+                  <p>Sie wurden zu einer <strong>Zoom-Sitzung</strong> eingeladen.</p>
                   
-                  ${meeting.description ? `<p style="color: #6b7280;">${meeting.description}</p>` : ""}
-                  
-                  <div class="meeting-detail">
-                    <span class="label">📅 Datum:</span>
-                    <span>${formattedDate}</span>
+                  <div class="meeting-card">
+                    <h2 style="margin-top: 0; color: #1a1a2e;">${meeting.title}</h2>
+                    ${meeting.description ? `<p style="color: #6b7280;">${meeting.description}</p>` : ""}
+                    
+                    <div class="meeting-detail">
+                      <span class="label">📅 Datum:</span>
+                      <span>${formattedDate}</span>
+                    </div>
+                    
+                    <div class="meeting-detail">
+                      <span class="label">🕐 Uhrzeit:</span>
+                      <span>${formattedTime} Uhr</span>
+                    </div>
+                    
+                    <div class="meeting-detail">
+                      <span class="label">⏱️ Dauer:</span>
+                      <span>${meeting.duration} Minuten</span>
+                    </div>
                   </div>
                   
-                  <div class="meeting-detail">
-                    <span class="label">🕐 Uhrzeit:</span>
-                    <span>${formattedTime} Uhr</span>
+                  <a href="${zoomMeeting.join_url}" class="join-button">
+                    🎥 An Zoom-Meeting teilnehmen
+                  </a>
+                  
+                  <div class="password-box">
+                    <strong>Meeting-Passwort:</strong> ${zoomMeeting.password}
                   </div>
                   
-                  <div class="meeting-detail">
-                    <span class="label">⏱️ Dauer:</span>
-                    <span>${meeting.duration} Minuten</span>
+                  <p style="font-size: 14px; color: #666;"><strong>Meeting-Link:</strong></p>
+                  <div class="meeting-link">${zoomMeeting.join_url}</div>
+                  
+                  <p style="font-size: 13px; color: #666; margin-top: 20px;">
+                    💡 <em>Klicken Sie auf den Button oben oder kopieren Sie den Link in Ihren Browser.</em>
+                  </p>
+                  
+                  <div class="footer">
+                    <p>Diese E-Mail wurde automatisch generiert.</p>
                   </div>
-                </div>
-                
-                <a href="${zoomMeeting.join_url}" class="join-button">
-                  🎥 An Zoom-Meeting teilnehmen
-                </a>
-                
-                <div class="password-box">
-                  <strong>Meeting-Passwort:</strong> ${zoomMeeting.password}
-                </div>
-                
-                <p style="font-size: 14px; color: #666;">
-                  <strong>Meeting-Link:</strong>
-                </p>
-                <div class="meeting-link">
-                  ${zoomMeeting.join_url}
-                </div>
-                
-                <p style="font-size: 13px; color: #666; margin-top: 20px;">
-                  💡 <em>Klicken Sie auf den Button oben oder kopieren Sie den Link in Ihren Browser, um dem Meeting beizutreten.</em>
-                </p>
-                
-                <div class="footer">
-                  <p>Diese E-Mail wurde automatisch generiert.</p>
-                  <p>Bei Fragen wenden Sie sich bitte an den Organisator der Sitzung.</p>
                 </div>
               </div>
-            </div>
-          </body>
-          </html>
-        `,
-      });
+            </body>
+            </html>
+          `,
+        });
 
-      return emailResponse;
+        console.log(`Email sent to ${email}:`, JSON.stringify(emailResponse));
+        return emailResponse;
+      } catch (emailError: any) {
+        console.error(`Failed to send email to ${email}:`, emailError.message);
+        return { error: emailError.message };
+      }
     });
 
-    await Promise.all(emailPromises);
+    const emailResults = await Promise.all(emailPromises);
+    console.log("Email results:", JSON.stringify(emailResults));
 
-    console.log("All Zoom invitations sent successfully");
+    console.log("All Zoom invitations processed");
 
     return new Response(
       JSON.stringify({
