@@ -1,0 +1,231 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const BEXIO_API_URL = "https://api.bexio.com";
+const BEXIO_TOKEN_URL = "https://idp.bexio.com/token";
+
+interface BexioTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  organization_id: string;
+}
+
+async function refreshBexioToken(
+  supabase: any,
+  tokens: BexioTokens
+): Promise<string> {
+  const bexioClientId = Deno.env.get("BEXIO_CLIENT_ID")!;
+  const bexioClientSecret = Deno.env.get("BEXIO_CLIENT_SECRET")!;
+
+  const response = await fetch(BEXIO_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: bexioClientId,
+      client_secret: bexioClientSecret,
+      refresh_token: tokens.refresh_token,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to refresh Bexio token");
+  }
+
+  const newTokens = await response.json();
+  const expiresAt = new Date(Date.now() + newTokens.expires_in * 1000);
+
+  // Update tokens in database
+  await supabase
+    .from("bexio_tokens")
+    .update({
+      access_token: newTokens.access_token,
+      refresh_token: newTokens.refresh_token || tokens.refresh_token,
+      expires_at: expiresAt.toISOString(),
+    })
+    .eq("organization_id", tokens.organization_id);
+
+  return newTokens.access_token;
+}
+
+async function getValidAccessToken(
+  supabase: any,
+  tokens: BexioTokens
+): Promise<string> {
+  const expiresAt = new Date(tokens.expires_at);
+  const now = new Date();
+
+  // Refresh if token expires in less than 5 minutes
+  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+    return await refreshBexioToken(supabase, tokens);
+  }
+
+  return tokens.access_token;
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Verify user is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("No authorization header");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get user's organization
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      throw new Error("No organization found");
+    }
+
+    // Use service role to get tokens
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: tokens, error: tokensError } = await serviceSupabase
+      .from("bexio_tokens")
+      .select("*")
+      .eq("organization_id", profile.organization_id)
+      .single();
+
+    if (tokensError || !tokens) {
+      return new Response(
+        JSON.stringify({ error: "Bexio not connected", connected: false }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Get valid access token (refresh if needed)
+    const accessToken = await getValidAccessToken(serviceSupabase, tokens);
+
+    // Parse request
+    const { action, data } = await req.json();
+
+    let bexioResponse: Response;
+    let result: any;
+
+    switch (action) {
+      case "check_connection":
+        // Just check if we have valid tokens
+        return new Response(
+          JSON.stringify({ connected: true }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+
+      case "get_contacts":
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        result = await bexioResponse.json();
+        break;
+
+      case "search_contact":
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact/search`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify([
+            { field: "name_1", value: data.name, criteria: "like" }
+          ]),
+        });
+        result = await bexioResponse.json();
+        break;
+
+      case "create_contact":
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contact_type_id: 1, // Company
+            name_1: data.name,
+            address: data.address,
+            postcode: data.postcode,
+            city: data.city,
+            country_id: data.country_id || 1, // Switzerland
+            mail: data.email,
+            phone_fixed: data.phone,
+          }),
+        });
+        result = await bexioResponse.json();
+        break;
+
+      case "create_invoice":
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_invoice`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        result = await bexioResponse.json();
+        break;
+
+      case "get_invoices":
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_invoice`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        result = await bexioResponse.json();
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  } catch (error: any) {
+    console.error("Bexio API error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+});

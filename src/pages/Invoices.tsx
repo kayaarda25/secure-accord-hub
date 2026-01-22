@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BexioConnectionCard } from "@/components/invoices/BexioConnectionCard";
 import {
   FileText,
   Plus,
@@ -25,6 +26,7 @@ import {
   ArrowDownLeft,
   Banknote,
   Inbox,
+  Settings2,
 } from "lucide-react";
 
 interface Invoice {
@@ -143,17 +145,22 @@ export default function Invoices() {
         </Card>
       </div>
 
+      {/* Bexio Integration Card */}
+      <div className="mb-6">
+        <BexioConnectionCard />
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="all">Alle</TabsTrigger>
           <TabsTrigger value="outgoing" className="flex items-center gap-2">
             <ArrowUpRight className="h-4 w-4" />
-            Outgoing
+            Ausgehend
           </TabsTrigger>
           <TabsTrigger value="incoming" className="flex items-center gap-2">
             <ArrowDownLeft className="h-4 w-4" />
-            Incoming
+            Eingehend
           </TabsTrigger>
         </TabsList>
       </Tabs>
