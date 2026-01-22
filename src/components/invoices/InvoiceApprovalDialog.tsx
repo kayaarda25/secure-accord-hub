@@ -27,6 +27,7 @@ import {
   CheckCheck,
   ChevronUp,
   ChevronDown,
+  Download,
 } from "lucide-react";
 
 interface Invoice {
@@ -429,26 +430,55 @@ export function InvoiceApprovalDialog({
             {/* Embedded Document Preview */}
             {invoice.document_path && (
               <div className="col-span-2 space-y-2">
-                <Button 
-                  variant="outline" 
-                  onClick={toggleDocument}
-                  className="w-full"
-                  disabled={loadingDocument}
-                >
-                  {loadingDocument ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : showDocument ? (
-                    <ChevronUp className="h-4 w-4 mr-2" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 mr-2" />
-                  )}
-                  {loadingDocument 
-                    ? "Dokument wird geladen..." 
-                    : showDocument 
-                      ? "Dokument ausblenden" 
-                      : `Dokument anzeigen (${invoice.document_name || "PDF"})`
-                  }
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={toggleDocument}
+                    className="flex-1"
+                    disabled={loadingDocument}
+                  >
+                    {loadingDocument ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : showDocument ? (
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                    )}
+                    {loadingDocument 
+                      ? "Dokument wird geladen..." 
+                      : showDocument 
+                        ? "Dokument ausblenden" 
+                        : `Dokument anzeigen (${invoice.document_name || "PDF"})`
+                    }
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      if (!invoice.document_path) return;
+                      const { data, error } = await supabase.storage
+                        .from("creditor-invoices")
+                        .download(invoice.document_path);
+                      if (error || !data) {
+                        toast({
+                          title: "Fehler",
+                          description: "Download fehlgeschlagen.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      const url = URL.createObjectURL(data);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = invoice.document_name || "rechnung.pdf";
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
                 
                 {showDocument && documentUrl && (
                   <div className="border rounded-lg overflow-hidden bg-muted/30">
