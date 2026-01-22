@@ -616,6 +616,191 @@ export type Database = {
           },
         ]
       }
+      creditor_invoice_approvals: {
+        Row: {
+          approval_type: string
+          approver_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          invoice_id: string
+        }
+        Insert: {
+          approval_type: string
+          approver_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          invoice_id: string
+        }
+        Update: {
+          approval_type?: string
+          approver_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditor_invoice_approvals_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "creditor_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creditor_invoices: {
+        Row: {
+          ai_confidence_score: number | null
+          ai_extracted_data: Json | null
+          amount: number
+          bexio_creditor_id: string | null
+          bexio_invoice_id: string | null
+          bexio_synced_at: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          document_name: string | null
+          document_path: string | null
+          due_date: string | null
+          extraction_status: string | null
+          first_approved_at: string | null
+          first_approver_comment: string | null
+          first_approver_id: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          notes: string | null
+          organization_id: string | null
+          original_email_from: string | null
+          original_email_subject: string | null
+          paid_at: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          received_at: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          second_approved_at: string | null
+          second_approver_comment: string | null
+          second_approver_id: string | null
+          status: string
+          updated_at: string
+          vat_amount: number | null
+          vat_rate: number | null
+          vendor_address: string | null
+          vendor_iban: string | null
+          vendor_name: string
+          vendor_vat_number: string | null
+        }
+        Insert: {
+          ai_confidence_score?: number | null
+          ai_extracted_data?: Json | null
+          amount: number
+          bexio_creditor_id?: string | null
+          bexio_invoice_id?: string | null
+          bexio_synced_at?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_name?: string | null
+          document_path?: string | null
+          due_date?: string | null
+          extraction_status?: string | null
+          first_approved_at?: string | null
+          first_approver_comment?: string | null
+          first_approver_id?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          original_email_from?: string | null
+          original_email_subject?: string | null
+          paid_at?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          received_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          second_approved_at?: string | null
+          second_approver_comment?: string | null
+          second_approver_id?: string | null
+          status?: string
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+          vendor_address?: string | null
+          vendor_iban?: string | null
+          vendor_name: string
+          vendor_vat_number?: string | null
+        }
+        Update: {
+          ai_confidence_score?: number | null
+          ai_extracted_data?: Json | null
+          amount?: number
+          bexio_creditor_id?: string | null
+          bexio_invoice_id?: string | null
+          bexio_synced_at?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_name?: string | null
+          document_path?: string | null
+          due_date?: string | null
+          extraction_status?: string | null
+          first_approved_at?: string | null
+          first_approver_comment?: string | null
+          first_approver_id?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          original_email_from?: string | null
+          original_email_subject?: string | null
+          paid_at?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          received_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          second_approved_at?: string | null
+          second_approver_comment?: string | null
+          second_approver_id?: string | null
+          status?: string
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+          vendor_address?: string | null
+          vendor_iban?: string | null
+          vendor_name?: string
+          vendor_vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditor_invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditor_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       declarations: {
         Row: {
           approved_at: string | null
