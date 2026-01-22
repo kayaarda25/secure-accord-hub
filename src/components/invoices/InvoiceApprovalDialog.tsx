@@ -25,7 +25,8 @@ import {
   Send,
   AlertTriangle,
   CheckCheck,
-  ExternalLink,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 interface Invoice {
@@ -74,6 +75,9 @@ export function InvoiceApprovalDialog({
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showDocument, setShowDocument] = useState(false);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [loadingDocument, setLoadingDocument] = useState(false);
 
   const formatCurrency = (amount: number, currency: string = "CHF") => {
     return new Intl.NumberFormat("de-CH", {
@@ -317,26 +321,41 @@ export function InvoiceApprovalDialog({
 
   if (!invoice) return null;
 
-  // Open document in new tab
-  const openDocument = async () => {
+  // Toggle embedded document preview
+  const toggleDocument = async () => {
+    if (showDocument) {
+      setShowDocument(false);
+      return;
+    }
+
     if (!invoice.document_path) return;
     
+    setLoadingDocument(true);
     const { data, error } = await supabase.storage
       .from("creditor-invoices")
       .createSignedUrl(invoice.document_path, 3600); // 1 hour valid
+    setLoadingDocument(false);
     
-    if (error) {
+    if (error || !data?.signedUrl) {
       toast({
         title: "Fehler",
-        description: "Dokument konnte nicht geöffnet werden.",
+        description: "Dokument konnte nicht geladen werden.",
         variant: "destructive",
       });
       return;
     }
     
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, "_blank");
+    setDocumentUrl(data.signedUrl);
+    setShowDocument(true);
+  };
+
+  // Handle dialog close - reset document state
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setShowDocument(false);
+      setDocumentUrl(null);
     }
+    onOpenChange(isOpen);
   };
 
   const canFirstApprove = invoice.status === "pending_review" && !invoice.first_approver_id;
@@ -350,8 +369,8 @@ export function InvoiceApprovalDialog({
   const isPending = firstApproval.isPending || secondApproval.isPending || rejectInvoice.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -393,17 +412,39 @@ export function InvoiceApprovalDialog({
               </div>
             )}
             
-            {/* Document Preview Button */}
+            {/* Embedded Document Preview */}
             {invoice.document_path && (
-              <div className="col-span-2">
+              <div className="col-span-2 space-y-2">
                 <Button 
                   variant="outline" 
-                  onClick={openDocument}
+                  onClick={toggleDocument}
                   className="w-full"
+                  disabled={loadingDocument}
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Dokument anzeigen ({invoice.document_name || "PDF"})
+                  {loadingDocument ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : showDocument ? (
+                    <ChevronUp className="h-4 w-4 mr-2" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                  )}
+                  {loadingDocument 
+                    ? "Dokument wird geladen..." 
+                    : showDocument 
+                      ? "Dokument ausblenden" 
+                      : `Dokument anzeigen (${invoice.document_name || "PDF"})`
+                  }
                 </Button>
+                
+                {showDocument && documentUrl && (
+                  <div className="border rounded-lg overflow-hidden bg-muted/30">
+                    <iframe
+                      src={documentUrl}
+                      className="w-full h-[500px]"
+                      title="Rechnungs-Vorschau"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
