@@ -218,10 +218,7 @@ serve(async (req: Request) => {
       case "create_invoice": {
         // Bexio v4 Purchase API
         // Endpoint: /4.0/purchase/bills
-        // Notes from live responses:
-        // - top-level "gross" exists on returned objects; "total_gross" is rejected
-        // - "line_items" is accepted, but per-item field "description" is rejected
-        // So we send a line_items array using "text" (common Bexio wording) and omit total fields.
+        // Per Bexio v4 docs: line_items uses "name" for item description
         const payload: Record<string, any> = {
           supplier_id: data.vendor_id || data.contact_id,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
@@ -231,7 +228,7 @@ serve(async (req: Request) => {
           due_date: data.due_date || null,
           line_items: [
             {
-              text: data.title || data.vendor_name || "Lieferantenrechnung",
+              name: data.title || data.vendor_name || "Lieferantenrechnung",
               amount: 1,
               unit_price: Number(data.amount),
             },
