@@ -170,7 +170,10 @@ serve(async (req: Request) => {
 
       case "get_contacts":
         bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
         });
         result = await parseBexioResponse(bexioResponse, action);
         break;
@@ -181,6 +184,7 @@ serve(async (req: Request) => {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify([
             { field: "name_1", value: data.name, criteria: "like" }
@@ -195,6 +199,7 @@ serve(async (req: Request) => {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({
             contact_type_id: 1, // Company
@@ -267,6 +272,7 @@ serve(async (req: Request) => {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({
             contact_type_id: 2, // Supplier/Creditor
