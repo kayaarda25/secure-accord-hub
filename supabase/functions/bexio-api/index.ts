@@ -317,9 +317,7 @@ serve(async (req: Request) => {
         };
 
         // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
-        // Include description in line_items and attachment_ids at root level
-        const lineDescription = data.description || data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name || "Lieferant"}`;
-        
+        // Note: v4 line_items do NOT support "description" field - Bexio returns 400 if included
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           contact_partner_id: supplierId,
@@ -337,7 +335,6 @@ serve(async (req: Request) => {
             {
               position: 0,
               amount: totalAmount,
-              description: lineDescription,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
             },
