@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BexioConnectionCard } from "@/components/invoices/BexioConnectionCard";
+import { InvoiceApprovalDialog } from "@/components/invoices/InvoiceApprovalDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
@@ -30,6 +31,7 @@ import {
   Banknote,
   Inbox,
   Loader2,
+  CheckCheck,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
@@ -45,6 +47,8 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -440,7 +444,14 @@ export default function Invoices() {
                         {formatCurrency(Number(inv.amount) || 0, inv.currency)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedInvoice(inv);
+                            setApprovalDialogOpen(true);
+                          }}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -452,6 +463,13 @@ export default function Invoices() {
           )}
         </CardContent>
       </Card>
+
+      {/* Approval Dialog */}
+      <InvoiceApprovalDialog
+        invoice={selectedInvoice}
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+      />
     </Layout>
   );
 }
