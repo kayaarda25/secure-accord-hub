@@ -50,6 +50,8 @@ interface Invoice {
   rejected_at: string | null;
   rejection_reason: string | null;
   bexio_synced_at: string | null;
+  document_path: string | null;
+  document_name: string | null;
 }
 
 interface InvoiceApprovalDialogProps {
@@ -145,7 +147,7 @@ export function InvoiceApprovalDialog({
       // Sync to Bexio if connected
       if (bexioConnected) {
         try {
-          // First search/create creditor contact
+          // Step 1: Search for existing supplier contact
           const contactResult = await callBexioApi("search_contact", { 
             name: invoice.vendor_name 
           });
@@ -153,16 +155,60 @@ export function InvoiceApprovalDialog({
           let vendorId: number;
           if (contactResult && contactResult.length > 0) {
             vendorId = contactResult[0].id;
+            console.log("Found existing Bexio contact:", vendorId);
           } else {
-            // Create new creditor/supplier contact
+            // Create new creditor/supplier contact if not found
+            console.log("Creating new Bexio creditor for:", invoice.vendor_name);
             const newContact = await callBexioApi("create_creditor", {
               name: invoice.vendor_name,
               address: invoice.vendor_address,
             });
             vendorId = newContact.id;
+            console.log("Created new Bexio creditor:", vendorId);
           }
 
-          // Create creditor invoice (Lieferantenrechnung) in Bexio
+          // Step 2: Upload document to Bexio (if available)
+          let bexioFileId: string | null = null;
+          if (invoice.document_path) {
+            try {
+              // Download document from Supabase storage
+              const { data: fileData, error: downloadError } = await supabase.storage
+                .from("creditor-invoices")
+                .download(invoice.document_path);
+
+              if (downloadError) {
+                console.error("Failed to download document:", downloadError);
+              } else if (fileData) {
+                // Convert to base64
+                const arrayBuffer = await fileData.arrayBuffer();
+                const base64 = btoa(
+                  new Uint8Array(arrayBuffer).reduce(
+                    (data, byte) => data + String.fromCharCode(byte),
+                    ""
+                  )
+                );
+
+                const filename = invoice.document_name || `invoice-${invoice.id}.pdf`;
+                console.log("Uploading document to Bexio:", filename);
+
+                const uploadResult = await callBexioApi("upload_file", {
+                  file_base64: base64,
+                  filename: filename,
+                  mime_type: "application/pdf",
+                });
+
+                if (uploadResult?.uuid) {
+                  bexioFileId = uploadResult.uuid;
+                  console.log("Uploaded file to Bexio with ID:", bexioFileId);
+                }
+              }
+            } catch (uploadError) {
+              console.error("Document upload to Bexio failed:", uploadError);
+              // Continue with bill creation even if upload fails
+            }
+          }
+
+          // Step 3: Create creditor invoice (Lieferantenrechnung) in Bexio
           const bexioInvoice = await callBexioApi("create_invoice", {
             vendor_id: vendorId,
             vendor_name: invoice.vendor_name,
@@ -175,7 +221,23 @@ export function InvoiceApprovalDialog({
             title: `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`,
           });
 
-          // Update with Bexio reference
+          console.log("Created Bexio purchase bill:", bexioInvoice.id);
+
+          // Step 4: Attach document to the bill (if we uploaded one)
+          if (bexioFileId && bexioInvoice.id) {
+            try {
+              await callBexioApi("attach_file_to_bill", {
+                bill_id: bexioInvoice.id,
+                attachment_ids: [bexioFileId],
+              });
+              console.log("Attached document to Bexio bill");
+            } catch (attachError) {
+              console.error("Failed to attach document to bill:", attachError);
+              // Bill was created, just attachment failed
+            }
+          }
+
+          // Update local record with Bexio reference
           await supabase
             .from("creditor_invoices")
             .update({
@@ -187,6 +249,7 @@ export function InvoiceApprovalDialog({
 
         } catch (bexioError) {
           console.error("Bexio sync error:", bexioError);
+          throw new Error(`Bexio-Sync fehlgeschlagen: ${bexioError instanceof Error ? bexioError.message : "Unbekannter Fehler"}`);
         }
       }
     },
