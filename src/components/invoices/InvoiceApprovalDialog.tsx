@@ -30,7 +30,10 @@ import {
 interface Invoice {
   id: string;
   vendor_name: string;
+  vendor_address: string | null;
+  vendor_iban: string | null;
   invoice_number: string | null;
+  payment_reference: string | null;
   notes: string | null;
   amount: number;
   currency: string;
@@ -142,36 +145,34 @@ export function InvoiceApprovalDialog({
       // Sync to Bexio if connected
       if (bexioConnected) {
         try {
-          // First search/create contact
+          // First search/create creditor contact
           const contactResult = await callBexioApi("search_contact", { 
             name: invoice.vendor_name 
           });
           
-          let contactId: number;
+          let vendorId: number;
           if (contactResult && contactResult.length > 0) {
-            contactId = contactResult[0].id;
+            vendorId = contactResult[0].id;
           } else {
-            const newContact = await callBexioApi("create_contact", {
+            // Create new creditor/supplier contact
+            const newContact = await callBexioApi("create_creditor", {
               name: invoice.vendor_name,
+              address: invoice.vendor_address,
             });
-            contactId = newContact.id;
+            vendorId = newContact.id;
           }
 
-          // Create invoice in Bexio
+          // Create creditor invoice (Lieferantenrechnung) in Bexio
           const bexioInvoice = await callBexioApi("create_invoice", {
-            contact_id: contactId,
+            vendor_id: vendorId,
+            vendor_name: invoice.vendor_name,
+            vendor_ref: invoice.payment_reference || invoice.invoice_number,
+            invoice_number: invoice.invoice_number,
+            bill_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
+            due_date: invoice.due_date || new Date().toISOString().split("T")[0],
+            amount: invoice.amount,
+            currency: invoice.currency || "CHF",
             title: `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`,
-            is_valid_from: invoice.invoice_date || new Date().toISOString().split("T")[0],
-            is_valid_to: invoice.due_date || new Date().toISOString().split("T")[0],
-            positions: [{
-              type: "KbPositionCustom",
-              text: invoice.notes || invoice.vendor_name,
-              amount: "1",
-              unit_price: String(invoice.amount),
-              account_id: 1,
-            }],
-            mwst_type: 0,
-            mwst_is_net: true,
           });
 
           // Update with Bexio reference
@@ -179,6 +180,7 @@ export function InvoiceApprovalDialog({
             .from("creditor_invoices")
             .update({
               bexio_invoice_id: String(bexioInvoice.id),
+              bexio_creditor_id: String(vendorId),
               bexio_synced_at: new Date().toISOString(),
             })
             .eq("id", invoice.id);

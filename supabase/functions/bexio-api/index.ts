@@ -189,20 +189,56 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice":
-        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_invoice`, {
+        // Use kb_bill for creditor/supplier invoices (Lieferantenrechnungen)
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            vendor_id: data.vendor_id,
+            vendor_ref: data.vendor_ref || data.invoice_number,
+            bill_date: data.bill_date || data.invoice_date,
+            due_date: data.due_date,
+            currency_code: data.currency || "CHF",
+            pending_amount: String(data.amount),
+            net_amount: String(data.amount),
+            vendor_name: data.vendor_name,
+            line_items: data.line_items || [{
+              description: data.title || "Lieferantenrechnung",
+              quantity: "1",
+              unit_price: String(data.amount),
+              net_amount: String(data.amount),
+              account_id: data.account_id || 4000, // Default expense account
+            }],
+          }),
         });
         result = await bexioResponse.json();
         break;
 
       case "get_invoices":
-        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_invoice`, {
+        // Use kb_bill for creditor/supplier invoices
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
           headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        result = await bexioResponse.json();
+        break;
+      
+      case "create_creditor":
+        // Create or get creditor (supplier) contact
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contact_type_id: 2, // Supplier/Creditor
+            name_1: data.name,
+            address: data.address,
+            mail: data.email,
+          }),
         });
         result = await bexioResponse.json();
         break;
