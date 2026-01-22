@@ -19,6 +19,7 @@ interface BexioTokens {
   refresh_token: string;
   expires_at: string;
   organization_id: string;
+  scope?: string | null;
 }
 
 async function refreshBexioToken(
@@ -163,6 +164,21 @@ serve(async (req: Request) => {
     let result: any;
 
     switch (action) {
+      case "disconnect":
+        // Delete stored tokens for this organization (forces re-connect)
+        await serviceSupabase
+          .from("bexio_tokens")
+          .delete()
+          .eq("organization_id", profile.organization_id);
+
+        return new Response(
+          JSON.stringify({ disconnected: true }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+
       case "check_connection":
         // Just check if we have valid tokens
         return new Response(
@@ -257,12 +273,22 @@ serve(async (req: Request) => {
             ? toNumber(data.tax_id)
             : (hasVat ? 22 : null));
 
-        // Build address string from vendor data
-        const addressParts = [
-          data.vendor_name,
-          data.vendor_address,
-        ].filter(Boolean);
-        const addressString = addressParts.length > 0 ? addressParts.join(", ") : data.vendor_name || "Lieferant";
+        // Build address string from vendor data.
+        // Bexio expects a *string*; to avoid validation issues we normalize into multi-line text.
+        const rawVendorName = typeof data.vendor_name === "string" ? data.vendor_name.trim() : "";
+        const rawVendorAddress = typeof data.vendor_address === "string" ? data.vendor_address.trim() : "";
+
+        const addressLines = rawVendorAddress
+          ? rawVendorAddress
+              .split(/\r?\n/)
+              .flatMap((line: string) => line.split(","))
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [];
+
+        const addressString = [rawVendorName, ...addressLines]
+          .filter(Boolean)
+          .join("\n") || rawVendorName || "Lieferant";
 
         const payload: Record<string, any> = {
           supplier_id: supplierId,
@@ -349,6 +375,15 @@ serve(async (req: Request) => {
         // Expects: data.file_base64 (base64 encoded), data.filename, data.mime_type
         if (!data?.file_base64 || !data?.filename) {
           throw new Error("upload_file: missing file_base64 or filename");
+        }
+
+        // If OAuth token was created without file scope, Bexio will return 403 for this endpoint.
+        const tokenScope = typeof tokens.scope === "string" ? tokens.scope : "";
+        const hasFileScope = tokenScope.split(/\s+/).includes("file");
+        if (!hasFileScope) {
+          throw new Error(
+            "Bexio connection is missing the required 'file' permission. Please disconnect and reconnect Bexio to grant file access."
+          );
         }
 
         // Decode base64 to binary

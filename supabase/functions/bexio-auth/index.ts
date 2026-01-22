@@ -65,7 +65,7 @@ serve(async (req: Request) => {
       // Include supplier bill scopes so we can create Lieferantenrechnungen
       // (kb_bill_edit implies kb_bill_show but we request both for clarity)
       scope:
-        "openid profile email contact_edit contact_show kb_invoice_edit kb_invoice_show kb_bill_show kb_bill_edit",
+        "openid profile email contact_edit contact_show kb_invoice_edit kb_invoice_show kb_bill_show kb_bill_edit file",
       state: state,
     });
 

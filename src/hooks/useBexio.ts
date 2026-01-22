@@ -94,12 +94,20 @@ export function useBexio() {
   };
 
   const disconnect = async () => {
-    // For now, just mark as disconnected - in production you'd delete the tokens
-    setIsConnected(false);
-    toast({
-      title: "Bexio getrennt",
-      description: "Die Verbindung zu Bexio wurde getrennt.",
-    });
+    try {
+      await supabase.functions.invoke("bexio-api", {
+        body: { action: "disconnect" },
+      });
+    } catch (e) {
+      // Even if the backend call fails, we still mark it disconnected client-side.
+      console.warn("Failed to disconnect Bexio tokens:", e);
+    } finally {
+      setIsConnected(false);
+      toast({
+        title: "Bexio getrennt",
+        description: "Die Verbindung zu Bexio wurde getrennt.",
+      });
+    }
   };
 
   const callApi = async (action: string, data?: any) => {
