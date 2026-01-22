@@ -50,7 +50,12 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Du bist ein Experte für die Extraktion von Rechnungsdaten. Analysiere das Bild und extrahiere alle relevanten Informationen. Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`
+            content: `Du bist ein Experte für die Extraktion von Schweizer Rechnungsdaten. Analysiere das Bild SEHR GENAU und extrahiere alle relevanten Informationen. Achte besonders auf:
+- IBAN: Suche im QR-Code-Bereich, in der Fusszeile, oder bei Zahlungsinformationen. Format: CH.. oder LI.. gefolgt von 19 Ziffern (z.B. CH93 0076 2011 6238 5295 7)
+- UID/MwSt-Nr: Suche in der Kopfzeile, Fusszeile oder bei Firmenangaben. Format: CHE-XXX.XXX.XXX oder CHE-XXXXXXXXX
+- Zahlungsreferenz: Suche die lange Nummer im QR-Einzahlungsschein (26-27 Ziffern)
+
+Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`
           },
           {
             role: "user",
@@ -63,25 +68,29 @@ serve(async (req) => {
               },
               {
                 type: "text",
-                text: `Extrahiere folgende Informationen aus dieser Rechnung und gib sie als JSON zurück:
-                
+                text: `Analysiere diese Schweizer Rechnung SEHR SORGFÄLTIG und extrahiere folgende Informationen als JSON:
+                 
 {
-  "vendor_name": "Firmenname des Lieferanten",
-  "vendor_address": "Vollständige Adresse",
-  "vendor_iban": "IBAN falls vorhanden",
-  "vendor_vat_number": "MwSt-Nummer/UID falls vorhanden",
+  "vendor_name": "Firmenname des Lieferanten/Rechnungsstellers",
+  "vendor_address": "Vollständige Adresse (Strasse, PLZ, Ort)",
+  "vendor_iban": "IBAN des Lieferanten - suche im QR-Code, Fusszeile oder Zahlungsangaben (Format: CHXX XXXX XXXX XXXX XXXX X)",
+  "vendor_vat_number": "UID/MwSt-Nummer des Lieferanten - Format CHE-XXX.XXX.XXX (suche in Kopf-/Fusszeile)",
   "invoice_number": "Rechnungsnummer",
   "invoice_date": "Rechnungsdatum im Format YYYY-MM-DD",
-  "due_date": "Fälligkeitsdatum im Format YYYY-MM-DD falls vorhanden",
-  "payment_reference": "Zahlungsreferenz/ESR/QR-Referenz falls vorhanden",
-  "amount": "Gesamtbetrag als Zahl ohne Währungssymbol",
+  "due_date": "Fälligkeitsdatum/Zahlbar bis im Format YYYY-MM-DD falls vorhanden",
+  "payment_reference": "QR-Referenz oder Zahlungsreferenz - die lange Nummer auf dem Einzahlungsschein (26-27 Ziffern)",
+  "amount": "Gesamtbetrag/Total als Zahl ohne Währungssymbol",
   "vat_amount": "MwSt-Betrag als Zahl",
-  "vat_rate": "MwSt-Satz als Zahl (z.B. 8.1)",
+  "vat_rate": "MwSt-Satz als Zahl (z.B. 7.7 oder 8.1)",
   "currency": "Währungscode (CHF, EUR, USD)",
-  "notes": "Kurze Beschreibung der Rechnung/Leistungen"
+  "notes": "Kurze Beschreibung der Leistungen/Positionen"
 }
 
-Falls ein Feld nicht gefunden wird, setze null. Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text oder Markdown.`
+WICHTIG:
+- Suche die IBAN im gesamten Dokument, besonders im QR-Bereich oder bei "Konto/IBAN"
+- Die UID/MwSt-Nr beginnt immer mit "CHE-" und hat 9 Ziffern
+- Falls ein Feld nicht gefunden wird, setze null
+- Antworte NUR mit dem JSON-Objekt, OHNE Markdown-Codeblöcke`
               }
             ]
           }
