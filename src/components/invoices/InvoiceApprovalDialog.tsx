@@ -25,6 +25,7 @@ import {
   Send,
   AlertTriangle,
   CheckCheck,
+  ExternalLink,
 } from "lucide-react";
 
 interface Invoice {
@@ -316,6 +317,28 @@ export function InvoiceApprovalDialog({
 
   if (!invoice) return null;
 
+  // Open document in new tab
+  const openDocument = async () => {
+    if (!invoice.document_path) return;
+    
+    const { data, error } = await supabase.storage
+      .from("creditor-invoices")
+      .createSignedUrl(invoice.document_path, 3600); // 1 hour valid
+    
+    if (error) {
+      toast({
+        title: "Fehler",
+        description: "Dokument konnte nicht geöffnet werden.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, "_blank");
+    }
+  };
+
   const canFirstApprove = invoice.status === "pending_review" && !invoice.first_approver_id;
   const canSecondApprove = invoice.status === "first_approval" && 
     invoice.first_approver_id && 
@@ -367,6 +390,20 @@ export function InvoiceApprovalDialog({
               <div className="col-span-2">
                 <p className="text-sm text-muted-foreground">Beschreibung</p>
                 <p className="text-sm">{invoice.notes}</p>
+              </div>
+            )}
+            
+            {/* Document Preview Button */}
+            {invoice.document_path && (
+              <div className="col-span-2">
+                <Button 
+                  variant="outline" 
+                  onClick={openDocument}
+                  className="w-full"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Dokument anzeigen ({invoice.document_name || "PDF"})
+                </Button>
               </div>
             )}
           </div>

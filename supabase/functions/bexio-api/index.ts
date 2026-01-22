@@ -316,23 +316,20 @@ serve(async (req: Request) => {
           title: null,
         };
 
-        // NOTE: Bexio currently returns: "amount_calc cannot be null when manual_amount is false".
-        // To avoid brittle server-side calculation rules, we provide the total explicitly.
+        // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
         const payload: Record<string, any> = {
           supplier_id: supplierId,
-          contact_partner_id: supplierId, // Use supplier ID if no specific contact partner
+          contact_partner_id: supplierId,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.vendor_ref || data.invoice_number || null,
           address: addressObj,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
           due_date: data.due_date || null,
-          // v4 expects booleans here.
-          // When manual_amount is false, Bexio tries to compute amount_calc from line_items and may reject.
-          // We set manual_amount=true and provide amount_calc explicitly.
+          // CRITICAL: manual_amount=true requires amount_man, NOT amount_calc
           manual_amount: true,
           item_net: false,
-          amount_calc: totalAmount,
+          amount_man: totalAmount,
           line_items: [
             {
               position: 0,
