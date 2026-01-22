@@ -216,48 +216,45 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Use v2 kb_bill endpoint for supplier invoices (Lieferantenrechnungen)
-        // This requires kb_bill_edit scope
-        const billPayload = {
-          contact_id: data.vendor_id || data.contact_id,
-          user_id: 1, // Will be overridden by Bexio
-          currency_id: data.currency === "EUR" ? 2 : data.currency === "USD" ? 3 : 1, // 1=CHF
+        // Some Bexio accounts no longer expose /2.0/kb_bill (returns 404).
+        // The v4 Purchase API is available and works for those accounts.
+        // Endpoint: /4.0/purchase/bills
+        const payload = {
+          vendor_id: data.vendor_id || data.contact_id,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
-          api_reference: data.vendor_ref || data.invoice_number,
-          viewed_by_client_at: null,
-          is_valid_from: data.bill_date || data.invoice_date,
-          is_valid_to: data.due_date,
-          mwst_type: 0, // 0 = excluded
-          mwst_is_net: true,
-          positions: [{
-            type: "KbPositionCustom",
-            text: data.title || data.vendor_name || "Lieferantenrechnung",
-            amount: "1",
-            unit_price: String(data.amount),
-            account_id: 4000, // Default expense account
-            tax_id: 16, // Default no VAT
-          }],
+          vendor_ref: data.vendor_ref || data.invoice_number || null,
+          currency_code: (data.currency || "CHF") as string,
+          bill_date: data.bill_date || data.invoice_date || null,
+          due_date: data.due_date || null,
+          // Minimal positions; adjust accounts/taxes in Bexio if needed.
+          positions: [
+            {
+              text: data.title || data.vendor_name || "Lieferantenrechnung",
+              amount: 1,
+              unit_price: Number(data.amount),
+            },
+          ],
         };
 
-        console.log("Creating kb_bill with payload:", JSON.stringify(billPayload));
+        console.log("Creating purchase bill (v4) with payload:", JSON.stringify(payload));
 
-        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_bill`, {
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify(billPayload),
+          body: JSON.stringify(payload),
         });
         result = await parseBexioResponse(bexioResponse, action);
         break;
       }
 
       case "get_invoices":
-        // Use kb_bill for creditor/supplier invoices
-        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_bill`, {
-          headers: { 
+        // Use v4 purchase bills listing for supplier invoices
+        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
+          headers: {
             Authorization: `Bearer ${accessToken}`,
             Accept: "application/json",
           },
