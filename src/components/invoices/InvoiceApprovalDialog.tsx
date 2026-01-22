@@ -217,6 +217,7 @@ export function InvoiceApprovalDialog({
           }
 
           // Step 3: Create creditor invoice (Lieferantenrechnung) in Bexio
+          // Include attachment_ids directly if file was uploaded, and add description
           const bexioInvoice = await callBexioApi("create_invoice", {
             vendor_id: vendorId,
             vendor_name: invoice.vendor_name,
@@ -230,23 +231,11 @@ export function InvoiceApprovalDialog({
             vat_amount: invoice.vat_amount || 0,
             currency: invoice.currency || "CHF",
             title: `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`,
+            description: invoice.notes || `${invoice.vendor_name} - ${invoice.invoice_number || "Rechnung"}`,
+            attachment_ids: bexioFileId ? [bexioFileId] : [],
           });
 
-          console.log("Created Bexio purchase bill:", bexioInvoice.id);
-
-          // Step 4: Attach document to the bill (if we uploaded one)
-          if (bexioFileId && bexioInvoice.id) {
-            try {
-              await callBexioApi("attach_file_to_bill", {
-                bill_id: bexioInvoice.id,
-                attachment_ids: [bexioFileId],
-              });
-              console.log("Attached document to Bexio bill");
-            } catch (attachError) {
-              console.error("Failed to attach document to bill:", attachError);
-              // Bill was created, just attachment failed
-            }
-          }
+          console.log("Created Bexio purchase bill:", bexioInvoice.id, "with attachment:", bexioFileId);
 
           // Update local record with Bexio reference
           await supabase

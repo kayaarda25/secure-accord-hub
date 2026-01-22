@@ -317,6 +317,9 @@ serve(async (req: Request) => {
         };
 
         // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
+        // Include description in line_items and attachment_ids at root level
+        const lineDescription = data.description || data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name || "Lieferant"}`;
+        
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           contact_partner_id: supplierId,
@@ -334,11 +337,18 @@ serve(async (req: Request) => {
             {
               position: 0,
               amount: totalAmount,
+              description: lineDescription,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
             },
           ],
         };
+
+        // Add attachment_ids if provided (file UUIDs from upload_file)
+        if (Array.isArray(data.attachment_ids) && data.attachment_ids.length > 0) {
+          payload.attachment_ids = data.attachment_ids;
+          console.log("Including attachment_ids in bill creation:", data.attachment_ids);
+        }
 
         console.log("Creating purchase bill (v4) with payload:", JSON.stringify(payload));
 
