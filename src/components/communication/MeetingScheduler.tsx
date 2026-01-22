@@ -25,6 +25,8 @@ interface ScheduledMeeting {
   scheduled_date: string;
   duration_minutes: number;
   room_code: string;
+  zoom_join_url?: string | null;
+  zoom_meeting_id?: string | null;
   status: string;
   created_by: string;
 }
@@ -108,6 +110,41 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const scheduledDate = new Date(`${formData.date}T${formData.time}`);
 
+      // Get participant emails for Zoom invitation
+      const participantEmails = formData.participants
+        .map(userId => profiles.find(p => p.user_id === userId)?.email)
+        .filter(Boolean) as string[];
+
+      let zoomMeetingData: { id: number; joinUrl: string; password: string } | null = null;
+
+      // Create Zoom meeting and send invitations if there are participants
+      if (participantEmails.length > 0) {
+        try {
+          const { data: zoomResponse, error: zoomError } = await supabase.functions.invoke(
+            "create-zoom-meeting",
+            {
+              body: {
+                meeting: {
+                  title: formData.title,
+                  date: scheduledDate.toISOString(),
+                  duration: formData.duration,
+                  description: formData.description || undefined,
+                },
+                participants: participantEmails,
+              },
+            }
+          );
+
+          if (zoomError) {
+            console.error("Zoom error:", zoomError);
+          } else if (zoomResponse?.zoomMeeting) {
+            zoomMeetingData = zoomResponse.zoomMeeting;
+          }
+        } catch (zoomErr) {
+          console.error("Failed to create Zoom meeting:", zoomErr);
+        }
+      }
+
       const { data: meeting, error: meetingError } = await supabase
         .from("scheduled_meetings")
         .insert({
@@ -116,6 +153,8 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
           scheduled_date: scheduledDate.toISOString(),
           duration_minutes: formData.duration,
           room_code: roomCode,
+          zoom_join_url: zoomMeetingData?.joinUrl || null,
+          zoom_meeting_id: zoomMeetingData?.id?.toString() || null,
           created_by: user.id,
         })
         .select()
@@ -135,9 +174,6 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
         });
 
         await supabase.from("meeting_participants").insert(participantRecords);
-
-        // Send email invitations
-        await sendInvitations(meeting, participantRecords);
       }
 
       setShowNewMeeting(false);
@@ -157,23 +193,8 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
     }
   };
 
-  const sendInvitations = async (meeting: any, participants: any[]) => {
-    try {
-      await supabase.functions.invoke("send-meeting-invitation", {
-        body: {
-          meeting: {
-            title: meeting.title,
-            date: meeting.scheduled_date,
-            duration: meeting.duration_minutes,
-            roomCode: meeting.room_code,
-            description: meeting.description,
-          },
-          participants: participants.map(p => p.email),
-        },
-      });
-    } catch (error) {
-      console.error("Error sending invitations:", error);
-    }
+  const openZoomMeeting = (url: string) => {
+    window.open(url, "_blank");
   };
 
   const copyRoomCode = (code: string) => {
@@ -329,7 +350,7 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
                         {format(new Date(meeting.scheduled_date), "HH:mm", { locale: de })} Uhr
                         <span>({meeting.duration_minutes} Min.)</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => copyRoomCode(meeting.room_code)}
                           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -342,13 +363,23 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
                           {meeting.room_code}
                         </button>
                         {meeting.status === "scheduled" && !isPast(new Date(meeting.scheduled_date)) && (
-                          <button
-                            onClick={() => onJoinMeeting(meeting.room_code)}
-                            className="ml-auto px-2 py-1 bg-accent text-accent-foreground rounded text-xs font-medium hover:bg-accent/90 flex items-center gap-1"
-                          >
-                            <Video size={12} />
-                            Beitreten
-                          </button>
+                          <div className="ml-auto flex items-center gap-2">
+                            {meeting.zoom_join_url && (
+                              <button
+                                onClick={() => openZoomMeeting(meeting.zoom_join_url!)}
+                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 flex items-center gap-1"
+                              >
+                                📹 Zoom
+                              </button>
+                            )}
+                            <button
+                              onClick={() => onJoinMeeting(meeting.room_code)}
+                              className="px-2 py-1 bg-accent text-accent-foreground rounded text-xs font-medium hover:bg-accent/90 flex items-center gap-1"
+                            >
+                              <Video size={12} />
+                              Beitreten
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
