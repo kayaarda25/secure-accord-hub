@@ -216,24 +216,23 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Bexio v4 Purchase API
+        // Bexio v4 Purchase API - minimal payload
         // Endpoint: /4.0/purchase/bills
-        const payload = {
+        const payload: Record<string, any> = {
           supplier_id: data.vendor_id || data.contact_id,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
-          vendor_ref: data.vendor_ref || data.invoice_number || null,
           currency_code: (data.currency || "CHF") as string,
-          bill_date: data.bill_date || data.invoice_date || null,
-          due_date: data.due_date || null,
-          // v4 API uses "line_items" instead of "positions"
-          line_items: [
-            {
-              description: data.title || data.vendor_name || "Lieferantenrechnung",
-              quantity: 1,
-              unit_price: Number(data.amount),
-            },
-          ],
+          bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
+          total_gross: Number(data.amount),
         };
+
+        // Add optional fields if provided
+        if (data.vendor_ref || data.invoice_number) {
+          payload.vendor_ref = data.vendor_ref || data.invoice_number;
+        }
+        if (data.due_date) {
+          payload.due_date = data.due_date;
+        }
 
         console.log("Creating purchase bill (v4) with payload:", JSON.stringify(payload));
 
