@@ -223,10 +223,25 @@ export function InvoiceApprovalDialog({
             }
           }
 
-          // Step 3: Create creditor invoice (Lieferantenrechnung) in Bexio
+          // Step 3: Search for internal contact "Hasan Arda Kaya" for contact_partner_id
+          let internalContactId: number | null = null;
+          try {
+            const internalContactResult = await callBexioApi("search_contact", {
+              name: "Hasan Arda Kaya"
+            });
+            if (internalContactResult && internalContactResult.length > 0) {
+              internalContactId = internalContactResult[0].id;
+              console.log("Found internal contact Hasan Arda Kaya:", internalContactId);
+            } else {
+              console.log("Internal contact 'Hasan Arda Kaya' not found in Bexio");
+            }
+          } catch (contactErr) {
+            console.warn("Failed to search for internal contact:", contactErr);
+          }
+
+          // Step 4: Create creditor invoice (Lieferantenrechnung) in Bexio
           // Include attachment_ids directly if file was uploaded.
-          // Note: v4 purchase bills do not support a dedicated line-item description field.
-          // We therefore include the user's notes in the title (supported by the API).
+          // Note: v4 purchase bills support "name" field in line_items for description.
           const normalizedNotes = (invoice.notes || "")
             .replace(/\s+/g, " ")
             .trim();
@@ -236,11 +251,13 @@ export function InvoiceApprovalDialog({
             ? `${bexioTitleBase} | ${normalizedNotes}`.slice(0, 180)
             : bexioTitleBase;
 
+          // Line item description: use notes or generate from invoice data
+          const lineDescription = normalizedNotes || bexioTitle;
+
           const bexioInvoice = await callBexioApi("create_invoice", {
             vendor_id: vendorId,
             vendor_name: invoice.vendor_name,
             vendor_address: invoice.vendor_address || "",
-            vendor_ref: invoice.payment_reference || invoice.invoice_number,
             invoice_number: invoice.invoice_number,
             bill_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
             due_date: invoice.due_date || new Date().toISOString().split("T")[0],
@@ -249,6 +266,9 @@ export function InvoiceApprovalDialog({
             vat_amount: invoice.vat_amount || 0,
             currency: invoice.currency || "CHF",
             title: bexioTitle,
+            notes: normalizedNotes,
+            line_description: lineDescription,
+            contact_partner_id: internalContactId,
             attachment_ids: bexioFileId ? [bexioFileId] : [],
           });
 
