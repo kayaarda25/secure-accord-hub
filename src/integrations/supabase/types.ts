@@ -1815,6 +1815,7 @@ export type Database = {
         Args: { _action: string; _user_id: string }
         Returns: boolean
       }
+      get_user_meeting_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_org_type: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["organization_type"]
@@ -1842,6 +1843,14 @@ export type Database = {
           _lockout_minutes?: number
           _max_attempts?: number
         }
+        Returns: boolean
+      }
+      is_meeting_creator: {
+        Args: { _meeting_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_meeting_participant: {
+        Args: { _meeting_id: string; _user_id: string }
         Returns: boolean
       }
       is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
