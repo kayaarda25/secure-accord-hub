@@ -37,6 +37,8 @@ async function refreshBexioToken(
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Token refresh failed:", errorText);
     throw new Error("Failed to refresh Bexio token");
   }
 
@@ -69,6 +71,25 @@ async function getValidAccessToken(
   }
 
   return tokens.access_token;
+}
+
+// Helper to safely parse Bexio response (handles text error responses)
+async function parseBexioResponse(response: Response, action: string): Promise<any> {
+  const text = await response.text();
+  
+  console.log(`Bexio ${action} response status: ${response.status}`);
+  console.log(`Bexio ${action} response body: ${text.substring(0, 500)}`);
+  
+  if (!response.ok) {
+    throw new Error(`Bexio API error (${response.status}): ${text}`);
+  }
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Response is not JSON, return as wrapped object
+    return { message: text, raw: true };
+  }
 }
 
 serve(async (req: Request) => {
@@ -131,6 +152,7 @@ serve(async (req: Request) => {
 
     // Parse request
     const { action, data } = await req.json();
+    console.log(`Bexio API action: ${action}`, data ? JSON.stringify(data).substring(0, 200) : "");
 
     let bexioResponse: Response;
     let result: any;
@@ -150,7 +172,7 @@ serve(async (req: Request) => {
         bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
 
       case "search_contact":
@@ -164,7 +186,7 @@ serve(async (req: Request) => {
             { field: "name_1", value: data.name, criteria: "like" }
           ]),
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
 
       case "create_contact":
@@ -185,44 +207,57 @@ serve(async (req: Request) => {
             phone_fixed: data.phone,
           }),
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
 
-      case "create_invoice":
-        // Use kb_bill for creditor/supplier invoices (Lieferantenrechnungen)
-        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
+      case "create_invoice": {
+        // Use v2 kb_bill endpoint for supplier invoices (Lieferantenrechnungen)
+        // This requires kb_bill_edit scope
+        const billPayload = {
+          contact_id: data.vendor_id || data.contact_id,
+          user_id: 1, // Will be overridden by Bexio
+          currency_id: data.currency === "EUR" ? 2 : data.currency === "USD" ? 3 : 1, // 1=CHF
+          title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
+          api_reference: data.vendor_ref || data.invoice_number,
+          viewed_by_client_at: null,
+          is_valid_from: data.bill_date || data.invoice_date,
+          is_valid_to: data.due_date,
+          mwst_type: 0, // 0 = excluded
+          mwst_is_net: true,
+          positions: [{
+            type: "KbPositionCustom",
+            text: data.title || data.vendor_name || "Lieferantenrechnung",
+            amount: "1",
+            unit_price: String(data.amount),
+            account_id: 4000, // Default expense account
+            tax_id: 16, // Default no VAT
+          }],
+        };
+
+        console.log("Creating kb_bill with payload:", JSON.stringify(billPayload));
+
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_bill`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
-          body: JSON.stringify({
-            vendor_id: data.vendor_id,
-            vendor_ref: data.vendor_ref || data.invoice_number,
-            bill_date: data.bill_date || data.invoice_date,
-            due_date: data.due_date,
-            currency_code: data.currency || "CHF",
-            pending_amount: String(data.amount),
-            net_amount: String(data.amount),
-            vendor_name: data.vendor_name,
-            line_items: data.line_items || [{
-              description: data.title || "Lieferantenrechnung",
-              quantity: "1",
-              unit_price: String(data.amount),
-              net_amount: String(data.amount),
-              account_id: data.account_id || 4000, // Default expense account
-            }],
-          }),
+          body: JSON.stringify(billPayload),
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
+      }
 
       case "get_invoices":
         // Use kb_bill for creditor/supplier invoices
-        bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/kb_bill`, {
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
       
       case "create_creditor":
@@ -240,7 +275,7 @@ serve(async (req: Request) => {
             mail: data.email,
           }),
         });
-        result = await bexioResponse.json();
+        result = await parseBexioResponse(bexioResponse, action);
         break;
 
       default:
