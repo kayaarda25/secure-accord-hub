@@ -503,13 +503,22 @@ serve(async (req: Request) => {
       }
 
       case "get_bank_accounts": {
-        // List all bank accounts configured in Bexio (Banking API v3)
-        bexioResponse = await fetch(`${BEXIO_API_URL}/3.0/banking/bank_accounts`, {
+        // List all bank accounts configured in Bexio
+        // Try v2 endpoint first (more common), fallback to empty if Banking module not available
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/bank_account`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             Accept: "application/json",
           },
         });
+        
+        // If 404, the Banking module may not be enabled - return empty array gracefully
+        if (bexioResponse.status === 404) {
+          console.log("Bexio bank accounts not available (404) - Banking module may not be enabled");
+          result = [];
+          break;
+        }
+        
         result = await parseBexioResponse(bexioResponse, action);
         break;
       }
