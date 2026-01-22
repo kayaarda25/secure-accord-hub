@@ -334,12 +334,15 @@ serve(async (req: Request) => {
           ? `${data.invoice_number} - ${data.vendor_name}` 
           : data.title || `Rechnung - ${data.vendor_name}`;
         
+        const contactPartnerIdCandidate = toNumber(data.contact_partner_id);
+        const contactPartnerId = Number.isFinite(contactPartnerIdCandidate) && contactPartnerIdCandidate > 0
+          ? contactPartnerIdCandidate
+          : supplierId;
+
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           // contact_partner_id = internal contact person (if provided), otherwise supplier
-          contact_partner_id: Number.isFinite(toNumber(data.contact_partner_id))
-            ? toNumber(data.contact_partner_id)
-            : supplierId,
+          contact_partner_id: contactPartnerId,
           title: data.title || titleWithNr,
           vendor_ref: data.payment_reference || data.vendor_ref || null,
           address: addressObj,
@@ -377,7 +380,35 @@ serve(async (req: Request) => {
           },
           body: JSON.stringify(payload),
         });
-        result = await parseBexioResponse(bexioResponse, action);
+
+        // Create draft bill
+        const createdBill = await parseBexioResponse(bexioResponse, action);
+
+        // IMPORTANT: Bexio generates the "Nr." only when the bill is issued / marked open.
+        // We auto-issue it so the UI shows a generated number instead of "null".
+        let issuedBill = createdBill;
+        try {
+          const billId = createdBill?.id;
+          if (billId !== undefined && billId !== null) {
+            console.log("Issuing purchase bill to generate Nr:", billId);
+            const issueResp = await fetch(
+              `${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(String(billId))}/issue`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  Accept: "application/json",
+                },
+              }
+            );
+            issuedBill = await parseBexioResponse(issueResp, "issue_bill");
+          }
+        } catch (e) {
+          // Non-blocking: if issuing fails, keep draft bill (still created)
+          console.warn("Failed to issue purchase bill (non-blocking):", e);
+        }
+
+        result = issuedBill;
         break;
       }
 
