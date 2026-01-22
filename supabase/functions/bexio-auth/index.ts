@@ -62,7 +62,10 @@ serve(async (req: Request) => {
       client_id: bexioClientId,
       redirect_uri: callbackUrl,
       response_type: "code",
-      scope: "openid profile email kb_invoice_edit kb_invoice_show contact_edit contact_show",
+      // Include supplier bill scopes so we can create Lieferantenrechnungen
+      // (kb_bill_edit implies kb_bill_show but we request both for clarity)
+      scope:
+        "openid profile email contact_edit contact_show kb_invoice_edit kb_invoice_show kb_bill_show kb_bill_edit",
       state: state,
     });
 
