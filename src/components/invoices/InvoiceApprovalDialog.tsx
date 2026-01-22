@@ -259,6 +259,7 @@ export function InvoiceApprovalDialog({
             vendor_name: invoice.vendor_name,
             vendor_address: invoice.vendor_address || "",
             invoice_number: invoice.invoice_number,
+            payment_reference: invoice.payment_reference,
             bill_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
             due_date: invoice.due_date || new Date().toISOString().split("T")[0],
             amount: invoice.amount,
@@ -267,7 +268,6 @@ export function InvoiceApprovalDialog({
             currency: invoice.currency || "CHF",
             title: bexioTitle,
             notes: normalizedNotes,
-            line_description: lineDescription,
             contact_partner_id: internalContactId,
             attachment_ids: bexioFileId ? [bexioFileId] : [],
           });
