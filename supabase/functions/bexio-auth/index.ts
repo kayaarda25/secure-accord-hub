@@ -41,11 +41,20 @@ serve(async (req: Request) => {
     const { redirectUri } = await req.json().catch(() => ({}));
     const callbackUrl = `${supabaseUrl}/functions/v1/bexio-oauth-callback`;
 
+    // Capture caller origin so we can redirect back to the right frontend (preview vs prod)
+    let origin: string | null = req.headers.get("origin") || req.headers.get("Origin");
+    try {
+      if (origin) origin = new URL(origin).origin;
+    } catch {
+      origin = null;
+    }
+
     // Generate state parameter with user info for security
     const state = btoa(JSON.stringify({
       userId: user.id,
       timestamp: Date.now(),
-      redirectUri: redirectUri || "/finances/invoices"
+      redirectUri: redirectUri || "/finances/invoices",
+      origin
     }));
 
     // Build Bexio OAuth URL
