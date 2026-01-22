@@ -469,7 +469,7 @@ serve(async (req: Request) => {
         const existingAttachments: string[] = currentBill.attachment_ids || [];
         const allAttachments = [...new Set([...existingAttachments, ...data.attachment_ids])];
 
-        // Bexio v4 PUT requires ALL mandatory fields; build payload from currentBill + updated attachments
+        // Bexio v4 PUT requires ALL mandatory fields including split_into_line_items
         const updatePayload: Record<string, any> = {
           supplier_id: currentBill.supplier_id,
           contact_partner_id: currentBill.contact_partner_id ?? currentBill.supplier_id,
@@ -481,6 +481,7 @@ serve(async (req: Request) => {
           due_date: currentBill.due_date,
           manual_amount: currentBill.manual_amount ?? true,
           item_net: currentBill.item_net ?? false,
+          split_into_line_items: currentBill.split_into_line_items ?? false,
           amount_man: currentBill.amount_man ?? currentBill.amount_calc ?? 0,
           line_items: currentBill.line_items ?? [],
           attachment_ids: allAttachments,
@@ -502,8 +503,8 @@ serve(async (req: Request) => {
       }
 
       case "get_bank_accounts": {
-        // List all bank accounts configured in Bexio
-        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/bank_account`, {
+        // List all bank accounts configured in Bexio (Banking API v3)
+        bexioResponse = await fetch(`${BEXIO_API_URL}/3.0/banking/bank_accounts`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             Accept: "application/json",
