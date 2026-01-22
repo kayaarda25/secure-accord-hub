@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const BEXIO_API_URL = "https://api.bexio.com";
-const BEXIO_TOKEN_URL = "https://idp.bexio.com/token";
+const BEXIO_TOKEN_URL = "https://auth.bexio.com/realms/bexio/protocol/openid-connect/token";
 
 interface BexioTokens {
   access_token: string;
