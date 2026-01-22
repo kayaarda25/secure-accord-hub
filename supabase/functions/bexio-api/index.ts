@@ -320,9 +320,12 @@ serve(async (req: Request) => {
         // Note: v4 line_items do NOT support "description" field - Bexio returns 400 if included
         const payload: Record<string, any> = {
           supplier_id: supplierId,
-          contact_partner_id: supplierId,
+          // contact_partner_id = internal contact person (if provided), otherwise supplier
+          contact_partner_id: Number.isFinite(toNumber(data.contact_partner_id))
+            ? toNumber(data.contact_partner_id)
+            : supplierId,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
-          vendor_ref: data.vendor_ref || data.invoice_number || null,
+          vendor_ref: data.invoice_number || data.vendor_ref || null,
           address: addressObj,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
@@ -334,6 +337,8 @@ serve(async (req: Request) => {
           line_items: [
             {
               position: 0,
+              // name = line item description (supported in v4)
+              name: data.line_description || data.notes || data.title || `${data.invoice_number || "Rechnung"}`,
               amount: totalAmount,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
