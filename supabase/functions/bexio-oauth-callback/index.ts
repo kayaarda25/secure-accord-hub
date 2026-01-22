@@ -26,7 +26,7 @@ serve(async (req: Request) => {
     }
 
     // Parse state
-    let stateData: { userId: string; timestamp: number; redirectUri: string };
+    let stateData: { userId: string; timestamp: number; redirectUri: string; origin?: string | null };
     try {
       stateData = JSON.parse(atob(state));
     } catch {
@@ -120,8 +120,24 @@ serve(async (req: Request) => {
       });
     }
 
-    // Get the app URL for redirect
-    const appUrl = Deno.env.get("APP_URL") || "https://secure-accord-hub.lovable.app";
+    const defaultAppUrl = Deno.env.get("APP_URL") || "https://secure-accord-hub.lovable.app";
+
+    const isAllowedOrigin = (o?: string | null) => {
+      if (!o) return false;
+      try {
+        const u = new URL(o);
+        if (u.protocol !== "https:") return false;
+        return (
+          u.hostname.endsWith(".lovable.app") ||
+          u.hostname.endsWith(".lovableproject.com")
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    // Prefer redirecting back to the calling frontend origin (preview vs prod), but keep it safe.
+    const appUrl = isAllowedOrigin(stateData.origin) ? (stateData.origin as string) : defaultAppUrl;
     
     return new Response(null, {
       status: 302,
