@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BEXIO_AUTH_URL = "https://idp.bexio.com/authorize";
+const BEXIO_AUTH_URL = "https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
