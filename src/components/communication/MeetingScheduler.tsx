@@ -62,6 +62,7 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
     time: "10:00",
     duration: 60,
     participants: [] as string[],
+    meetingType: "internal" as "internal" | "zoom",
   });
 
   useEffect(() => {
@@ -117,8 +118,8 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
 
       let zoomMeetingData: { id: number; joinUrl: string; password: string } | null = null;
 
-      // Create Zoom meeting and send invitations if there are participants
-      if (participantEmails.length > 0) {
+      // Create Zoom meeting and send invitations if Zoom is selected and there are participants
+      if (formData.meetingType === "zoom" && participantEmails.length > 0) {
         try {
           const { data: zoomResponse, error: zoomError } = await supabase.functions.invoke(
             "create-zoom-meeting",
@@ -142,6 +143,24 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
           }
         } catch (zoomErr) {
           console.error("Failed to create Zoom meeting:", zoomErr);
+        }
+      } else if (formData.meetingType === "internal" && participantEmails.length > 0) {
+        // Send internal meeting invitations
+        try {
+          await supabase.functions.invoke("send-meeting-invitation", {
+            body: {
+              meeting: {
+                title: formData.title,
+                date: scheduledDate.toISOString(),
+                duration: formData.duration,
+                roomCode: roomCode,
+                description: formData.description || undefined,
+              },
+              participants: participantEmails,
+            },
+          });
+        } catch (inviteErr) {
+          console.error("Failed to send invitations:", inviteErr);
         }
       }
 
@@ -184,6 +203,7 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
         time: "10:00",
         duration: 60,
         participants: [],
+        meetingType: "internal",
       });
       fetchMeetings();
     } catch (error) {
@@ -473,6 +493,43 @@ export function MeetingScheduler({ onClose, onJoinMeeting }: MeetingSchedulerPro
                     <option value={90}>1.5 Stunden</option>
                     <option value={120}>2 Stunden</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    Meeting-Typ
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, meetingType: "internal" })}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                        formData.meetingType === "internal"
+                          ? "border-accent bg-accent/10 text-foreground"
+                          : "border-border bg-muted text-muted-foreground hover:border-accent/50"
+                      }`}
+                    >
+                      <Video size={18} />
+                      <span className="text-sm font-medium">Intern</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, meetingType: "zoom" })}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                        formData.meetingType === "zoom"
+                          ? "border-blue-500 bg-blue-500/10 text-foreground"
+                          : "border-border bg-muted text-muted-foreground hover:border-blue-500/50"
+                      }`}
+                    >
+                      <span className="text-lg">📹</span>
+                      <span className="text-sm font-medium">Zoom</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {formData.meetingType === "zoom" 
+                      ? "Zoom-Link wird automatisch erstellt und per E-Mail versendet"
+                      : "Internes Video-Meeting über die Plattform"}
+                  </p>
                 </div>
 
                 <div>
