@@ -266,6 +266,67 @@ export function InvoiceApprovalDialog({
 
           console.log("Created Bexio purchase bill:", bexioInvoice.id, "with attachment uuid:", bexioFileId);
 
+          // Step 4: Create payment order if vendor IBAN is available
+          let paymentCreated = false;
+          if (invoice.vendor_iban) {
+            try {
+              // Get bank accounts to find "Valiant" CHF account
+              const bankAccounts = await callBexioApi("get_bank_accounts", {});
+              console.log("Available bank accounts:", bankAccounts?.length);
+
+              // Find Valiant CHF account (case-insensitive match on name containing "valiant" and currency CHF)
+              const valiantAccount = (bankAccounts || []).find((acc: any) => {
+                const name = (acc.name || "").toLowerCase();
+                const currency = (acc.currency_code || acc.currency || "").toUpperCase();
+                return name.includes("valiant") && currency === "CHF";
+              });
+
+              if (valiantAccount) {
+                console.log("Found Valiant CHF account:", valiantAccount.id, valiantAccount.name);
+
+                // Parse vendor address for recipient info
+                const addrParts = (invoice.vendor_address || "").split(/[,\n]/).map((s: string) => s.trim()).filter(Boolean);
+                let street = addrParts[0] || "-";
+                let zip = "";
+                let city = "";
+                if (addrParts.length > 1) {
+                  const lastPart = addrParts[addrParts.length - 1];
+                  const zipCityMatch = lastPart.match(/^(\d{4,5})\s+(.+)$/);
+                  if (zipCityMatch) {
+                    zip = zipCityMatch[1];
+                    city = zipCityMatch[2];
+                  } else {
+                    city = lastPart;
+                  }
+                }
+
+                await callBexioApi("create_iban_payment", {
+                  bank_account_id: valiantAccount.id,
+                  iban: invoice.vendor_iban,
+                  amount: invoice.amount,
+                  currency: invoice.currency || "CHF",
+                  recipient_name: invoice.vendor_name,
+                  recipient_street: street,
+                  recipient_zip: zip,
+                  recipient_city: city,
+                  recipient_country: "CH",
+                  execution_date: invoice.due_date || new Date().toISOString().split("T")[0],
+                  message: invoice.payment_reference || invoice.invoice_number || "",
+                });
+
+                paymentCreated = true;
+                console.log("Created IBAN payment order for", invoice.vendor_name);
+              } else {
+                console.warn("No Valiant CHF bank account found in Bexio - skipping payment creation");
+              }
+            } catch (paymentError) {
+              console.error("Payment order creation failed (non-blocking):", paymentError);
+              // Continue - payment creation is optional
+            }
+          } else {
+            console.log("No vendor IBAN available - skipping payment order");
+          }
+
           // Update local record with Bexio reference
           await supabase
             .from("creditor_invoices")
@@ -273,6 +334,7 @@ export function InvoiceApprovalDialog({
               bexio_invoice_id: String(bexioInvoice.id),
               bexio_creditor_id: String(vendorId),
               bexio_synced_at: new Date().toISOString(),
+              payment_status: paymentCreated ? "payment_created" : invoice.vendor_iban ? "pending" : null,
             })
             .eq("id", invoice.id);
 

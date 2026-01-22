@@ -501,6 +501,78 @@ serve(async (req: Request) => {
         break;
       }
 
+      case "get_bank_accounts": {
+        // List all bank accounts configured in Bexio
+        bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/bank_account`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        });
+        result = await parseBexioResponse(bexioResponse, action);
+        break;
+      }
+
+      case "create_iban_payment": {
+        // Create an IBAN payment order on a specific bank account
+        // Endpoint: POST /3.0/banking/bank_accounts/{bank_account_id}/payments/iban
+        // Required: bank_account_id, iban, amount, currency, recipient (name, street, zip, city, country_code), execution_date
+        const bankAccountId = toNumber(data.bank_account_id);
+        if (!Number.isFinite(bankAccountId)) {
+          throw new Error("create_iban_payment: missing/invalid bank_account_id");
+        }
+
+        if (!data.iban || typeof data.iban !== "string") {
+          throw new Error("create_iban_payment: missing iban");
+        }
+
+        const paymentAmount = toNumber(data.amount);
+        if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+          throw new Error("create_iban_payment: missing/invalid amount");
+        }
+
+        // Build recipient address
+        const recipientName = data.recipient_name || data.vendor_name || "Lieferant";
+        const recipientStreet = data.recipient_street || data.vendor_address || "-";
+        const recipientZip = data.recipient_zip || "";
+        const recipientCity = data.recipient_city || "";
+        const recipientCountry = data.recipient_country || "CH";
+
+        const paymentPayload = {
+          iban: data.iban.replace(/\s/g, "").toUpperCase(),
+          instructed_amount: {
+            currency: data.currency || "CHF",
+            amount: paymentAmount.toFixed(2),
+          },
+          recipient: {
+            name: recipientName.slice(0, 70),
+            street: recipientStreet.slice(0, 70),
+            zip: recipientZip.slice(0, 16),
+            city: recipientCity.slice(0, 35),
+            country_code: recipientCountry.slice(0, 2).toUpperCase(),
+          },
+          execution_date: data.execution_date || new Date().toISOString().split("T")[0],
+          message: data.message || data.reference || "",
+        };
+
+        console.log(`Creating IBAN payment on bank account ${bankAccountId}:`, JSON.stringify(paymentPayload));
+
+        bexioResponse = await fetch(
+          `${BEXIO_API_URL}/3.0/banking/bank_accounts/${bankAccountId}/payments/iban`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(paymentPayload),
+          }
+        );
+        result = await parseBexioResponse(bexioResponse, action);
+        break;
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
