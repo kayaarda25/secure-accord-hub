@@ -325,7 +325,7 @@ serve(async (req: Request) => {
             ? toNumber(data.contact_partner_id)
             : supplierId,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
-          vendor_ref: data.invoice_number || data.vendor_ref || null,
+          vendor_ref: data.payment_reference || data.vendor_ref || null,
           address: addressObj,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
