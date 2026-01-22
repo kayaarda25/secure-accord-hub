@@ -22,6 +22,56 @@ interface BexioTokens {
   scope?: string | null;
 }
 
+async function resolveInternalContactPartnerId(
+  accessToken: string,
+  userEmail?: string | null
+): Promise<number | null> {
+  // Prefer "me" endpoint – most reliable as it reflects the user who authorized the OAuth connection.
+  try {
+    const meResp = await fetch(`${BEXIO_API_URL}/3.0/users/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (meResp.ok) {
+      const me = await meResp.json();
+      const meId = toNumber(me?.id);
+      if (Number.isFinite(meId) && meId > 0) return meId;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Fallback: list users and match by email.
+  if (userEmail) {
+    try {
+      const usersResp = await fetch(`${BEXIO_API_URL}/2.0/user`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!usersResp.ok) return null;
+      const users = await usersResp.json();
+      if (!Array.isArray(users)) return null;
+
+      const match = users.find((u: any) =>
+        typeof u?.email === "string" &&
+        u.email.trim().toLowerCase() === userEmail.trim().toLowerCase()
+      );
+      const matchId = toNumber(match?.id);
+      if (Number.isFinite(matchId) && matchId > 0) return matchId;
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
 async function refreshBexioToken(
   supabase: any,
   tokens: BexioTokens
@@ -335,13 +385,27 @@ serve(async (req: Request) => {
           : data.title || `Rechnung - ${data.vendor_name}`;
         
         const contactPartnerIdCandidate = toNumber(data.contact_partner_id);
-        const contactPartnerId = Number.isFinite(contactPartnerIdCandidate) && contactPartnerIdCandidate > 0
-          ? contactPartnerIdCandidate
-          : supplierId;
+        let contactPartnerId =
+          Number.isFinite(contactPartnerIdCandidate) && contactPartnerIdCandidate > 0
+            ? contactPartnerIdCandidate
+            : null;
+
+        // IMPORTANT:
+        // contact_partner_id must be an INTERNAL Bexio user (employee), not the supplier/contact.
+        // Using supplier_id here can make the subsequent /issue call fail and keep the bill in draft.
+        if (!contactPartnerId) {
+          contactPartnerId = await resolveInternalContactPartnerId(accessToken, user?.email);
+        }
+
+        if (!contactPartnerId) {
+          throw new Error(
+            "Konnte keinen internen Bexio Kontakt (contact_partner_id) ermitteln. Bitte stelle sicher, dass die Bexio-Verbindung von einem gültigen Benutzer autorisiert wurde."
+          );
+        }
 
         const payload: Record<string, any> = {
           supplier_id: supplierId,
-          // contact_partner_id = internal contact person (if provided), otherwise supplier
+          // contact_partner_id = internal contact person (Bexio user)
           contact_partner_id: contactPartnerId,
           title: data.title || titleWithNr,
           vendor_ref: data.payment_reference || data.vendor_ref || null,
@@ -397,8 +461,11 @@ serve(async (req: Request) => {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
                   Accept: "application/json",
                 },
+                // Some Bexio setups are picky and expect a JSON body even if empty.
+                body: JSON.stringify({}),
               }
             );
             issuedBill = await parseBexioResponse(issueResp, "issue_bill");
@@ -520,9 +587,24 @@ serve(async (req: Request) => {
         const allAttachments = [...new Set([...existingAttachments, ...data.attachment_ids])];
 
         // Bexio v4 PUT requires ALL mandatory fields including split_into_line_items
+        // Ensure we don't accidentally write an invalid contact_partner_id.
+        const currentContactPartnerId = toNumber(currentBill.contact_partner_id);
+        let safeContactPartnerId =
+          Number.isFinite(currentContactPartnerId) && currentContactPartnerId > 0
+            ? currentContactPartnerId
+            : null;
+        if (!safeContactPartnerId) {
+          safeContactPartnerId = await resolveInternalContactPartnerId(accessToken, user?.email);
+        }
+        if (!safeContactPartnerId) {
+          throw new Error(
+            "attach_file_to_bill: Konnte keinen gültigen internen contact_partner_id ermitteln."
+          );
+        }
+
         const updatePayload: Record<string, any> = {
           supplier_id: currentBill.supplier_id,
-          contact_partner_id: currentBill.contact_partner_id ?? currentBill.supplier_id,
+          contact_partner_id: safeContactPartnerId,
           title: currentBill.title,
           vendor_ref: currentBill.vendor_ref ?? null,
           address: currentBill.address,
