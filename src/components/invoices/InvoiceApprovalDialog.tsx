@@ -52,6 +52,8 @@ interface Invoice {
   bexio_synced_at: string | null;
   document_path: string | null;
   document_name: string | null;
+  vat_rate: number | null;
+  vat_amount: number | null;
 }
 
 interface InvoiceApprovalDialogProps {
@@ -212,11 +214,14 @@ export function InvoiceApprovalDialog({
           const bexioInvoice = await callBexioApi("create_invoice", {
             vendor_id: vendorId,
             vendor_name: invoice.vendor_name,
+            vendor_address: invoice.vendor_address || "",
             vendor_ref: invoice.payment_reference || invoice.invoice_number,
             invoice_number: invoice.invoice_number,
             bill_date: invoice.invoice_date || new Date().toISOString().split("T")[0],
             due_date: invoice.due_date || new Date().toISOString().split("T")[0],
             amount: invoice.amount,
+            vat_rate: invoice.vat_rate || 0,
+            vat_amount: invoice.vat_amount || 0,
             currency: invoice.currency || "CHF",
             title: `${invoice.invoice_number || "Rechnung"} - ${invoice.vendor_name}`,
           });
