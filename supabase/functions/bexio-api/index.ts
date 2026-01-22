@@ -239,12 +239,12 @@ serve(async (req: Request) => {
       case "create_invoice": {
         // Bexio v4 Purchase Bills API
         // Endpoint: POST /4.0/purchase/bills
-        // REQUIRED FIELDS (based on 400 error):
+        // REQUIRED FIELDS (based on Bexio responses + 400 errors):
         // - supplier_id: number
-        // - contact_partner_id: number (can be same as supplier_id for companies without contact persons)
-        // - address: string (supplier address as text)
-        // - manual_amount: number (total gross amount)
-        // - item_net: number (net amount per line item)
+        // - contact_partner_id: number
+        // - address: object (NOT a string)
+        // - manual_amount: boolean
+        // - item_net: boolean
         // - line_items[].position: number (0-indexed position)
         
         const supplierId = toNumber(data.vendor_id ?? data.contact_id);
@@ -261,24 +261,22 @@ serve(async (req: Request) => {
           ? toNumber(data.booking_account_id)
           : (Number.isFinite(toNumber(data.account_id)) ? toNumber(data.account_id) : 99);
 
-        // Calculate net amount (assume 7.7% VAT if VAT present, otherwise net = gross)
+        // Tax ID: use provided, or infer (22 = standard Swiss VAT, null = no VAT)
         const vatRate = toNumber(data.vat_rate);
         const hasVat = Number.isFinite(vatRate) && vatRate > 0;
-        const netAmount = hasVat ? totalAmount / (1 + vatRate / 100) : totalAmount;
-
-        // Tax ID: use provided, or infer (22 = standard Swiss VAT, null = no VAT)
         const taxId = (data?.tax_id === null)
           ? null
           : (Number.isFinite(toNumber(data.tax_id))
             ? toNumber(data.tax_id)
             : (hasVat ? 22 : null));
 
-        // Build address string from vendor data.
-        // Bexio expects a *string*; to avoid validation issues we normalize into multi-line text.
+        // Build address OBJECT as expected by v4 (we verified via GET /4.0/purchase/bills/{id}).
+        // We try to parse Swiss-style addresses like: "Street 1, 8005 Zürich".
         const rawVendorName = typeof data.vendor_name === "string" ? data.vendor_name.trim() : "";
         const rawVendorAddress = typeof data.vendor_address === "string" ? data.vendor_address.trim() : "";
 
-        const addressLines = rawVendorAddress
+        // Normalize to tokens (split commas/newlines)
+        const tokens = rawVendorAddress
           ? rawVendorAddress
               .split(/\r?\n/)
               .flatMap((line: string) => line.split(","))
@@ -286,26 +284,54 @@ serve(async (req: Request) => {
               .filter(Boolean)
           : [];
 
-        const addressString = [rawVendorName, ...addressLines]
-          .filter(Boolean)
-          .join("\n") || rawVendorName || "Lieferant";
+        // Heuristic: last token may contain postcode + city
+        let postcode: string | null = null;
+        let city: string | null = null;
+        let addressLine: string | null = null;
+
+        if (tokens.length > 0) {
+          const last = tokens[tokens.length - 1];
+          const m = last.match(/^(\d{4})\s+(.+)$/);
+          if (m) {
+            postcode = m[1];
+            city = m[2];
+            addressLine = tokens.slice(0, -1).join(", ") || null;
+          } else {
+            addressLine = tokens.join(", ") || null;
+          }
+        }
+
+        const addressObj: Record<string, any> = {
+          type: "COMPANY",
+          lastname_company: rawVendorName || "Lieferant",
+          address_line: addressLine || "-",
+          postcode,
+          city,
+          country_code: (typeof data.country_code === "string" && data.country_code) ? data.country_code : "CH",
+          // keep other fields optional/null
+          contact_address_id: null,
+          main_contact_id: null,
+          firstname_suffix: null,
+          salutation: null,
+          title: null,
+        };
 
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           contact_partner_id: supplierId, // Use supplier ID if no specific contact partner
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.vendor_ref || data.invoice_number || null,
-          address: addressString,
+          address: addressObj,
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
           due_date: data.due_date || null,
-          manual_amount: totalAmount,
-          item_net: netAmount,
+          // v4 expects booleans here (see GET bill response)
+          manual_amount: false,
+          item_net: false,
           line_items: [
             {
               position: 0,
               amount: totalAmount,
-              item_net: netAmount,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
             },
