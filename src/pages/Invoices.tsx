@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BexioConnectionCard } from "@/components/invoices/BexioConnectionCard";
+import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
   Plus,
@@ -26,49 +29,108 @@ import {
   ArrowDownLeft,
   Banknote,
   Inbox,
-  Settings2,
+  Loader2,
 } from "lucide-react";
 
-interface Invoice {
-  id: string;
-  number: string;
-  type: "incoming" | "outgoing";
-  partner: string;
-  description: string;
-  issueDate: string;
-  dueDate: string;
-  paidDate?: string;
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
-  amount: number;
-  currency: string;
-  organization: string;
-}
-
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
-  draft: { label: "Draft", variant: "secondary", icon: FileText },
-  sent: { label: "Sent", variant: "outline", icon: Send },
-  paid: { label: "Paid", variant: "default", icon: CheckCircle },
-  overdue: { label: "Overdue", variant: "destructive", icon: AlertCircle },
-  cancelled: { label: "Cancelled", variant: "secondary", icon: AlertCircle },
+  pending_review: { label: "Prüfung", variant: "secondary", icon: Clock },
+  first_approval: { label: "1. Freigabe", variant: "outline", icon: FileText },
+  approved: { label: "Freigegeben", variant: "default", icon: CheckCircle },
+  rejected: { label: "Abgelehnt", variant: "destructive", icon: AlertCircle },
+  paid: { label: "Bezahlt", variant: "default", icon: CheckCircle },
 };
 
 export default function Invoices() {
-  const [invoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    vendor_name: "",
+    invoice_number: "",
+    notes: "",
+    amount: "",
+    currency: "CHF",
+    invoice_date: "",
+    due_date: "",
+  });
+
+  // Fetch invoices from database
+  const { data: invoices = [], isLoading } = useQuery({
+    queryKey: ["creditor-invoices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("creditor_invoices")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Create invoice mutation
+  const createInvoice = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const { data: result, error } = await supabase
+        .from("creditor_invoices")
+        .insert({
+          vendor_name: data.vendor_name,
+          invoice_number: data.invoice_number || null,
+          notes: data.notes || null,
+          amount: parseFloat(data.amount) || 0,
+          currency: data.currency,
+          invoice_date: data.invoice_date || null,
+          due_date: data.due_date || null,
+          status: "pending_review",
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["creditor-invoices"] });
+      setCreateDialogOpen(false);
+      setFormData({
+        vendor_name: "",
+        invoice_number: "",
+        notes: "",
+        amount: "",
+        currency: "CHF",
+        invoice_date: "",
+        due_date: "",
+      });
+      toast({
+        title: "Rechnung erstellt",
+        description: "Die Kreditorenrechnung wurde erfolgreich angelegt.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Fehler",
+        description: error.message || "Rechnung konnte nicht erstellt werden.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const formatCurrency = (amount: number, currency: string = "CHF") => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("de-CH", {
       style: "currency",
       currency: currency,
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
     }).format(amount);
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("de-CH", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -76,37 +138,48 @@ export default function Invoices() {
   };
 
   const filteredInvoices = invoices.filter((inv) => {
-    const matchesSearch = inv.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = 
+      inv.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || inv.status === filterStatus;
-    const matchesTab = activeTab === "all" || inv.type === activeTab;
+    // For now, all are "incoming" (creditor invoices)
+    const matchesTab = activeTab === "all" || activeTab === "incoming";
     return matchesSearch && matchesStatus && matchesTab;
   });
 
-  const totalOutgoing = invoices
-    .filter((i) => i.type === "outgoing")
-    .reduce((sum, i) => sum + i.amount, 0);
-  const totalIncoming = invoices
-    .filter((i) => i.type === "incoming")
-    .reduce((sum, i) => sum + i.amount, 0);
-  const overdueCount = invoices.filter((i) => i.status === "overdue").length;
+  const totalIncoming = invoices.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  const overdueCount = invoices.filter((i) => 
+    i.due_date && new Date(i.due_date) < new Date() && i.status !== "paid"
+  ).length;
   const pendingAmount = invoices
-    .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .filter((i) => i.status === "pending_review" || i.status === "first_approval")
+    .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+
+  const handleSubmit = () => {
+    if (!formData.vendor_name || !formData.amount) {
+      toast({
+        title: "Fehler",
+        description: "Bitte Lieferant und Betrag eingeben.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createInvoice.mutate(formData);
+  };
 
   return (
-    <Layout title="Invoices" subtitle="Manage incoming and outgoing invoices">
+    <Layout title="Kreditorenrechnungen" subtitle="Eingehende Rechnungen verwalten und freigeben">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Outgoing</p>
-                <p className="text-2xl font-bold text-success">{formatCurrency(totalOutgoing)}</p>
+                <p className="text-sm text-muted-foreground">Anzahl</p>
+                <p className="text-2xl font-bold">{invoices.length}</p>
               </div>
-              <ArrowUpRight className="h-8 w-8 text-success" />
+              <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -114,7 +187,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Incoming</p>
+                <p className="text-sm text-muted-foreground">Gesamtbetrag</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalIncoming)}</p>
               </div>
               <ArrowDownLeft className="h-8 w-8 text-muted-foreground" />
@@ -125,7 +198,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Open</p>
+                <p className="text-sm text-muted-foreground">Offen</p>
                 <p className="text-2xl font-bold text-warning">{formatCurrency(pendingAmount)}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
@@ -136,7 +209,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Overdue</p>
+                <p className="text-sm text-muted-foreground">Überfällig</p>
                 <p className="text-2xl font-bold text-destructive">{overdueCount}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-destructive" />
@@ -154,10 +227,6 @@ export default function Invoices() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="all">Alle</TabsTrigger>
-          <TabsTrigger value="outgoing" className="flex items-center gap-2">
-            <ArrowUpRight className="h-4 w-4" />
-            Ausgehend
-          </TabsTrigger>
           <TabsTrigger value="incoming" className="flex items-center gap-2">
             <ArrowDownLeft className="h-4 w-4" />
             Eingehend
@@ -171,7 +240,7 @@ export default function Invoices() {
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder="Suchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -183,11 +252,12 @@ export default function Invoices() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="sent">Sent</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="all">Alle Status</SelectItem>
+              <SelectItem value="pending_review">Prüfung</SelectItem>
+              <SelectItem value="first_approval">1. Freigabe</SelectItem>
+              <SelectItem value="approved">Freigegeben</SelectItem>
+              <SelectItem value="paid">Bezahlt</SelectItem>
+              <SelectItem value="rejected">Abgelehnt</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -200,53 +270,61 @@ export default function Invoices() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                New Invoice
+                Neue Rechnung
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Invoice</DialogTitle>
+                <DialogTitle>Neue Kreditorenrechnung</DialogTitle>
                 <DialogDescription>
-                  Create a new incoming or outgoing invoice
+                  Erfassen Sie eine neue eingehende Rechnung
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="outgoing">Outgoing</SelectItem>
-                        <SelectItem value="incoming">Incoming</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Lieferant *</Label>
+                    <Input 
+                      placeholder="Firmenname" 
+                      value={formData.vendor_name}
+                      onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Invoice Number</Label>
-                    <Input placeholder="e.g. INV-2025-0002" />
+                    <Label>Rechnungsnummer</Label>
+                    <Input 
+                      placeholder="z.B. INV-2025-001" 
+                      value={formData.invoice_number}
+                      onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Partner</Label>
-                  <Input placeholder="Company name" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea placeholder="Invoice description..." />
+                  <Label>Beschreibung</Label>
+                  <Textarea 
+                    placeholder="Beschreibung der Rechnung..." 
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount</Label>
-                    <Input type="number" placeholder="0.00" />
+                    <Label>Betrag *</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Currency</Label>
-                    <Select>
+                    <Label>Währung</Label>
+                    <Select 
+                      value={formData.currency} 
+                      onValueChange={(v) => setFormData({ ...formData, currency: v })}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Currency" />
+                        <SelectValue placeholder="Währung" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CHF">CHF</SelectItem>
@@ -258,21 +336,30 @@ export default function Invoices() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Invoice Date</Label>
-                    <Input type="date" />
+                    <Label>Rechnungsdatum</Label>
+                    <Input 
+                      type="date" 
+                      value={formData.invoice_date}
+                      onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Due Date</Label>
-                    <Input type="date" />
+                    <Label>Fälligkeitsdatum</Label>
+                    <Input 
+                      type="date" 
+                      value={formData.due_date}
+                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
+                  Abbrechen
                 </Button>
-                <Button onClick={() => setCreateDialogOpen(false)}>
-                  Create
+                <Button onClick={handleSubmit} disabled={createInvoice.isPending}>
+                  {createInvoice.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Erstellen
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -285,67 +372,64 @@ export default function Invoices() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5" />
-            Invoices
+            Rechnungen
           </CardTitle>
           <CardDescription>
-            {filteredInvoices.length} invoices found
+            {filteredInvoices.length} Rechnungen gefunden
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredInvoices.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredInvoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No invoices available</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">Keine Rechnungen vorhanden</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Create your first invoice to get started.
+                Erstellen Sie Ihre erste Rechnung.
               </p>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                New Invoice
+                Neue Rechnung
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Due</TableHead>
+                  <TableHead>Nummer</TableHead>
+                  <TableHead>Lieferant</TableHead>
+                  <TableHead>Beschreibung</TableHead>
+                  <TableHead>Fälligkeit</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Betrag</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvoices.map((inv) => {
-                  const statusConfig = STATUS_CONFIG[inv.status];
+                  const statusConfig = STATUS_CONFIG[inv.status] || STATUS_CONFIG.pending_review;
                   const StatusIcon = statusConfig.icon;
+                  const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid";
+                  
                   return (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-mono text-sm">{inv.number}</TableCell>
-                      <TableCell>
-                        {inv.type === "outgoing" ? (
-                          <Badge variant="outline" className="flex items-center gap-1 w-fit text-success border-success">
-                            <ArrowUpRight className="h-3 w-3" />
-                            Outgoing
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                            <ArrowDownLeft className="h-3 w-3" />
-                            Incoming
-                          </Badge>
-                        )}
+                      <TableCell className="font-mono text-sm">
+                        {inv.invoice_number || "-"}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{inv.partner}</p>
-                          <p className="text-xs text-muted-foreground">{inv.organization}</p>
-                        </div>
+                        <p className="font-medium">{inv.vendor_name}</p>
                       </TableCell>
-                      <TableCell className="max-w-48 truncate">{inv.description}</TableCell>
-                      <TableCell>{formatDate(inv.dueDate)}</TableCell>
+                      <TableCell className="max-w-48 truncate">
+                        {inv.notes || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className={isOverdue ? "text-destructive font-medium" : ""}>
+                          {formatDate(inv.due_date)}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
                           <StatusIcon className="h-3 w-3" />
@@ -353,7 +437,7 @@ export default function Invoices() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(inv.amount, inv.currency)}
+                        {formatCurrency(Number(inv.amount) || 0, inv.currency)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm">
