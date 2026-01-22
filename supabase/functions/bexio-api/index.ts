@@ -216,11 +216,10 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Some Bexio accounts no longer expose /2.0/kb_bill (returns 404).
-        // The v4 Purchase API is available and works for those accounts.
+        // Bexio v4 Purchase API uses "supplier_id" (not "vendor_id")
         // Endpoint: /4.0/purchase/bills
         const payload = {
-          vendor_id: data.vendor_id || data.contact_id,
+          supplier_id: data.vendor_id || data.contact_id,
           title: data.title || `${data.invoice_number || "Rechnung"} - ${data.vendor_name}`,
           vendor_ref: data.vendor_ref || data.invoice_number || null,
           currency_code: (data.currency || "CHF") as string,
