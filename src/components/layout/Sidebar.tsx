@@ -116,6 +116,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       items.push({ name: "Budget", href: "/budget", icon: TrendingUp, permission: "view_budget" });
     }
 
+    // Invoices as standalone item (if user has permission)
+    if (permissions.canViewInvoices || permissions.canCreateInvoices) {
+      items.push({ name: "Invoices", href: "/finances/invoices", icon: Banknote });
+    }
+
     // Reports (always visible)
     items.push({ name: "Reports", href: "/reports", icon: BarChart });
 
