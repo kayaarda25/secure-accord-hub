@@ -23,21 +23,33 @@ import {
   Loader2,
   Clock,
   Video,
+  MessageCircle,
 } from "lucide-react";
 
-type CommunicationType = "partner" | "authority" | "internal";
+type CommunicationType = "partner" | "authority" | "internal" | "direct";
 
 interface Thread {
   id: string;
-  subject: string;
+  subject: string | null;
   type: CommunicationType;
   organization_id: string | null;
   is_official: boolean;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
+  created_by: string;
   message_count?: number;
   last_message?: string;
+  participants?: ThreadParticipant[];
+}
+
+interface ThreadParticipant {
+  id: string;
+  thread_id: string;
+  user_id: string;
+  joined_at: string;
+  last_read_at: string | null;
+  profile?: UserProfile;
 }
 
 interface Message {
@@ -74,7 +86,7 @@ interface UserProfile {
 
 export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("partner");
+  const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("direct");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -189,14 +201,58 @@ export default function Communication() {
   const fetchThreads = async () => {
     setIsLoading(true);
     try {
-      const { data } = await supabase
-        .from("communication_threads")
-        .select("*")
-        .eq("type", activeTab === "meetings" ? "internal" : activeTab)
-        .order("updated_at", { ascending: false });
+      if (activeTab === "direct") {
+        // Fetch direct threads where user is a participant
+        const { data: participantData } = await (supabase as any)
+          .from("thread_participants")
+          .select("thread_id")
+          .eq("user_id", user?.id);
+        
+        const threadIds = (participantData as any[])?.map((p: any) => p.thread_id) || [];
+        
+        if (threadIds.length > 0) {
+          const { data } = await (supabase as any)
+            .from("communication_threads")
+            .select("*")
+            .eq("type", "direct")
+            .in("id", threadIds)
+            .order("updated_at", { ascending: false });
 
-      if (data) {
-        setThreads(data as Thread[]);
+          // Fetch participants for each thread
+          if (data) {
+            const threadsWithParticipants = await Promise.all(
+              (data as any[]).map(async (thread: any) => {
+                const { data: participants } = await (supabase as any)
+                  .from("thread_participants")
+                  .select("*")
+                  .eq("thread_id", thread.id);
+                
+                // Fetch profiles for participants
+                const participantsWithProfiles = await Promise.all(
+                  ((participants as any[]) || []).map(async (p: any) => {
+                    const profile = availableUsers.find(u => u.user_id === p.user_id);
+                    return { ...p, profile };
+                  })
+                );
+                
+                return { ...thread, participants: participantsWithProfiles };
+              })
+            );
+            setThreads(threadsWithParticipants as Thread[]);
+          }
+        } else {
+          setThreads([]);
+        }
+      } else {
+        const { data } = await (supabase as any)
+          .from("communication_threads")
+          .select("*")
+          .eq("type", activeTab === "meetings" ? "internal" : activeTab)
+          .order("updated_at", { ascending: false });
+
+        if (data) {
+          setThreads(data as Thread[]);
+        }
       }
     } catch (error) {
       console.error("Error fetching threads:", error);
@@ -244,10 +300,10 @@ export default function Communication() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("communication_threads")
         .insert({
-          subject: threadForm.subject,
+          subject: threadForm.subject || null,
           type: threadForm.type,
           is_official: threadForm.is_official,
           created_by: user.id,
@@ -257,8 +313,23 @@ export default function Communication() {
 
       if (error) throw error;
 
+      // Add participants to thread
+      if (data && threadForm.selectedMembers.length > 0) {
+        const participantInserts = [
+          { thread_id: data.id, user_id: user.id }, // Add creator
+          ...threadForm.selectedMembers.map(userId => ({
+            thread_id: data.id,
+            user_id: userId,
+          })),
+        ];
+        
+        await (supabase as any)
+          .from("thread_participants")
+          .insert(participantInserts);
+      }
+
       setShowNewThread(false);
-      setThreadForm({ subject: "", type: "partner", is_official: false, selectedMembers: [] });
+      setThreadForm({ subject: "", type: "direct", is_official: false, selectedMembers: [] });
       fetchThreads();
       if (data) {
         setSelectedThread(data as Thread);
@@ -323,6 +394,8 @@ export default function Communication() {
 
   const getTabIcon = (tab: CommunicationType | "meetings") => {
     switch (tab) {
+      case "direct":
+        return <MessageCircle size={18} />;
       case "partner":
         return <Building2 size={18} />;
       case "authority":
@@ -349,7 +422,39 @@ export default function Communication() {
     });
   };
 
+  // Get display name for a thread (for direct chats, show participant names)
+  const getThreadDisplayName = (thread: Thread) => {
+    if (thread.type === "direct" && thread.participants) {
+      // Filter out current user and show other participants
+      const otherParticipants = thread.participants.filter(
+        p => p.user_id !== user?.id
+      );
+      
+      if (otherParticipants.length === 0) {
+        return "Nur du";
+      }
+      
+      const names = otherParticipants.map(p => {
+        if (p.profile) {
+          if (p.profile.first_name || p.profile.last_name) {
+            return `${p.profile.first_name || ""} ${p.profile.last_name || ""}`.trim();
+          }
+          return p.profile.email;
+        }
+        return "Unbekannt";
+      });
+      
+      if (names.length <= 2) {
+        return names.join(", ");
+      }
+      return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+    }
+    
+    return thread.subject || "Kein Betreff";
+  };
+
   const tabs = [
+    { id: "direct" as const, label: "Direkt", visible: true },
     { id: "partner" as const, label: "Partners", visible: canViewPartner },
     { id: "authority" as const, label: "Authorities", visible: canViewAuthority },
     { id: "internal" as const, label: "Internal", visible: true },
@@ -500,9 +605,20 @@ export default function Communication() {
           {/* Thread List */}
           <div className="card-state flex flex-col max-h-[300px] lg:max-h-none">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Conversations</h3>
+              <h3 className="font-semibold text-foreground">
+                {activeTab === "direct" ? "Chats" : "Conversations"}
+              </h3>
               <button
-                onClick={() => setShowNewThread(true)}
+                onClick={() => {
+                  // Set the correct type based on active tab
+                  setThreadForm(prev => ({
+                    ...prev,
+                    type: activeTab === "direct" ? "direct" : activeTab as CommunicationType,
+                    subject: "",
+                    selectedMembers: [],
+                  }));
+                  setShowNewThread(true);
+                }}
                 className="p-2 rounded-xl hover:bg-muted text-accent transition-colors"
               >
                 <Plus size={18} />
@@ -515,7 +631,7 @@ export default function Communication() {
                 </div>
               ) : threads.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No conversations
+                  {activeTab === "direct" ? "Keine Chats" : "No conversations"}
                 </div>
               ) : (
                 threads.map((thread, index) => (
@@ -529,7 +645,7 @@ export default function Communication() {
                   >
                     <div className="flex items-start justify-between mb-1">
                       <p className="text-sm font-medium text-foreground truncate pr-2">
-                        {thread.subject}
+                        {getThreadDisplayName(thread)}
                       </p>
                       {thread.is_official && (
                         <Star size={14} className="text-accent flex-shrink-0" />
@@ -552,11 +668,13 @@ export default function Communication() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-foreground">
-                        {selectedThread.subject}
+                        {getThreadDisplayName(selectedThread)}
                       </h3>
                       <p className="text-xs text-muted-foreground">
                         {selectedThread.is_official && "Official • "}
-                        Created on {formatDate(selectedThread.created_at)}
+                        {selectedThread.type === "direct" 
+                          ? `${selectedThread.participants?.length || 0} Teilnehmer`
+                          : `Created on ${formatDate(selectedThread.created_at)}`}
                       </p>
                     </div>
                     <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground">
@@ -645,43 +763,49 @@ export default function Communication() {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="card-state w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold text-foreground mb-6">
-              New Conversation
+              {activeTab === "direct" ? "Neuer Chat" : "New Conversation"}
             </h2>
             <form onSubmit={handleCreateThread} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Subject
-                </label>
-                <input
-                  type="text"
-                  value={threadForm.subject}
-                  onChange={(e) =>
-                    setThreadForm({ ...threadForm, subject: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  required
-                />
-              </div>
+              {/* Subject field - only show for non-direct chats */}
+              {activeTab !== "direct" && (
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={threadForm.subject}
+                    onChange={(e) =>
+                      setThreadForm({ ...threadForm, subject: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                    required
+                  />
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Type
-                </label>
-                <select
-                  value={threadForm.type}
-                  onChange={(e) =>
-                    setThreadForm({
-                      ...threadForm,
-                      type: e.target.value as CommunicationType,
-                    })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="partner">Partners</option>
-                  <option value="authority">Authorities</option>
-                  <option value="internal">Internal</option>
-                </select>
-              </div>
+              {/* Type selector - only show for non-direct chats */}
+              {activeTab !== "direct" && (
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    Type
+                  </label>
+                  <select
+                    value={threadForm.type}
+                    onChange={(e) =>
+                      setThreadForm({
+                        ...threadForm,
+                        type: e.target.value as CommunicationType,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="partner">Partners</option>
+                    <option value="authority">Authorities</option>
+                    <option value="internal">Internal</option>
+                  </select>
+                </div>
+              )}
 
               {/* Member Selection */}
               <div>
@@ -761,20 +885,23 @@ export default function Communication() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="is_official"
-                  checked={threadForm.is_official}
-                  onChange={(e) =>
-                    setThreadForm({ ...threadForm, is_official: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
-                />
-                <label htmlFor="is_official" className="text-sm text-foreground">
-                  Official Communication
-                </label>
-              </div>
+              {/* Official checkbox - only for non-direct chats */}
+              {activeTab !== "direct" && (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="is_official"
+                    checked={threadForm.is_official}
+                    onChange={(e) =>
+                      setThreadForm({ ...threadForm, is_official: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                  />
+                  <label htmlFor="is_official" className="text-sm text-foreground">
+                    Official Communication
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
