@@ -55,7 +55,7 @@ const EXPENSE_CATEGORIES = [
 const CURRENCIES = ["CHF", "EUR", "USD", "UGX"];
 
 export default function ReceiptScanner() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -78,17 +78,44 @@ export default function ReceiptScanner() {
 
   useEffect(() => {
     fetchCostCenters();
-  }, []);
+  }, [profile?.organization_id]);
 
   const fetchCostCenters = async () => {
     try {
+      // First get the user's organization to filter cost centers
+      let orgName = "";
+      if (profile?.organization_id) {
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", profile.organization_id)
+          .single();
+        
+        if (orgData) {
+          orgName = orgData.name.toLowerCase();
+        }
+      }
+
       const { data, error } = await supabase
         .from("cost_centers")
         .select("id, code, name, country")
         .eq("is_active", true);
 
       if (error) throw error;
-      setCostCenters(data || []);
+      
+      // Filter cost centers based on user's organization
+      let filtered = data || [];
+      if (orgName) {
+        if (orgName.includes("mgi m") || orgName.includes("mgi media")) {
+          filtered = filtered.filter(cc => cc.code.startsWith("MGIM"));
+        } else if (orgName.includes("mgi c") || orgName.includes("mgi communication")) {
+          filtered = filtered.filter(cc => cc.code.startsWith("MGIC"));
+        } else if (orgName.includes("gateway")) {
+          filtered = filtered.filter(cc => cc.code.startsWith("GW"));
+        }
+      }
+      
+      setCostCenters(filtered);
     } catch (error) {
       console.error("Error fetching cost centers:", error);
       toast.error("Failed to load cost centers");
