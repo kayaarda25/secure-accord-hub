@@ -149,6 +149,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
   const [emptyDocData, setEmptyDocData] = useState<EmptyDocumentData>({
     title: "Dokument",
     recipient: "",
+    location: "",
     content: "",
     date: new Date().toLocaleDateString("de-CH"),
   });
@@ -558,13 +559,35 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             <TabsContent value="empty" className="m-0 space-y-4">
               {/* Empty Document - Title, Recipient & Content */}
               <div className="space-y-4">
+                {/* Recipient Address */}
+                <div className="space-y-2">
+                  <Label>Empfänger-Adresse</Label>
+                  <Textarea
+                    value={emptyDocData.recipient || ""}
+                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, recipient: e.target.value }))}
+                    placeholder="Name&#10;Strasse und Hausnummer&#10;PLZ Ort&#10;Land"
+                    className="min-h-[100px] font-normal"
+                  />
+                </div>
+
+                {/* Title */}
+                <div className="space-y-2">
+                  <Label>Titel *</Label>
+                  <Input
+                    value={emptyDocData.title}
+                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Betreff / Titel"
+                  />
+                </div>
+
+                {/* Location and Date */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Titel *</Label>
+                    <Label>Ort</Label>
                     <Input
-                      value={emptyDocData.title}
-                      onChange={(e) => setEmptyDocData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="Dokumenttitel"
+                      value={emptyDocData.location || ""}
+                      onChange={(e) => setEmptyDocData(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="z.B. Zürich"
                     />
                   </div>
                   <div className="space-y-2">
@@ -576,25 +599,14 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     />
                   </div>
                 </div>
-
-                {/* Recipient Address */}
-                <div className="space-y-2">
-                  <Label>Empfänger-Adresse</Label>
-                  <Textarea
-                    value={emptyDocData.recipient || ""}
-                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, recipient: e.target.value }))}
-                    placeholder="Name&#10;Strasse und Hausnummer&#10;PLZ Ort&#10;Land"
-                    className="min-h-[100px] font-normal"
-                  />
-                </div>
                 
                 <div className="space-y-2">
                   <Label>Inhalt *</Label>
                   <Textarea
                     value={emptyDocData.content}
                     onChange={(e) => setEmptyDocData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="Geben Sie hier Ihren Text ein..."
-                    className="min-h-[250px] font-normal"
+                    placeholder="Sehr geehrte Damen und Herren,&#10;&#10;...&#10;&#10;Mit freundlichen Grüssen"
+                    className="min-h-[220px] font-normal"
                   />
                 </div>
               </div>
