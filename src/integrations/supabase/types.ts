@@ -455,7 +455,7 @@ export type Database = {
           is_archived: boolean | null
           is_official: boolean | null
           organization_id: string | null
-          subject: string
+          subject: string | null
           type: Database["public"]["Enums"]["communication_type"]
           updated_at: string
         }
@@ -466,7 +466,7 @@ export type Database = {
           is_archived?: boolean | null
           is_official?: boolean | null
           organization_id?: string | null
-          subject: string
+          subject?: string | null
           type: Database["public"]["Enums"]["communication_type"]
           updated_at?: string
         }
@@ -477,7 +477,7 @@ export type Database = {
           is_archived?: boolean | null
           is_official?: boolean | null
           organization_id?: string | null
-          subject?: string
+          subject?: string | null
           type?: Database["public"]["Enums"]["communication_type"]
           updated_at?: string
         }
@@ -2158,6 +2158,38 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      thread_participants: {
+        Row: {
+          added_at: string
+          added_by: string
+          id: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          id?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          id?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "communication_threads"
             referencedColumns: ["id"]
           },
         ]
