@@ -545,12 +545,12 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Bemerkungen (optional)</Label>
+                  <Label className="text-xs">Inhalt / Bemerkungen</Label>
                   <Textarea
                     value={paymentData.notes || ""}
                     onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Zusätzliche Anmerkungen oder Hinweise"
-                    className="min-h-[60px]"
+                    placeholder="Sehr geehrte Damen und Herren,&#10;&#10;Bitte überweisen Sie den oben genannten Betrag...&#10;&#10;Mit freundlichen Grüssen"
+                    className="min-h-[180px] font-normal"
                   />
                 </div>
               </div>
