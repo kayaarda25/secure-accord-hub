@@ -956,6 +956,41 @@ export type Database = {
         }
         Relationships: []
       }
+      document_activity: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          document_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          document_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          document_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_activity_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_folders: {
         Row: {
           color: string | null
@@ -1235,6 +1270,7 @@ export type Database = {
           file_size: number | null
           folder_id: string | null
           id: string
+          last_modified_by: string | null
           mime_type: string | null
           name: string
           organization_id: string | null
@@ -1250,6 +1286,7 @@ export type Database = {
           file_size?: number | null
           folder_id?: string | null
           id?: string
+          last_modified_by?: string | null
           mime_type?: string | null
           name: string
           organization_id?: string | null
@@ -1265,6 +1302,7 @@ export type Database = {
           file_size?: number | null
           folder_id?: string | null
           id?: string
+          last_modified_by?: string | null
           mime_type?: string | null
           name?: string
           organization_id?: string | null

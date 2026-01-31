@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   FileText, 
   Download, 
@@ -17,20 +17,27 @@ import {
   Copy,
   Scissors,
   ClipboardPaste,
-  Users,
+  Share2,
+  Info,
+  User,
+  Clock,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { useDocumentExplorer } from "@/hooks/useDocumentExplorer";
 import { useExplorerClipboard } from "@/hooks/useExplorerClipboard";
+import { useDocumentActivity } from "@/hooks/useDocumentActivity";
 import { FolderTree } from "@/components/explorer/FolderTree";
 import { TagManager, DocumentTags } from "@/components/explorer/TagManager";
 import { TemplateGenerator } from "@/components/explorer/TemplateGenerator";
 import { RenameDialog } from "@/components/explorer/RenameDialog";
 import { FileUploader } from "@/components/explorer/FileUploader";
 import { FolderUploader } from "@/components/explorer/FolderUploader";
+import { DocumentDetailPanel } from "@/components/explorer/DocumentDetailPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,8 +48,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
 
 type ViewMode = "grid" | "list";
 
@@ -53,16 +61,33 @@ interface RenameState {
   currentName: string;
 }
 
+interface SelectedDocument {
+  id: string;
+  name: string;
+  file_size?: number;
+  mime_type?: string;
+  created_at: string;
+  updated_at: string;
+  uploaded_by: string;
+  description?: string;
+  document_tag_assignments?: Array<{
+    document_tags: { id: string; name: string; color: string };
+  }>;
+}
+
 export default function Explorer() {
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
   const [renameState, setRenameState] = useState<RenameState>({
     open: false,
     type: "document",
     id: "",
     currentName: "",
   });
+
+  const { logActivity } = useDocumentActivity();
 
   const {
     folders,
@@ -93,8 +118,28 @@ export default function Explorer() {
   const breadcrumbPath = getBreadcrumbPath(currentFolderId);
   const childFolders = getChildFolders(currentFolderId);
 
-  // Find shared folder
-  const sharedFolder = folders.find(f => f.name === "Geteilt" && f.parent_id === null);
+  // Fetch user profiles for documents
+  const documentUserIds = [...new Set(documents.map(d => d.uploaded_by))];
+  const { data: userProfiles = [] } = useQuery({
+    queryKey: ["user-profiles", documentUserIds],
+    queryFn: async () => {
+      if (documentUserIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, email, first_name, last_name")
+        .in("user_id", documentUserIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: documentUserIds.length > 0,
+  });
+
+  const userProfileMap = new Map(
+    userProfiles.map((p: { user_id: string; email: string; first_name: string | null; last_name: string | null }) => [
+      p.user_id,
+      [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email,
+    ])
+  );
 
   // Filter documents by selected tags
   const filteredDocuments = selectedTags.length > 0
@@ -154,13 +199,13 @@ export default function Explorer() {
     pasteDocument(currentFolderId);
   };
 
-  const handleCreateSharedFolder = async () => {
-    if (sharedFolder) {
-      setCurrentFolderId(sharedFolder.id);
-    } else {
-      createFolder.mutate({ name: "Geteilt", parentId: null, color: "#5dc985" });
-      toast.success("Geteilter Ordner erstellt");
-    }
+  const handleOpenDocumentDetails = (doc: SelectedDocument) => {
+    setSelectedDocument(doc);
+    // Log view activity
+    logActivity.mutate({
+      documentId: doc.id,
+      action: "viewed",
+    });
   };
 
   const handleCreateFolderWithReturn = async (name: string, parentId: string | null): Promise<{ id: string } | void> => {
@@ -220,17 +265,6 @@ export default function Explorer() {
                   currentName: name,
                 })}
               />
-              
-              {/* Shared Folder Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start mt-2 text-muted-foreground"
-                onClick={handleCreateSharedFolder}
-              >
-                <Users size={14} className="mr-2" />
-                {sharedFolder ? "Geteilter Ordner" : "Geteilten Ordner erstellen"}
-              </Button>
             </CardContent>
           </Card>
 
@@ -495,60 +529,148 @@ export default function Explorer() {
                           })}
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
+                          {/* List Header */}
+                          <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                            <div className="col-span-5">Name</div>
+                            <div className="col-span-2">Erstellt von</div>
+                            <div className="col-span-2">Geändert</div>
+                            <div className="col-span-1">Grösse</div>
+                            <div className="col-span-2 text-right">Aktionen</div>
+                          </div>
+                          
                           {filteredDocuments.map((doc) => {
                             const FileIcon = getFileIcon(doc.mime_type);
                             const docTags = doc.document_tag_assignments?.map(
                               (a: { document_tags: { id: string; name: string; color: string } }) => a.document_tags
                             ).filter(Boolean) || [];
+                            const uploaderName = userProfileMap.get(doc.uploaded_by) || "Unbekannt";
 
                             return (
                               <div
                                 key={doc.id}
-                                className="group flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                                className={cn(
+                                  "group grid grid-cols-12 gap-4 items-center px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer",
+                                  selectedDocument?.id === doc.id && "bg-muted/70"
+                                )}
+                                onClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}
                               >
-                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                  <FileIcon size={20} className="text-accent" />
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-sm truncate">
-                                    {doc.name}
-                                  </h4>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatFileSize(doc.file_size)}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(doc.created_at), "dd.MM.yyyy", { locale: de })}
-                                    </span>
+                                {/* Name Column */}
+                                <div className="col-span-5 flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                    <FileIcon size={16} className="text-accent" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-medium text-sm truncate">
+                                      {doc.name}
+                                    </h4>
                                     {docTags.length > 0 && (
-                                      <DocumentTags
-                                        tags={docTags}
-                                        allTags={tags}
-                                        onAssignTag={(tagId) => assignTag.mutate({ documentId: doc.id, tagId })}
-                                        compact
-                                      />
+                                      <div className="mt-0.5">
+                                        <DocumentTags
+                                          tags={docTags}
+                                          allTags={tags}
+                                          onAssignTag={(tagId) => assignTag.mutate({ documentId: doc.id, tagId })}
+                                          compact
+                                        />
+                                      </div>
                                     )}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {/* Created By Column */}
+                                <div className="col-span-2 flex items-center gap-2 min-w-0">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <Avatar className="h-6 w-6 flex-shrink-0">
+                                            <AvatarFallback className="text-[10px] bg-accent/20 text-accent">
+                                              {uploaderName.slice(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-xs text-muted-foreground truncate">
+                                            {uploaderName}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Erstellt von {uploaderName}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+
+                                {/* Modified Column */}
+                                <div className="col-span-2 flex items-center gap-1.5 min-w-0">
+                                  <Clock size={12} className="text-muted-foreground flex-shrink-0" />
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-xs text-muted-foreground truncate">
+                                          {formatDistanceToNow(new Date(doc.updated_at), { 
+                                            locale: de, 
+                                            addSuffix: true 
+                                          })}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{format(new Date(doc.updated_at), "dd.MM.yyyy HH:mm", { locale: de })}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+
+                                {/* Size Column */}
+                                <div className="col-span-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatFileSize(doc.file_size)}
+                                  </span>
+                                </div>
+
+                                {/* Actions Column */}
+                                <div className="col-span-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleDownload(doc.file_path, doc.name, doc.mime_type)}
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenDocumentDetails(doc as SelectedDocument);
+                                    }}
+                                  >
+                                    <Info size={14} />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownload(doc.file_path, doc.name, doc.mime_type);
+                                      logActivity.mutate({
+                                        documentId: doc.id,
+                                        action: "downloaded",
+                                      });
+                                    }}
                                   >
                                     <Download size={14} />
                                   </Button>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-7 w-7"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
                                         <MoreVertical size={14} />
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}>
+                                        <Info size={14} className="mr-2" />
+                                        Details & Freigabe
+                                      </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => setRenameState({
                                         open: true,
                                         type: "document",
@@ -567,8 +689,8 @@ export default function Explorer() {
                                         Ausschneiden
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
-                                        <Eye size={14} className="mr-2" />
-                                        Anzeigen
+                                        <Share2 size={14} className="mr-2" />
+                                        Teilen
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
                                         <Tag size={14} className="mr-2" />
@@ -614,6 +736,15 @@ export default function Explorer() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Document Detail Panel */}
+        {selectedDocument && (
+          <DocumentDetailPanel
+            document={selectedDocument}
+            onClose={() => setSelectedDocument(null)}
+            uploaderName={userProfileMap.get(selectedDocument.uploaded_by)}
+          />
+        )}
       </div>
 
       {/* Template Generator Dialog */}
