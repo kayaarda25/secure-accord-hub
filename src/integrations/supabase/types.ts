@@ -1527,6 +1527,7 @@ export type Database = {
           location: string | null
           meeting_date: string
           minutes: string | null
+          shared_with_organizations: string[] | null
           thread_id: string | null
           title: string
           updated_at: string
@@ -1542,6 +1543,7 @@ export type Database = {
           location?: string | null
           meeting_date: string
           minutes?: string | null
+          shared_with_organizations?: string[] | null
           thread_id?: string | null
           title: string
           updated_at?: string
@@ -1557,6 +1559,7 @@ export type Database = {
           location?: string | null
           meeting_date?: string
           minutes?: string | null
+          shared_with_organizations?: string[] | null
           thread_id?: string | null
           title?: string
           updated_at?: string
