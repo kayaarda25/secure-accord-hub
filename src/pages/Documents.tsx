@@ -4,7 +4,6 @@ import {
   Folder,
   Upload,
   Search,
-  Filter,
   Grid,
   List,
   MoreHorizontal,
@@ -21,6 +20,7 @@ import {
   Users,
   Building2,
   Share2,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { SignatureDisplay } from "@/components/documents/SignatureDisplay";
 import { DocumentDetailDialog } from "@/components/documents/DocumentDetailDialog";
 import { SignaturePositionSelector, SignaturePosition } from "@/components/documents/SignaturePositionSelector";
+import { ProtocolsPanel } from "@/components/documents/ProtocolsPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Profile {
   id: string;
@@ -666,7 +668,20 @@ export default function Documents() {
         </div>
       )}
 
-      {/* Action Bar */}
+      {/* Tabs */}
+      <Tabs defaultValue="documents" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText size={16} />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="protocols" className="flex items-center gap-2">
+            <ClipboardList size={16} />
+            Protocols
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="documents">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -1175,6 +1190,12 @@ export default function Documents() {
           </div>
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="protocols">
+          <ProtocolsPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* Document Detail Dialog */}
       <DocumentDetailDialog
