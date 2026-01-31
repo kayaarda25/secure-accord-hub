@@ -26,6 +26,7 @@ import BudgetPlanning from "./pages/BudgetPlanning";
 import Reports from "./pages/Reports";
 import Security from "./pages/Security";
 import Settings from "./pages/Settings";
+import Protocols from "./pages/Protocols";
 
 const queryClient = new QueryClient();
 
@@ -100,6 +101,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Explorer />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/protocols"
+              element={
+                <ProtectedRoute>
+                  <Protocols />
                 </ProtectedRoute>
               }
             />

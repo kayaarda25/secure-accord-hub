@@ -17,6 +17,7 @@ import {
   LogOut,
   X,
   CheckSquare,
+  ClipboardList,
   BarChart,
   FolderOpen,
   Wallet,
@@ -181,7 +182,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {/* Documents Group */}
         {!collapsed ? (
           <Collapsible open={openGroups.includes("documents")} onOpenChange={() => toggleGroup("documents")}>
-            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/explorer", "/documents"]) ? "text-primary" : ""}`}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/explorer", "/documents", "/protocols"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <FileText size={18} />
                 <span>Documents</span>
@@ -196,6 +197,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               <NavLink to="/documents" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/documents") ? "nav-link-active" : ""}`}>
                 <FileText size={16} className={isActive("/documents") ? "text-primary" : ""} />
                 <span>Signatures</span>
+              </NavLink>
+              <NavLink to="/protocols" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/protocols") ? "nav-link-active" : ""}`}>
+                <ClipboardList size={16} className={isActive("/protocols") ? "text-primary" : ""} />
+                <span>Protocols</span>
               </NavLink>
             </CollapsibleContent>
           </Collapsible>
