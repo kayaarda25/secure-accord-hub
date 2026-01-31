@@ -410,6 +410,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          encrypted_content: string | null
           id: string
           is_decision: boolean | null
           priority: Database["public"]["Enums"]["message_priority"] | null
@@ -420,6 +421,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          encrypted_content?: string | null
           id?: string
           is_decision?: boolean | null
           priority?: Database["public"]["Enums"]["message_priority"] | null
@@ -430,6 +432,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          encrypted_content?: string | null
           id?: string
           is_decision?: boolean | null
           priority?: Database["public"]["Enums"]["message_priority"] | null
@@ -2270,6 +2273,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_public_keys: {
+        Row: {
+          created_at: string
+          id: string
+          public_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          public_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          public_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

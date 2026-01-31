@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useE2ECrypto } from "@/hooks/useE2ECrypto";
 import { VideoMeeting } from "@/components/communication/VideoMeeting";
 import { MeetingScheduler } from "@/components/communication/MeetingScheduler";
 import {
@@ -25,6 +26,7 @@ import {
   Clock,
   Video,
   MessageCircle,
+  Lock,
 } from "lucide-react";
 
 type CommunicationType = "partner" | "authority" | "internal" | "direct";
@@ -58,6 +60,7 @@ interface Message {
   thread_id: string;
   sender_id: string;
   content: string;
+  encrypted_content?: string | null; // JSON payload {iv, ciphertext}
   priority: string;
   is_decision: boolean;
   created_at: string;
@@ -88,6 +91,7 @@ interface UserProfile {
 export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
   const { toast } = useToast();
+  const { ready: cryptoReady, encrypt, decrypt } = useE2ECrypto(user?.id);
   const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("direct");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
@@ -273,7 +277,30 @@ export default function Communication() {
         .order("created_at", { ascending: true });
 
       if (data) {
-        setMessages(data as Message[]);
+        // Decrypt messages if encrypted
+        const decryptedMessages = await Promise.all(
+          (data as Message[]).map(async (msg) => {
+            if (msg.encrypted_content && user?.id && cryptoReady) {
+              try {
+                const payloads = JSON.parse(msg.encrypted_content) as Record<
+                  string,
+                  { iv: string; ciphertext: string }
+                >;
+                const myPayload = payloads[user.id];
+                if (myPayload) {
+                  const decryptedText = await decrypt(myPayload, msg.sender_id);
+                  if (decryptedText) {
+                    return { ...msg, content: decryptedText };
+                  }
+                }
+              } catch (err) {
+                console.error("Decryption failed for message", msg.id, err);
+              }
+            }
+            return msg;
+          })
+        );
+        setMessages(decryptedMessages);
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -357,10 +384,32 @@ export default function Communication() {
     if (!user || !selectedThread || !newMessage.trim()) return;
 
     try {
+      // For direct chats, encrypt for each participant
+      let encryptedContent: string | null = null;
+      const plaintext = newMessage;
+
+      if (selectedThread.type === "direct" && cryptoReady && selectedThread.participants) {
+        // Encrypt message for all participants (including self for read-back)
+        const allParticipantIds = selectedThread.participants.map((p) => p.user_id);
+        const encryptedPayloads: Record<string, { iv: string; ciphertext: string }> = {};
+
+        for (const participantId of allParticipantIds) {
+          const payload = await encrypt(plaintext, participantId);
+          if (payload) {
+            encryptedPayloads[participantId] = payload;
+          }
+        }
+
+        if (Object.keys(encryptedPayloads).length > 0) {
+          encryptedContent = JSON.stringify(encryptedPayloads);
+        }
+      }
+
       await supabase.from("communication_messages").insert({
         thread_id: selectedThread.id,
         sender_id: user.id,
-        content: newMessage,
+        content: encryptedContent ? "[Verschlüsselte Nachricht]" : plaintext,
+        encrypted_content: encryptedContent,
         priority: "normal",
       });
 
@@ -694,6 +743,14 @@ export default function Communication() {
                       <MoreHorizontal size={18} />
                     </button>
                   </div>
+
+                  {/* E2E Encryption Badge */}
+                  {selectedThread.type === "direct" && cryptoReady && (
+                    <div className="mt-3 flex items-center justify-center gap-1.5 py-2 px-3 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-xs font-medium">
+                      <Lock size={12} />
+                      <span>Nachrichten sind Ende-zu-Ende verschlüsselt</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
