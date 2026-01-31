@@ -114,6 +114,7 @@ export default function BudgetPlanning() {
       .from("cost_centers")
       .select("*")
       .eq("is_active", true)
+      .like("code", "GW%")
       .order("name");
 
     if (!error) {
