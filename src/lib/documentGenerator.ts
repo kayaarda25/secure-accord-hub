@@ -387,6 +387,16 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
             ],
           }),
 
+          // Notes/Description text above the table
+          ...(data.notes ? data.notes.split('\n').filter(line => line.trim()).map((line, index, arr) => 
+            new Paragraph({
+              children: [
+                new TextRun({ text: line, size: 22 }),
+              ],
+              spacing: { before: index === 0 ? 200 : 80, after: index === arr.length - 1 ? 300 : 80 },
+            })
+          ) : []),
+
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
@@ -398,7 +408,6 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
               createTableRow("Verwendungszweck / Reference:", data.reference),
               createTableRow("Zweck / Purpose:", data.purpose),
               ...(data.dueDate ? [createTableRow("Fälligkeitsdatum / Due Date:", data.dueDate)] : []),
-              ...(data.notes ? [createTableRow("Bemerkungen / Notes:", data.notes, true)] : []),
             ],
           }),
 
@@ -642,6 +651,8 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
     <p>PAYMENT INSTRUCTION</p>
   </div>
 
+  ${data.notes ? `<div class="notes-section" style="margin: 1.5rem 0; white-space: pre-wrap; line-height: 1.6;">${data.notes}</div>` : ""}
+
   <table>
     <tr><th>Empfänger / Beneficiary</th><td>${data.recipient}</td></tr>
     <tr><th>IBAN</th><td>${data.iban}</td></tr>
@@ -651,7 +662,7 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
     <tr><th>Verwendungszweck / Reference</th><td>${data.reference}</td></tr>
     <tr><th>Zweck / Purpose</th><td>${data.purpose}</td></tr>
     ${data.dueDate ? `<tr><th>Fälligkeitsdatum / Due Date</th><td>${data.dueDate}</td></tr>` : ""}
-    ${data.notes ? `<tr><th style="vertical-align: top;">Bemerkungen / Notes</th><td style="white-space: pre-wrap;">${data.notes}</td></tr>` : ""}
+  </table>
   </table>
 
   <div class="signature-section">
