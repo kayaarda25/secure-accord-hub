@@ -31,10 +31,26 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
     day: "numeric",
   });
 
-  // Session timer - counts how long user has been on the page
+  // Session timer - persists across page navigation using sessionStorage
   useEffect(() => {
+    const SESSION_START_KEY = 'mgi-session-start';
+    
+    // Get or set session start time
+    let sessionStart = sessionStorage.getItem(SESSION_START_KEY);
+    if (!sessionStart) {
+      sessionStart = Date.now().toString();
+      sessionStorage.setItem(SESSION_START_KEY, sessionStart);
+    }
+    
+    const startTime = parseInt(sessionStart, 10);
+    
+    // Calculate initial elapsed time
+    const calculateElapsed = () => Math.floor((Date.now() - startTime) / 1000);
+    setSessionSeconds(calculateElapsed());
+    
+    // Update every second
     const interval = setInterval(() => {
-      setSessionSeconds(prev => prev + 1);
+      setSessionSeconds(calculateElapsed());
     }, 1000);
     
     return () => clearInterval(interval);
