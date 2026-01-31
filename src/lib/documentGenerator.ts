@@ -32,6 +32,7 @@ export interface PaymentInstructionData {
   reference: string;
   purpose: string;
   dueDate?: string;
+  notes?: string;
 }
 
 const COMPANY_INFO = {
@@ -397,6 +398,7 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
               createTableRow("Verwendungszweck / Reference:", data.reference),
               createTableRow("Zweck / Purpose:", data.purpose),
               ...(data.dueDate ? [createTableRow("Fälligkeitsdatum / Due Date:", data.dueDate)] : []),
+              ...(data.notes ? [createTableRow("Bemerkungen / Notes:", data.notes)] : []),
             ],
           }),
 
@@ -644,6 +646,7 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
     <tr><th>Verwendungszweck / Reference</th><td>${data.reference}</td></tr>
     <tr><th>Zweck / Purpose</th><td>${data.purpose}</td></tr>
     ${data.dueDate ? `<tr><th>Fälligkeitsdatum / Due Date</th><td>${data.dueDate}</td></tr>` : ""}
+    ${data.notes ? `<tr><th>Bemerkungen / Notes</th><td>${data.notes}</td></tr>` : ""}
   </table>
 
   <div class="signature-section">
