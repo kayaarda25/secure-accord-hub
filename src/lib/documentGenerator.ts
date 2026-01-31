@@ -38,6 +38,7 @@ export interface PaymentInstructionData {
 export interface EmptyDocumentData {
   title: string;
   recipient?: string;
+  location?: string;
   content: string;
   date: string;
 }
@@ -761,28 +762,31 @@ export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promis
           // Recipient Address (top left, before title)
           ...(recipientParagraphs.length > 0 ? [
             ...recipientParagraphs,
-            new Paragraph({ text: "", spacing: { after: 300 } }),
+            new Paragraph({ text: "", spacing: { after: 400 } }),
           ] : []),
 
-          // Title
+          // Title (left-aligned, bold)
           new Paragraph({
-            text: data.title,
-            heading: HeadingLevel.HEADING_1,
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: 200 },
-          }),
-          
-          // Date
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
             children: [
               new TextRun({
-                text: data.date,
-                size: 20,
+                text: data.title,
+                bold: true,
+                size: 28,
+              }),
+            ],
+            spacing: { before: 200, after: 80 },
+          }),
+          
+          // Location and Date (left-aligned, smaller, gray)
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: data.location ? `${data.location}, ${data.date}` : data.date,
+                size: 22,
                 color: "666666",
               }),
             ],
+            spacing: { after: 400 },
           }),
 
           // Content
@@ -854,10 +858,10 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
     .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
     .recipient { margin-bottom: 2rem; }
     .recipient p { margin: 0.1rem 0; }
-    .title { text-align: center; margin: 2rem 0; }
-    .title h2 { font-size: 1.8rem; margin-bottom: 0.5rem; }
-    .meta { text-align: center; color: #666; margin-bottom: 2rem; }
-    .content { margin: 2rem 0; }
+    .title { margin-bottom: 0.3rem; }
+    .title h2 { font-size: 1.4rem; margin: 0; font-weight: bold; }
+    .meta { color: #666; margin-bottom: 1.5rem; }
+    .content { margin: 1.5rem 0; }
     .signature-section { margin-top: 3rem; }
     .signature-line { border-top: 1px solid #333; width: 50%; margin-top: 3rem; padding-top: 0.5rem; }
     .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 0.5rem; }
@@ -880,7 +884,7 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
     <h2>${data.title}</h2>
   </div>
   <div class="meta">
-    ${data.date}
+    ${data.location ? `${data.location}, ${data.date}` : data.date}
   </div>
 
   <div class="content">
