@@ -102,6 +102,27 @@ export default function Communication() {
     messagesEndRef.current?.scrollIntoView({ block: "end", behavior });
   }, []);
 
+  const maybeDecryptMessage = useCallback(
+    async (msg: Message): Promise<Message> => {
+      if (!msg.encrypted_content || !user?.id || !cryptoReady) return msg;
+      try {
+        const payloads = JSON.parse(msg.encrypted_content) as Record<
+          string,
+          { iv: string; ciphertext: string }
+        >;
+        const myPayload = payloads[user.id];
+        if (!myPayload) return msg;
+        const decryptedText = await decrypt(myPayload, msg.sender_id);
+        if (!decryptedText) return msg;
+        return { ...msg, content: decryptedText };
+      } catch (err) {
+        console.error("Decryption failed for message", msg.id, err);
+        return msg;
+      }
+    },
+    [cryptoReady, decrypt, user?.id]
+  );
+
   // Form state for new thread
   const [threadForm, setThreadForm] = useState({
     subject: "",
@@ -169,15 +190,17 @@ export default function Communication() {
             filter: `thread_id=eq.${selectedThread.id}`,
           },
           (payload) => {
-            console.log('New message received:', payload);
-            const newMsg = payload.new as Message;
-            setMessages((prev) => {
-              // Avoid duplicates
-              if (prev.some(m => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
-            });
-            // Keep the latest message visible
-            queueMicrotask(() => scrollMessagesToBottom("smooth"));
+            console.log("New message received:", payload);
+            const incoming = payload.new as Message;
+            (async () => {
+              const newMsg = await maybeDecryptMessage(incoming);
+              setMessages((prev) => {
+                // Avoid duplicates
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+              queueMicrotask(() => scrollMessagesToBottom("smooth"));
+            })();
           }
         )
         .subscribe();
@@ -186,7 +209,14 @@ export default function Communication() {
         supabase.removeChannel(channel);
       };
     }
-  }, [selectedThread]);
+  }, [selectedThread, maybeDecryptMessage, scrollMessagesToBottom]);
+
+  // When crypto becomes ready, re-fetch so existing messages get decrypted.
+  useEffect(() => {
+    if (!selectedThread?.id) return;
+    if (!cryptoReady) return;
+    fetchMessages(selectedThread.id);
+  }, [cryptoReady, selectedThread?.id]);
 
   // When messages change (initial load, decrypt, send), keep the latest visible.
   useEffect(() => {
