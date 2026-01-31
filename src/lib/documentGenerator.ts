@@ -35,6 +35,12 @@ export interface PaymentInstructionData {
   notes?: string;
 }
 
+export interface EmptyDocumentData {
+  title: string;
+  content: string;
+  date: string;
+}
+
 export interface LetterheadConfig {
   companyName: string;
   subtitle: string;
@@ -695,6 +701,168 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
 
   <div class="signature-section">
     <h4>Autorisiert durch / Authorized by:</h4>
+    <div class="signature-line">
+      Unterschrift / Signature
+    </div>
+    <br><br>
+    <div class="signature-line">
+      Datum / Date
+    </div>
+  </div>
+
+  <div class="footer">
+    ${config.companyName} | ${config.footerText}
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); }
+  </script>
+</body>
+</html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+// Empty document generation
+export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promise<void> {
+  // Split content by newlines and create paragraphs
+  const contentParagraphs = data.content.split('\n').map(line => 
+    new Paragraph({
+      children: [
+        new TextRun({ text: line || " ", size: 22 }),
+      ],
+      spacing: { after: 120 },
+    })
+  );
+
+  const doc = new Document({
+    sections: [
+      {
+        headers: {
+          default: createHeader(),
+        },
+        footers: {
+          default: createFooter(),
+        },
+        children: [
+          // Title
+          new Paragraph({
+            text: data.title,
+            heading: HeadingLevel.HEADING_1,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 400, after: 200 },
+          }),
+          
+          // Date
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+            children: [
+              new TextRun({
+                text: data.date,
+                size: 20,
+                color: "666666",
+              }),
+            ],
+          }),
+
+          // Content
+          ...contentParagraphs,
+
+          // Signature Section
+          new Paragraph({
+            text: "",
+            spacing: { before: 600 },
+          }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: "_".repeat(40) }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Unterschrift / Signature", size: 18, color: "888888" }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { after: 200 } }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: "_".repeat(40) }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Datum / Date", size: 18, color: "888888" }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `${data.title.replace(/\s+/g, "_")}_${data.date}.docx`);
+}
+
+export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
+  const config = currentLetterhead;
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
+    return;
+  }
+
+  // Convert newlines to HTML breaks
+  const formattedContent = data.content
+    .split('\n')
+    .map(line => `<p style="margin: 0.3rem 0;">${line || '&nbsp;'}</p>`)
+    .join('');
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${data.title}</title>
+  <style>
+    @page { margin: 2cm; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
+    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
+    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
+    .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
+    .title { text-align: center; margin: 2rem 0; }
+    .title h2 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .meta { text-align: center; color: #666; margin-bottom: 2rem; }
+    .content { margin: 2rem 0; }
+    .signature-section { margin-top: 3rem; }
+    .signature-line { border-top: 1px solid #333; width: 50%; margin-top: 3rem; padding-top: 0.5rem; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${config.companyName}</h1>
+    <p><em>${config.subtitle}</em></p>
+    <p>${config.address}</p>
+  </div>
+  
+  <div class="title">
+    <h2>${data.title}</h2>
+  </div>
+  <div class="meta">
+    ${data.date}
+  </div>
+
+  <div class="content">
+    ${formattedContent}
+  </div>
+
+  <div class="signature-section">
     <div class="signature-line">
       Unterschrift / Signature
     </div>

@@ -30,9 +30,12 @@ import {
   generateContractPdf,
   generatePaymentInstructionDocx,
   generatePaymentInstructionPdf,
+  generateEmptyDocumentDocx,
+  generateEmptyDocumentPdf,
   setLetterheadConfig,
   type ContractData,
   type PaymentInstructionData,
+  type EmptyDocumentData,
 } from "@/lib/documentGenerator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,6 +145,13 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
     dueDate: "",
   });
 
+  // Empty document state
+  const [emptyDocData, setEmptyDocData] = useState<EmptyDocumentData>({
+    title: "Dokument",
+    content: "",
+    date: new Date().toLocaleDateString("de-CH"),
+  });
+
   const handleGenerateContract = (format: "pdf" | "docx") => {
     if (!contractData.partyA.name || !contractData.partyB.name) {
       toast.error("Bitte füllen Sie die Partei-Informationen aus");
@@ -176,6 +186,25 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
       toast.success(`Zahlungsanweisung als ${format.toUpperCase()} generiert`);
     } catch (error) {
       toast.error("Fehler beim Generieren der Zahlungsanweisung");
+      console.error(error);
+    }
+  };
+
+  const handleGenerateEmpty = (format: "pdf" | "docx") => {
+    if (!emptyDocData.title || !emptyDocData.content) {
+      toast.error("Bitte geben Sie Titel und Inhalt ein");
+      return;
+    }
+
+    try {
+      if (format === "pdf") {
+        generateEmptyDocumentPdf(emptyDocData);
+      } else {
+        generateEmptyDocumentDocx(emptyDocData);
+      }
+      toast.success(`Dokument als ${format.toUpperCase()} generiert`);
+    } catch (error) {
+      toast.error("Fehler beim Generieren des Dokuments");
       console.error(error);
     }
   };
@@ -239,9 +268,10 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="contract">Vertrag</TabsTrigger>
             <TabsTrigger value="payment">Zahlungsanweisung</TabsTrigger>
+            <TabsTrigger value="empty">Leeres Dokument</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto mt-4">
@@ -523,6 +553,40 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                 </div>
               </div>
             </TabsContent>
+
+            <TabsContent value="empty" className="m-0 space-y-4">
+              {/* Empty Document - Title & Content only */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Titel *</Label>
+                    <Input
+                      value={emptyDocData.title}
+                      onChange={(e) => setEmptyDocData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Dokumenttitel"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Datum</Label>
+                    <Input
+                      value={emptyDocData.date}
+                      onChange={(e) => setEmptyDocData(prev => ({ ...prev, date: e.target.value }))}
+                      placeholder="Datum"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Inhalt *</Label>
+                  <Textarea
+                    value={emptyDocData.content}
+                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Geben Sie hier Ihren Text ein..."
+                    className="min-h-[300px] font-normal"
+                  />
+                </div>
+              </div>
+            </TabsContent>
           </div>
         </Tabs>
 
@@ -540,19 +604,21 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => activeTab === "contract" 
-                  ? handleGenerateContract("pdf") 
-                  : handleGeneratePayment("pdf")
-                }
+                onClick={() => {
+                  if (activeTab === "contract") handleGenerateContract("pdf");
+                  else if (activeTab === "payment") handleGeneratePayment("pdf");
+                  else handleGenerateEmpty("pdf");
+                }}
               >
                 <FileText size={16} className="mr-2" />
                 Als PDF herunterladen
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => activeTab === "contract" 
-                  ? handleGenerateContract("docx") 
-                  : handleGeneratePayment("docx")
-                }
+                onClick={() => {
+                  if (activeTab === "contract") handleGenerateContract("docx");
+                  else if (activeTab === "payment") handleGeneratePayment("docx");
+                  else handleGenerateEmpty("docx");
+                }}
               >
                 <FileType size={16} className="mr-2" />
                 Als Word (.docx) herunterladen
