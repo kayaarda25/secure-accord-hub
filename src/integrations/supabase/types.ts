@@ -2340,6 +2340,10 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      can_access_thread: {
+        Args: { _thread_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_perform_action: {
         Args: { _action: string; _user_id: string }
         Returns: boolean
@@ -2385,6 +2389,14 @@ export type Database = {
       is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
       is_task_creator: {
         Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_thread_creator: {
+        Args: { _thread_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_thread_participant: {
+        Args: { _thread_id: string; _user_id: string }
         Returns: boolean
       }
       log_login_attempt: {
