@@ -13,6 +13,7 @@ import {
   Download,
   Mail,
   Pencil,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,6 +31,7 @@ interface MeetingProtocol {
   minutes: string | null;
   decisions: string | null;
   created_at: string;
+  shared_with_organizations?: string[];
 }
 
 interface UserProfile {
@@ -37,6 +39,12 @@ interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   email: string;
+  organization_id?: string | null;
+}
+
+interface Organization {
+  id: string;
+  name: string;
 }
 
 interface TopicItem {
@@ -46,15 +54,18 @@ interface TopicItem {
 }
 
 export function ProtocolsPanel() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [protocols, setProtocols] = useState<MeetingProtocol[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
   const [editingProtocol, setEditingProtocol] = useState<MeetingProtocol | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [selectedOrganizations, setSelectedOrganizations] = useState<string[]>([]);
   const [attendeesOpen, setAttendeesOpen] = useState(false);
+  const [orgsOpen, setOrgsOpen] = useState(false);
   const [topics, setTopics] = useState<TopicItem[]>([
     { id: crypto.randomUUID(), topic: "", notes: "" }
   ]);
@@ -69,13 +80,51 @@ export function ProtocolsPanel() {
   useEffect(() => {
     fetchProtocols();
     fetchUsers();
+    fetchOrganizations();
   }, []);
+
+  const fetchOrganizations = async () => {
+    try {
+      const { data } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .order("name");
+
+      if (data) {
+        setOrganizations(data);
+      }
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+    }
+  };
+
+  const toggleOrganization = (orgId: string) => {
+    setSelectedOrganizations((prev) =>
+      prev.includes(orgId)
+        ? prev.filter((id) => id !== orgId)
+        : [...prev, orgId]
+    );
+  };
+
+  const getSelectedOrganizationNames = () => {
+    return selectedOrganizations
+      .map((id) => {
+        const org = organizations.find((o) => o.id === id);
+        return org?.name || "";
+      })
+      .filter(Boolean);
+  };
+
+  // Filter users by selected organizations
+  const filteredUsersByOrg = selectedOrganizations.length > 0
+    ? users.filter(u => u.organization_id && selectedOrganizations.includes(u.organization_id))
+    : users;
 
   const fetchUsers = async () => {
     try {
       const { data } = await supabase
         .from("profiles")
-        .select("user_id, first_name, last_name, email")
+        .select("user_id, first_name, last_name, email, organization_id")
         .eq("is_active", true)
         .order("first_name");
 
@@ -153,6 +202,7 @@ export function ProtocolsPanel() {
       decisions: "",
     });
     setSelectedAttendees([]);
+    setSelectedOrganizations([]);
     setTopics([{ id: crypto.randomUUID(), topic: "", notes: "" }]);
     setEditingProtocol(null);
   };
@@ -190,6 +240,7 @@ export function ProtocolsPanel() {
       decisions: protocol.decisions || "",
     });
     setSelectedAttendees(attendeeUserIds);
+    setSelectedOrganizations(protocol.shared_with_organizations || []);
     setTopics(parsedTopics);
     setEditingProtocol(protocol);
     setShowNewProtocol(true);
@@ -226,6 +277,7 @@ export function ProtocolsPanel() {
           agenda: combinedAgenda || null,
           minutes: combinedMinutes || null,
           decisions: protocolForm.decisions || null,
+          shared_with_organizations: selectedOrganizations,
         })
         .eq("id", editingProtocol.id);
 
@@ -378,6 +430,7 @@ export function ProtocolsPanel() {
         minutes: combinedMinutes || null,
         decisions: protocolForm.decisions || null,
         created_by: user.id,
+        shared_with_organizations: selectedOrganizations,
       }).select().single();
 
       if (error) throw error;
@@ -577,9 +630,9 @@ export function ProtocolsPanel() {
               <p className="text-xs text-muted-foreground mb-2">📍 {protocol.location}</p>
             )}
             <div className="flex flex-wrap gap-1 mb-3">
-              {protocol.attendees?.slice(0, 3).map((attendee) => (
+              {protocol.attendees?.slice(0, 3).map((attendee, attendeeIdx) => (
                 <span
-                  key={attendee}
+                  key={`${protocol.id}-attendee-${attendeeIdx}`}
                   className="px-2 py-0.5 text-xs bg-muted rounded text-muted-foreground"
                 >
                   {attendee}
@@ -678,9 +731,80 @@ export function ProtocolsPanel() {
                 </div>
               </div>
 
+              {/* Share with Organizations */}
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                  <Building2 size={14} className="inline mr-1" />
+                  Mit Organisationen teilen
+                </label>
+                <Popover open={orgsOpen} onOpenChange={setOrgsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={orgsOpen}
+                      className="w-full justify-between bg-muted border-border text-foreground hover:bg-muted/80 h-auto min-h-[42px] py-2"
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {selectedOrganizations.length === 0 ? (
+                          <span className="text-muted-foreground">Organisationen auswählen...</span>
+                        ) : (
+                          getSelectedOrganizationNames().map((name, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-primary/20 text-primary rounded text-xs"
+                            >
+                              {name}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <div className="max-h-60 overflow-y-auto p-1">
+                      {organizations.map((org) => (
+                        <div
+                          key={org.id}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 cursor-pointer rounded hover:bg-muted",
+                            selectedOrganizations.includes(org.id) && "bg-primary/10"
+                          )}
+                          onClick={() => toggleOrganization(org.id)}
+                        >
+                          <div
+                            className={cn(
+                              "w-4 h-4 border rounded flex items-center justify-center",
+                              selectedOrganizations.includes(org.id)
+                                ? "bg-primary border-primary"
+                                : "border-border"
+                            )}
+                          >
+                            {selectedOrganizations.includes(org.id) && (
+                              <Check size={12} className="text-primary-foreground" />
+                            )}
+                          </div>
+                          <span className="text-sm">{org.name}</span>
+                        </div>
+                      ))}
+                      {organizations.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          Keine Organisationen gefunden
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                   Attendees
+                  {selectedOrganizations.length > 0 && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (gefiltert nach ausgewählten Organisationen)
+                    </span>
+                  )}
                 </label>
                 <Popover open={attendeesOpen} onOpenChange={setAttendeesOpen}>
                   <PopoverTrigger asChild>
@@ -708,7 +832,7 @@ export function ProtocolsPanel() {
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
                     <div className="max-h-60 overflow-y-auto p-1">
-                      {users.map((userProfile) => (
+                      {filteredUsersByOrg.map((userProfile) => (
                         <div
                           key={userProfile.user_id}
                           className={cn(
@@ -732,9 +856,11 @@ export function ProtocolsPanel() {
                           <span className="text-sm">{getUserDisplayName(userProfile)}</span>
                         </div>
                       ))}
-                      {users.length === 0 && (
+                      {filteredUsersByOrg.length === 0 && (
                         <div className="px-3 py-2 text-sm text-muted-foreground">
-                          No users found
+                          {selectedOrganizations.length > 0 
+                            ? "Keine Benutzer in den ausgewählten Organisationen"
+                            : "No users found"}
                         </div>
                       )}
                     </div>
