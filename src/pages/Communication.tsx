@@ -517,9 +517,9 @@ export default function Communication() {
 
   const tabs = [
     { id: "direct" as const, label: "Direkt", visible: true },
-    { id: "partner" as const, label: "Partners", visible: canViewPartner },
-    { id: "authority" as const, label: "Authorities", visible: canViewAuthority },
-    { id: "internal" as const, label: "Internal", visible: true },
+    { id: "partner" as const, label: "Partners", visible: false },
+    { id: "authority" as const, label: "Authorities", visible: false },
+    { id: "internal" as const, label: "Internal", visible: false },
     { id: "meetings" as const, label: "Protocols", visible: true },
   ];
 
