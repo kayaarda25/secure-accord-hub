@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Mail, Building2 } from "lucide-react";
+import mgiLogo from "@/assets/mgi-logo.jpg";
 import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
@@ -274,8 +275,8 @@ export default function Auth() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-accent/10 mb-4 glow-gold">
-            <span className="text-accent font-bold text-2xl">M</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden mb-4 shadow-lg">
+            <img src={mgiLogo} alt="MGI Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-semibold text-foreground">MGI Hub</h1>
           <p className="text-sm text-muted-foreground mt-1">
