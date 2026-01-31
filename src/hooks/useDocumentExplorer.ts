@@ -49,11 +49,14 @@ export function useDocumentExplorer() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("document_folders")
-        .select("*")
+        .select(`
+          *,
+          folder_shares(shared_with_organization_id)
+        `)
         .order("name");
       
       if (error) throw error;
-      return data as DocumentFolder[];
+      return data as (DocumentFolder & { folder_shares?: Array<{ shared_with_organization_id: string }> })[];
     },
     enabled: !!user,
   });

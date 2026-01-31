@@ -30,7 +30,8 @@ import { FolderTree } from "@/components/explorer/FolderTree";
 import { TagManager, DocumentTags } from "@/components/explorer/TagManager";
 import { TemplateGenerator } from "@/components/explorer/TemplateGenerator";
 import { RenameDialog } from "@/components/explorer/RenameDialog";
-import { FileUploader } from "@/components/explorer/FileUploader";
+import { FileUploaderWithSharing } from "@/components/explorer/FileUploaderWithSharing";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { FolderUploader } from "@/components/explorer/FolderUploader";
 import { DocumentDetailPanel } from "@/components/explorer/DocumentDetailPanel";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export default function Explorer() {
   });
 
   const { logActivity } = useDocumentActivity();
+  const { permissions } = useOrganizationPermissions();
 
   const {
     folders,
@@ -115,8 +117,50 @@ export default function Explorer() {
     hasClipboard,
   } = useExplorerClipboard();
 
+  // Get user's organization ID from profile
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile-org"],
+    queryFn: async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", authUser.id)
+        .single();
+      return data;
+    },
+  });
+
+  // Filter folders: only show OPEX, Protokolle, and folders shared with user's org
+  const allowedFolderNames = ["opex", "protokolle"];
+  const filteredFolders = folders.filter(folder => {
+    const folderNameLower = folder.name.toLowerCase();
+    // Always show OPEX and Protokolle
+    if (allowedFolderNames.includes(folderNameLower)) return true;
+    // Show folders created by user
+    // Show folders shared with user's organization
+    const folderWithShares = folder as typeof folder & { folder_shares?: Array<{ shared_with_organization_id: string }> };
+    if (folderWithShares.folder_shares && userProfile?.organization_id) {
+      return folderWithShares.folder_shares.some(
+        share => share.shared_with_organization_id === userProfile.organization_id
+      );
+    }
+    return false;
+  });
+
   const breadcrumbPath = getBreadcrumbPath(currentFolderId);
-  const childFolders = getChildFolders(currentFolderId);
+  const childFolders = getChildFolders(currentFolderId).filter(folder => {
+    const folderNameLower = folder.name.toLowerCase();
+    if (allowedFolderNames.includes(folderNameLower)) return true;
+    const folderWithShares = folder as typeof folder & { folder_shares?: Array<{ shared_with_organization_id: string }> };
+    if (folderWithShares.folder_shares && userProfile?.organization_id) {
+      return folderWithShares.folder_shares.some(
+        share => share.shared_with_organization_id === userProfile.organization_id
+      );
+    }
+    return false;
+  });
 
   // Fetch user profiles for documents
   const documentUserIds = [...new Set(documents.map(d => d.uploaded_by))];
@@ -251,7 +295,7 @@ export default function Explorer() {
                 <span>Ordner</span>
               </div>
               <FolderTree
-                folders={folders}
+                folders={filteredFolders}
                 currentFolderId={currentFolderId}
                 onFolderSelect={setCurrentFolderId}
                 onCreateFolder={(name, parentId, color) => 
@@ -354,7 +398,7 @@ export default function Explorer() {
               />
 
               {/* File Upload Button */}
-              <FileUploader currentFolderId={currentFolderId} />
+              <FileUploaderWithSharing currentFolderId={currentFolderId} />
             </div>
           </div>
 

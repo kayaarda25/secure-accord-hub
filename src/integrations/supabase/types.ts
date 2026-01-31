@@ -1001,6 +1001,7 @@ export type Database = {
           created_by: string
           icon: string | null
           id: string
+          is_shared: boolean | null
           name: string
           organization_id: string | null
           parent_id: string | null
@@ -1012,6 +1013,7 @@ export type Database = {
           created_by: string
           icon?: string | null
           id?: string
+          is_shared?: boolean | null
           name: string
           organization_id?: string | null
           parent_id?: string | null
@@ -1023,6 +1025,7 @@ export type Database = {
           created_by?: string
           icon?: string | null
           id?: string
+          is_shared?: boolean | null
           name?: string
           organization_id?: string | null
           parent_id?: string | null
@@ -1277,6 +1280,7 @@ export type Database = {
           mime_type: string | null
           name: string
           organization_id: string | null
+          shared_with_organizations: string[] | null
           type: string
           updated_at: string
           uploaded_by: string
@@ -1293,6 +1297,7 @@ export type Database = {
           mime_type?: string | null
           name: string
           organization_id?: string | null
+          shared_with_organizations?: string[] | null
           type?: string
           updated_at?: string
           uploaded_by: string
@@ -1309,6 +1314,7 @@ export type Database = {
           mime_type?: string | null
           name?: string
           organization_id?: string | null
+          shared_with_organizations?: string[] | null
           type?: string
           updated_at?: string
           uploaded_by?: string
@@ -1324,6 +1330,45 @@ export type Database = {
           {
             foreignKeyName: "documents_organization_id_fkey"
             columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folder_shares: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          shared_by: string
+          shared_with_organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          shared_by: string
+          shared_with_organization_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          shared_by?: string
+          shared_with_organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_shares_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folder_shares_shared_with_organization_id_fkey"
+            columns: ["shared_with_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
