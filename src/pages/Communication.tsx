@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { VideoMeeting } from "@/components/communication/VideoMeeting";
 import { MeetingScheduler } from "@/components/communication/MeetingScheduler";
 import {
@@ -86,12 +87,14 @@ interface UserProfile {
 
 export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("direct");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [protocols, setProtocols] = useState<MeetingProtocol[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
@@ -298,49 +301,54 @@ export default function Communication() {
   const handleCreateThread = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (isCreatingThread) return;
 
+    setIsCreatingThread(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("communication_threads")
-        .insert({
+      // Create via backend function to avoid client-side RLS dead-ends.
+      const { data, error } = await supabase.functions.invoke("create-communication-thread", {
+        body: {
           subject: threadForm.subject || null,
           type: threadForm.type,
           is_official: threadForm.is_official,
-          created_by: user.id,
-        })
-        .select()
-        .single();
+          selectedMembers: threadForm.selectedMembers,
+        },
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating thread (function):", error);
+        toast({
+          title: "Fehler",
+          description: error.message || "Chat konnte nicht erstellt werden.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Add participants to thread (always add creator + selected members for direct chats)
-      if (data) {
-        const participantInserts = [
-          { thread_id: data.id, user_id: user.id, added_by: user.id }, // Add creator
-          ...threadForm.selectedMembers.map(userId => ({
-            thread_id: data.id,
-            user_id: userId,
-            added_by: user.id,
-          })),
-        ];
-        
-        const { error: participantsError } = await (supabase as any)
-          .from("thread_participants")
-          .insert(participantInserts);
-        
-        if (participantsError) {
-          console.error("Error adding participants:", participantsError);
-        }
+      const createdThread = (data as any)?.thread as Thread | undefined;
+      if (!createdThread?.id) {
+        toast({
+          title: "Fehler",
+          description: "Chat konnte nicht erstellt werden (ungültige Antwort).",
+          variant: "destructive",
+        });
+        return;
       }
 
       setShowNewThread(false);
       setThreadForm({ subject: "", type: "direct", is_official: false, selectedMembers: [] });
-      fetchThreads();
-      if (data) {
-        setSelectedThread(data as Thread);
-      }
+      toast({ title: "Erstellt", description: "Chat wurde erstellt." });
+      await fetchThreads();
+      setSelectedThread(createdThread);
     } catch (error) {
       console.error("Error creating thread:", error);
+      toast({
+        title: "Fehler",
+        description: "Chat konnte nicht erstellt werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingThread(false);
     }
   };
 
@@ -918,9 +926,17 @@ export default function Communication() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-xl font-medium hover:bg-accent/90 transition-colors"
+                  disabled={isCreatingThread}
+                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-xl font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create
+                  {isCreatingThread ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating…
+                    </span>
+                  ) : (
+                    "Create"
+                  )}
                 </button>
               </div>
             </form>
