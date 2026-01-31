@@ -12,6 +12,7 @@ import Finances from "./pages/Finances";
 import Declarations from "./pages/Declarations";
 import Invoices from "./pages/Invoices";
 import Documents from "./pages/Documents";
+import Explorer from "./pages/Explorer";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Opex from "./pages/Opex";
@@ -91,6 +92,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Documents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/explorer"
+              element={
+                <ProtectedRoute>
+                  <Explorer />
                 </ProtectedRoute>
               }
             />
