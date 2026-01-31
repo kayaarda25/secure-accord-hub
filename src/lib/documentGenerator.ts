@@ -43,6 +43,20 @@ export interface EmptyDocumentData {
   date: string;
 }
 
+export interface ProtocolTopic {
+  topic: string;
+  notes: string;
+}
+
+export interface MeetingProtocolData {
+  title: string;
+  date: string;
+  location: string;
+  attendees: string[];
+  topics: ProtocolTopic[];
+  decisions?: string;
+}
+
 export interface LetterheadConfig {
   companyName: string;
   subtitle: string;
@@ -914,4 +928,126 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
 
   printWindow.document.write(html);
   printWindow.document.close();
+}
+
+// Meeting Protocol (MoM) Document Generation
+export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Promise<Blob> {
+  const config = currentLetterhead;
+  
+  // Build topic sections
+  const topicSections = data.topics.flatMap((topic, index) => [
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `# ${topic.topic.toUpperCase()}`,
+          bold: true,
+          size: 24,
+          color: config.primaryColor,
+        }),
+      ],
+      spacing: { before: 300, after: 150 },
+    }),
+    ...topic.notes.split('\n').filter(n => n.trim()).map(note => 
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `- ${note}`,
+            size: 22,
+          }),
+        ],
+        spacing: { after: 80 },
+      })
+    ),
+  ]);
+
+  const doc = new Document({
+    sections: [
+      {
+        headers: {
+          default: createHeader(),
+        },
+        footers: {
+          default: createFooter(),
+        },
+        children: [
+          // Date, Location, Subject line
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `DATE: ${data.date}           LOCATION: ${data.location || 'N/A'}     SUBJECT: ${data.title}`,
+                bold: true,
+                size: 22,
+              }),
+            ],
+            spacing: { after: 400 },
+          }),
+
+          // Attendees Section
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "# ATTENDEES:",
+                bold: true,
+                size: 24,
+                color: config.primaryColor,
+              }),
+            ],
+            spacing: { before: 200, after: 150 },
+          }),
+          ...data.attendees.map(attendee => 
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `- ${attendee}`,
+                  size: 22,
+                }),
+              ],
+              spacing: { after: 60 },
+            })
+          ),
+
+          // Separator
+          new Paragraph({ text: "", spacing: { after: 300 } }),
+
+          // Topic Sections
+          ...topicSections,
+
+          // Decisions Section (if any)
+          ...(data.decisions ? [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "# DECISIONS",
+                  bold: true,
+                  size: 24,
+                  color: config.primaryColor,
+                }),
+              ],
+              spacing: { before: 400, after: 150 },
+            }),
+            ...data.decisions.split('\n').filter(d => d.trim()).map(decision => 
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `- ${decision}`,
+                    size: 22,
+                  }),
+                ],
+                spacing: { after: 80 },
+              })
+            ),
+          ] : []),
+        ],
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  return blob;
+}
+
+export async function downloadMeetingProtocol(data: MeetingProtocolData): Promise<void> {
+  const blob = await generateMeetingProtocolDocx(data);
+  const filename = `${data.date}_MoM_${data.title.replace(/\s+/g, "_")}.docx`;
+  saveAs(blob, filename);
 }
