@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -96,6 +97,7 @@ const createEmptyProviderData = (): Record<string, ProviderData> => {
 export default function Declarations() {
   const { user } = useAuth();
   const { logAction } = useAuditLog();
+  const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -765,12 +767,29 @@ export default function Declarations() {
     </div>
   );
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return (
       <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
+      </Layout>
+    );
+  }
+
+  // Access control - only MGI Media finance can view
+  if (!permissions.canViewDeclarations) {
+    return (
+      <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Zugriff verweigert</h3>
+            <p className="text-muted-foreground">
+              Diese Funktion ist nur für den Finanzmanager von MGI Media verfügbar.
+            </p>
+          </CardContent>
+        </Card>
       </Layout>
     );
   }

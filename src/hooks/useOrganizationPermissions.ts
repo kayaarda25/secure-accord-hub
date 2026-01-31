@@ -16,6 +16,7 @@ export interface OrganizationPermissions {
   orgType: OrganizationType | null;
   isGateway: boolean;
   isMgi: boolean;
+  isMgiMediaFinance: boolean;
 }
 
 const defaultPermissions: OrganizationPermissions = {
@@ -30,10 +31,11 @@ const defaultPermissions: OrganizationPermissions = {
   orgType: null,
   isGateway: false,
   isMgi: false,
+  isMgiMediaFinance: false,
 };
 
 export function useOrganizationPermissions() {
-  const { user, profile } = useAuth();
+  const { user, profile, roles } = useAuth();
   const [permissions, setPermissions] = useState<OrganizationPermissions>(defaultPermissions);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -76,18 +78,23 @@ export function useOrganizationPermissions() {
           return;
         }
 
+        // Check if user is MGI Media + has finance role
+        const isFinanceRole = roles.includes("finance") || roles.includes("admin") || roles.includes("management");
+        const isMgiMediaFinance = orgType === "mgi_media" && isFinanceRole;
+
         setPermissions({
-          canCreateDeclarations: perms.can_create_declarations,
+          canCreateDeclarations: perms.can_create_declarations && isMgiMediaFinance,
           canCreateInvoices: perms.can_create_invoices,
           canCreateOpex: perms.can_create_opex,
           canCreateBudget: perms.can_create_budget,
-          canViewDeclarations: perms.can_view_declarations,
+          canViewDeclarations: perms.can_view_declarations && isMgiMediaFinance,
           canViewInvoices: perms.can_view_invoices,
           canViewOpex: perms.can_view_opex,
           canViewBudget: perms.can_view_budget,
           orgType,
           isGateway: orgType === "gateway",
           isMgi: orgType === "mgi_media" || orgType === "mgi_communications",
+          isMgiMediaFinance,
         });
       } catch (error) {
         console.error("Error in fetchPermissions:", error);
@@ -98,7 +105,7 @@ export function useOrganizationPermissions() {
     }
 
     fetchPermissions();
-  }, [user, profile?.organization_id]);
+  }, [user, profile?.organization_id, roles]);
 
   return { permissions, isLoading };
 }

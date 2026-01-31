@@ -2,6 +2,7 @@ import { useState } from "react";
 import mgiLogo from "@/assets/mgi-media-logo.jfif";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface SidebarProps {
@@ -21,6 +22,7 @@ export function Sidebar({
     roles,
     signOut
   } = useAuth();
+  const { permissions } = useOrganizationPermissions();
   const toggleGroup = (group: string) => {
     setOpenGroups(prev => prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]);
   };
@@ -99,10 +101,12 @@ export function Sidebar({
                 <Banknote size={16} className={isActive("/finances/invoices") ? "text-primary" : ""} />
                 <span>Invoices</span>
               </NavLink>
-              <NavLink to="/finances/declarations" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/declarations") ? "nav-link-active" : ""}`}>
-                <TrendingUp size={16} className={isActive("/finances/declarations") ? "text-primary" : ""} />
-                <span>Declarations</span>
-              </NavLink>
+              {permissions.canViewDeclarations && (
+                <NavLink to="/finances/declarations" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/declarations") ? "nav-link-active" : ""}`}>
+                  <TrendingUp size={16} className={isActive("/finances/declarations") ? "text-primary" : ""} />
+                  <span>Declarations</span>
+                </NavLink>
+              )}
               <NavLink to="/budget" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/budget") ? "nav-link-active" : ""}`}>
                 <TrendingUp size={16} className={isActive("/budget") ? "text-primary" : ""} />
                 <span>Budget</span>
