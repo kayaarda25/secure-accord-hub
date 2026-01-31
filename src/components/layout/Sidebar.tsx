@@ -25,6 +25,7 @@ import {
   TrendingUp,
   BarChart,
   ScanLine,
+  FolderOpen,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -123,6 +124,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
     // Reports (always visible)
     items.push({ name: "Reports", href: "/reports", icon: BarChart });
+
+    // Explorer (always visible)
+    items.push({ name: "Explorer", href: "/explorer", icon: FolderOpen });
 
     // Documents (always visible)
     items.push({ name: "Documents", href: "/documents", icon: FileText });
