@@ -153,6 +153,110 @@ export function ProtocolsPanel() {
     setTopics([{ id: crypto.randomUUID(), topic: "", notes: "" }]);
   };
 
+  // Get or create the Protokolle folder
+  const getOrCreateProtokollFolder = async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      // Check if Protokolle folder exists
+      const { data: existingFolder } = await supabase
+        .from("document_folders")
+        .select("id")
+        .eq("name", "Protokolle")
+        .is("parent_id", null)
+        .single();
+      
+      if (existingFolder) {
+        return existingFolder.id;
+      }
+      
+      // Create Protokolle folder if it doesn't exist
+      const { data: newFolder, error } = await supabase
+        .from("document_folders")
+        .insert({
+          name: "Protokolle",
+          created_by: user.id,
+          icon: "FileText",
+          color: "#C9A227",
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return newFolder.id;
+    } catch (error) {
+      console.error("Error getting/creating Protokolle folder:", error);
+      return null;
+    }
+  };
+
+  // Upload Word document to storage and create document entries
+  const saveProtocolToExplorer = async (
+    docBlob: Blob,
+    protocolId: string,
+    filename: string,
+    attendeeUserIds: string[]
+  ) => {
+    if (!user) return;
+    
+    try {
+      const folderId = await getOrCreateProtokollFolder();
+      if (!folderId) {
+        console.error("Could not get Protokolle folder");
+        return;
+      }
+
+      // Upload file to storage
+      const filePath = `protocols/${protocolId}/${filename}`;
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, docBlob, {
+          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        return;
+      }
+
+      // Create document entry in documents table
+      const { data: docEntry, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          name: filename,
+          file_path: filePath,
+          folder_id: folderId,
+          type: "document",
+          mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          file_size: docBlob.size,
+          uploaded_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (docError) {
+        console.error("Document entry error:", docError);
+        return;
+      }
+
+      // Share document with all attendees
+      if (docEntry && attendeeUserIds.length > 0) {
+        const shareEntries = attendeeUserIds.map((attendeeId) => ({
+          document_id: docEntry.id,
+          shared_with_user_id: attendeeId,
+          shared_by: user.id,
+        }));
+
+        await supabase.from("document_shares").insert(shareEntries);
+      }
+
+      console.log("Protocol saved to Explorer:", filename);
+    } catch (error) {
+      console.error("Error saving protocol to Explorer:", error);
+    }
+  };
+
   const handleCreateProtocol = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -190,25 +294,30 @@ export function ProtocolsPanel() {
 
       if (error) throw error;
 
-      // Generate Word document and send to attendees
+      // Generate Word document
+      const protocolTopics: ProtocolTopic[] = topics
+        .filter(t => t.topic.trim())
+        .map(t => ({ topic: t.topic, notes: t.notes }));
+
+      const protocolDataForDoc: MeetingProtocolData = {
+        title: protocolForm.title,
+        date: protocolForm.meeting_date,
+        location: protocolForm.location,
+        attendees: attendeeNames,
+        topics: protocolTopics,
+        decisions: protocolForm.decisions || undefined,
+      };
+
+      // Generate the Word document as blob
+      const docBlob = await generateMeetingProtocolDocx(protocolDataForDoc);
+      const filename = `${protocolForm.meeting_date}_MoM_${protocolForm.title.replace(/\s+/g, "_")}.docx`;
+
+      // Save to Explorer (Protokolle folder)
+      await saveProtocolToExplorer(docBlob, protocolData.id, filename, selectedAttendees);
+
+      // Send protocol to all attendees via email
       if (attendeeEmails.length > 0) {
         toast.loading("Sending protocol to attendees...", { id: "protocol-send" });
-        
-        const protocolTopics: ProtocolTopic[] = topics
-          .filter(t => t.topic.trim())
-          .map(t => ({ topic: t.topic, notes: t.notes }));
-
-        const protocolDataForDoc: MeetingProtocolData = {
-          title: protocolForm.title,
-          date: protocolForm.meeting_date,
-          location: protocolForm.location,
-          attendees: attendeeNames,
-          topics: protocolTopics,
-          decisions: protocolForm.decisions || undefined,
-        };
-
-        // Generate the Word document as blob
-        const docBlob = await generateMeetingProtocolDocx(protocolDataForDoc);
         
         // Convert blob to base64
         const arrayBuffer = await docBlob.arrayBuffer();
@@ -241,7 +350,7 @@ export function ProtocolsPanel() {
 
       setShowNewProtocol(false);
       resetForm();
-      toast.success("Protocol created");
+      toast.success("Protocol saved to Protokolle folder");
       fetchProtocols();
     } catch (error) {
       console.error("Error creating protocol:", error);
