@@ -94,6 +94,14 @@ export default function Communication() {
   const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    // scrollIntoView finds the nearest scrollable ancestor (Radix ScrollArea viewport)
+    // and scrolls that container (not the whole page).
+    messagesEndRef.current?.scrollIntoView({ block: "end", behavior });
+  }, []);
+
   // Form state for new thread
   const [threadForm, setThreadForm] = useState({
     subject: "",
@@ -168,6 +176,8 @@ export default function Communication() {
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
+            // Keep the latest message visible
+            queueMicrotask(() => scrollMessagesToBottom("smooth"));
           }
         )
         .subscribe();
@@ -177,6 +187,13 @@ export default function Communication() {
       };
     }
   }, [selectedThread]);
+
+  // When messages change (initial load, decrypt, send), keep the latest visible.
+  useEffect(() => {
+    if (!selectedThread) return;
+    // auto to avoid jumpy smooth scroll on initial load
+    scrollMessagesToBottom(messages.length > 0 ? "auto" : "auto");
+  }, [messages.length, selectedThread?.id, scrollMessagesToBottom]);
 
   const fetchThreads = async () => {
     setIsLoading(true);
@@ -371,6 +388,7 @@ export default function Communication() {
 
       setNewMessage("");
       fetchMessages(selectedThread.id);
+      queueMicrotask(() => scrollMessagesToBottom("smooth"));
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -508,10 +526,10 @@ export default function Communication() {
           ))}
       </div>
 
-      {/* Threads & Messages View */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-250px)]">
+       {/* Threads & Messages View */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 h-[calc(100vh-250px)] min-h-0">
           {/* Thread List */}
-          <div className="card-state flex flex-col max-h-[300px] lg:max-h-none">
+          <div className="card-state flex flex-col max-h-[300px] lg:max-h-none min-h-0">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground">
                 {activeTab === "direct" ? "Chats" : "Conversations"}
@@ -569,7 +587,7 @@ export default function Communication() {
           </div>
 
           {/* Message View */}
-          <div className="lg:col-span-2 card-state flex flex-col">
+          <div className="lg:col-span-2 card-state flex flex-col min-h-0">
             {selectedThread ? (
               <>
                 <div className="p-4 border-b border-border">
@@ -599,7 +617,7 @@ export default function Communication() {
                   )}
                 </div>
 
-                <ScrollArea className="flex-1 h-[calc(100vh-450px)] lg:h-[calc(100vh-380px)]">
+                <ScrollArea className="flex-1 min-h-0">
                   <div className="p-4 space-y-4">
                     {messages.map((message, index) => {
                       const isOwnMessage = message.sender_id === user?.id;
@@ -635,6 +653,7 @@ export default function Communication() {
                         No messages yet
                       </div>
                     )}
+                    <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
 
