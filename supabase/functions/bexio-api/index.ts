@@ -72,6 +72,14 @@ async function resolveInternalContactPartnerId(
   return null;
 }
 
+// Custom error for expired/invalid tokens that require re-authentication
+class BexioReconnectRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BexioReconnectRequiredError";
+  }
+}
+
 async function refreshBexioToken(
   supabase: any,
   tokens: BexioTokens
@@ -95,6 +103,18 @@ async function refreshBexioToken(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Token refresh failed:", errorText);
+    
+    // Check if the refresh token is invalid/expired - user needs to reconnect
+    if (errorText.includes("invalid_grant") || errorText.includes("Token is not active")) {
+      // Delete the invalid tokens so the frontend knows to reconnect
+      await supabase
+        .from("bexio_tokens")
+        .delete()
+        .eq("organization_id", tokens.organization_id);
+      
+      throw new BexioReconnectRequiredError("Bexio-Sitzung abgelaufen. Bitte verbinden Sie Bexio erneut.");
+    }
+    
     throw new Error("Failed to refresh Bexio token");
   }
 
@@ -728,6 +748,22 @@ serve(async (req: Request) => {
     );
   } catch (error: any) {
     console.error("Bexio API error:", error);
+    
+    // Handle reconnect-required errors gracefully
+    if (error instanceof BexioReconnectRequiredError || error.name === "BexioReconnectRequiredError") {
+      return new Response(
+        JSON.stringify({ 
+          connected: false, 
+          reconnect_required: true, 
+          error: error.message 
+        }),
+        {
+          status: 200, // Return 200 so frontend can handle gracefully
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       {
