@@ -10,11 +10,14 @@ import {
   X,
   Check,
   Trash2,
+  Download,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { generateMeetingProtocolDocx, downloadMeetingProtocol, type ProtocolTopic, type MeetingProtocolData } from "@/lib/documentGenerator";
 
 interface MeetingProtocol {
   id: string;
@@ -157,6 +160,11 @@ export function ProtocolsPanel() {
     try {
       const attendeeNames = getSelectedAttendeesNames();
       
+      // Get attendee emails for sending
+      const attendeeEmails = selectedAttendees
+        .map((id) => users.find((u) => u.user_id === id)?.email)
+        .filter(Boolean) as string[];
+      
       // Combine all topics into agenda and all notes into minutes
       const combinedAgenda = topics
         .map((t, idx) => `${idx + 1}. ${t.topic}`)
@@ -168,7 +176,8 @@ export function ProtocolsPanel() {
         .filter(Boolean)
         .join("\n\n");
 
-      const { error } = await supabase.from("meeting_protocols").insert({
+      // Insert protocol into database
+      const { data: protocolData, error } = await supabase.from("meeting_protocols").insert({
         title: protocolForm.title,
         meeting_date: protocolForm.meeting_date,
         location: protocolForm.location || null,
@@ -177,9 +186,58 @@ export function ProtocolsPanel() {
         minutes: combinedMinutes || null,
         decisions: protocolForm.decisions || null,
         created_by: user.id,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Generate Word document and send to attendees
+      if (attendeeEmails.length > 0) {
+        toast.loading("Sending protocol to attendees...", { id: "protocol-send" });
+        
+        const protocolTopics: ProtocolTopic[] = topics
+          .filter(t => t.topic.trim())
+          .map(t => ({ topic: t.topic, notes: t.notes }));
+
+        const protocolDataForDoc: MeetingProtocolData = {
+          title: protocolForm.title,
+          date: protocolForm.meeting_date,
+          location: protocolForm.location,
+          attendees: attendeeNames,
+          topics: protocolTopics,
+          decisions: protocolForm.decisions || undefined,
+        };
+
+        // Generate the Word document as blob
+        const docBlob = await generateMeetingProtocolDocx(protocolDataForDoc);
+        
+        // Convert blob to base64
+        const arrayBuffer = await docBlob.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+        );
+
+        // Send protocol to all attendees
+        const { error: sendError } = await supabase.functions.invoke("send-protocol", {
+          body: {
+            protocol_id: protocolData.id,
+            title: protocolForm.title,
+            date: protocolForm.meeting_date,
+            location: protocolForm.location,
+            attendee_emails: attendeeEmails,
+            attendee_names: attendeeNames,
+            topics: protocolTopics,
+            decisions: protocolForm.decisions || undefined,
+            document_base64: base64,
+          },
+        });
+
+        if (sendError) {
+          console.error("Error sending protocol:", sendError);
+          toast.error("Protocol created but failed to send emails", { id: "protocol-send" });
+        } else {
+          toast.success(`Protocol sent to ${attendeeEmails.length} attendees`, { id: "protocol-send" });
+        }
+      }
 
       setShowNewProtocol(false);
       resetForm();
@@ -188,6 +246,36 @@ export function ProtocolsPanel() {
     } catch (error) {
       console.error("Error creating protocol:", error);
       toast.error("Failed to create protocol");
+    }
+  };
+
+  const handleDownloadProtocol = async (protocol: MeetingProtocol) => {
+    try {
+      // Parse topics from agenda/minutes
+      const agendaLines = (protocol.agenda || "").split("\n").filter(l => l.trim());
+      const minutesLines = (protocol.minutes || "").split("\n\n").filter(l => l.trim());
+      
+      const protocolTopics: ProtocolTopic[] = agendaLines.map((line, idx) => {
+        const topic = line.replace(/^\d+\.\s*/, "");
+        const notesMatch = minutesLines.find(m => m.startsWith(`Topic ${idx + 1}:`));
+        const notes = notesMatch ? notesMatch.replace(`Topic ${idx + 1}: `, "") : "";
+        return { topic, notes };
+      });
+
+      const protocolDataForDoc: MeetingProtocolData = {
+        title: protocol.title,
+        date: protocol.meeting_date,
+        location: protocol.location || "",
+        attendees: protocol.attendees || [],
+        topics: protocolTopics,
+        decisions: protocol.decisions || undefined,
+      };
+
+      await downloadMeetingProtocol(protocolDataForDoc);
+      toast.success("Protocol downloaded");
+    } catch (error) {
+      console.error("Error downloading protocol:", error);
+      toast.error("Failed to download protocol");
     }
   };
 
@@ -249,9 +337,21 @@ export function ProtocolsPanel() {
           >
             <div className="flex items-start justify-between mb-3">
               <span className="badge-gold">{formatDate(protocol.meeting_date)}</span>
-              <button className="p-1 rounded hover:bg-muted text-muted-foreground">
-                <MoreHorizontal size={14} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadProtocol(protocol);
+                  }}
+                  className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-accent transition-colors"
+                  title="Download Word Document"
+                >
+                  <Download size={14} />
+                </button>
+                <button className="p-1 rounded hover:bg-muted text-muted-foreground">
+                  <MoreHorizontal size={14} />
+                </button>
+              </div>
             </div>
             <h4 className="font-medium text-foreground mb-2">{protocol.title}</h4>
             {protocol.location && (
@@ -272,12 +372,20 @@ export function ProtocolsPanel() {
                 </span>
               )}
             </div>
-            {protocol.decisions && (
-              <div className="flex items-center gap-2 text-xs text-success">
-                <CheckCircle size={12} />
-                <span>Decisions documented</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {protocol.decisions && (
+                <div className="flex items-center gap-1.5 text-xs text-success">
+                  <CheckCircle size={12} />
+                  <span>Decisions</span>
+                </div>
+              )}
+              {protocol.attendees && protocol.attendees.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail size={12} />
+                  <span>Sent to {protocol.attendees.length}</span>
+                </div>
+              )}
+            </div>
           </div>
         ))}
         {filteredProtocols.length === 0 && (
