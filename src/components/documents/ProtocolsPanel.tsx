@@ -8,8 +8,12 @@ import {
   CheckCircle,
   Loader2,
   X,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface MeetingProtocol {
   id: string;
@@ -23,25 +27,51 @@ interface MeetingProtocol {
   created_at: string;
 }
 
+interface UserProfile {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+}
+
 export function ProtocolsPanel() {
   const { user } = useAuth();
   const [protocols, setProtocols] = useState<MeetingProtocol[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [attendeesOpen, setAttendeesOpen] = useState(false);
   const [protocolForm, setProtocolForm] = useState({
     title: "",
     meeting_date: "",
     location: "",
-    attendees: "",
-    agenda: "",
-    minutes: "",
+    topic: "",
+    notes: "",
     decisions: "",
   });
 
   useEffect(() => {
     fetchProtocols();
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name, email")
+        .eq("is_active", true)
+        .order("first_name");
+
+      if (data) {
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
 
   const fetchProtocols = async () => {
     setIsLoading(true);
@@ -61,18 +91,44 @@ export function ProtocolsPanel() {
     }
   };
 
+  const getUserDisplayName = (userProfile: UserProfile) => {
+    if (userProfile.first_name || userProfile.last_name) {
+      return `${userProfile.first_name || ""} ${userProfile.last_name || ""}`.trim();
+    }
+    return userProfile.email;
+  };
+
+  const toggleAttendee = (userId: string) => {
+    setSelectedAttendees((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const getSelectedAttendeesNames = () => {
+    return selectedAttendees
+      .map((id) => {
+        const user = users.find((u) => u.user_id === id);
+        return user ? getUserDisplayName(user) : "";
+      })
+      .filter(Boolean);
+  };
+
   const handleCreateProtocol = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     try {
+      const attendeeNames = getSelectedAttendeesNames();
+
       const { error } = await supabase.from("meeting_protocols").insert({
         title: protocolForm.title,
         meeting_date: protocolForm.meeting_date,
         location: protocolForm.location || null,
-        attendees: protocolForm.attendees.split(",").map((a) => a.trim()),
-        agenda: protocolForm.agenda || null,
-        minutes: protocolForm.minutes || null,
+        attendees: attendeeNames,
+        agenda: protocolForm.topic || null,
+        minutes: protocolForm.notes || null,
         decisions: protocolForm.decisions || null,
         created_by: user.id,
       });
@@ -84,11 +140,11 @@ export function ProtocolsPanel() {
         title: "",
         meeting_date: "",
         location: "",
-        attendees: "",
-        agenda: "",
-        minutes: "",
+        topic: "",
+        notes: "",
         decisions: "",
       });
+      setSelectedAttendees([]);
       toast.success("Protocol created");
       fetchProtocols();
     } catch (error) {
@@ -256,27 +312,76 @@ export function ProtocolsPanel() {
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Attendees (comma-separated)
+                  Attendees
                 </label>
-                <input
-                  type="text"
-                  value={protocolForm.attendees}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, attendees: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  placeholder="John Smith, Jane Doe, ..."
-                />
+                <Popover open={attendeesOpen} onOpenChange={setAttendeesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={attendeesOpen}
+                      className="w-full justify-between bg-muted border-border text-foreground hover:bg-muted/80 h-auto min-h-[42px] py-2"
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {selectedAttendees.length === 0 ? (
+                          <span className="text-muted-foreground">Select attendees...</span>
+                        ) : (
+                          getSelectedAttendeesNames().map((name, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-accent/20 text-accent rounded text-xs"
+                            >
+                              {name}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <div className="max-h-60 overflow-y-auto p-1">
+                      {users.map((userProfile) => (
+                        <div
+                          key={userProfile.user_id}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 cursor-pointer rounded hover:bg-muted",
+                            selectedAttendees.includes(userProfile.user_id) && "bg-accent/10"
+                          )}
+                          onClick={() => toggleAttendee(userProfile.user_id)}
+                        >
+                          <div
+                            className={cn(
+                              "w-4 h-4 border rounded flex items-center justify-center",
+                              selectedAttendees.includes(userProfile.user_id)
+                                ? "bg-accent border-accent"
+                                : "border-border"
+                            )}
+                          >
+                            {selectedAttendees.includes(userProfile.user_id) && (
+                              <Check size={12} className="text-accent-foreground" />
+                            )}
+                          </div>
+                          <span className="text-sm">{getUserDisplayName(userProfile)}</span>
+                        </div>
+                      ))}
+                      {users.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No users found
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Agenda
+                  Topic
                 </label>
                 <textarea
-                  value={protocolForm.agenda}
+                  value={protocolForm.topic}
                   onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, agenda: e.target.value })
+                    setProtocolForm({ ...protocolForm, topic: e.target.value })
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={3}
@@ -285,12 +390,12 @@ export function ProtocolsPanel() {
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Minutes / Notes
+                  Notes
                 </label>
                 <textarea
-                  value={protocolForm.minutes}
+                  value={protocolForm.notes}
                   onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, minutes: e.target.value })
+                    setProtocolForm({ ...protocolForm, notes: e.target.value })
                   }
                   className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={4}
