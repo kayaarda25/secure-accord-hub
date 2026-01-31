@@ -57,7 +57,7 @@ interface OpexExpense {
 }
 
 export default function Opex() {
-  const { user, hasAnyRole } = useAuth();
+  const { user, profile, hasAnyRole } = useAuth();
   const { logAction } = useAuditLog();
   const { isExporting, exportToCSV, exportToExcel, exportToPDF } = useExport();
   const [expenses, setExpenses] = useState<OpexExpense[]>([]);
@@ -113,6 +113,20 @@ export default function Opex() {
         setExpenses(expensesData as unknown as OpexExpense[]);
       }
 
+      // Get user's organization name for filtering
+      let userOrgName = "";
+      if (profile?.organization_id) {
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", profile.organization_id)
+          .maybeSingle();
+        
+        if (orgData) {
+          userOrgName = orgData.name.toLowerCase();
+        }
+      }
+
       // Fetch cost centers
       const { data: costCentersData } = await supabase
         .from("cost_centers")
@@ -120,7 +134,18 @@ export default function Opex() {
         .eq("is_active", true);
 
       if (costCentersData) {
-        setCostCenters(costCentersData as CostCenter[]);
+        // Filter cost centers based on user's organization - only Allgemein
+        let filtered = costCentersData as CostCenter[];
+        if (userOrgName) {
+          if (userOrgName.includes("mgi m") || userOrgName.includes("mgi media")) {
+            filtered = filtered.filter(cc => cc.code.startsWith("MGIM") && cc.name.toLowerCase().includes("allgemein"));
+          } else if (userOrgName.includes("mgi c") || userOrgName.includes("mgi communication")) {
+            filtered = filtered.filter(cc => cc.code.startsWith("MGIC") && cc.name.toLowerCase().includes("allgemein"));
+          } else if (userOrgName.includes("gateway")) {
+            filtered = filtered.filter(cc => cc.code.startsWith("GW") && cc.name.toLowerCase().includes("allgemein"));
+          }
+        }
+        setCostCenters(filtered);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -813,34 +838,17 @@ export default function Opex() {
                     required
                   >
                     <option value="">Select organization</option>
-                    {(() => {
-                      // Group cost centers by organization and take first one per org
-                      const orgMap = new Map<string, typeof costCenters[0]>();
-                      costCenters.forEach(cc => {
-                        const orgKey = cc.code.startsWith('MGIM') ? 'mgi-media' 
-                          : cc.code.startsWith('MGIC') ? 'mgi-communications' 
-                          : 'gateway';
-                        if (!orgMap.has(orgKey)) {
-                          orgMap.set(orgKey, cc);
-                        }
-                      });
-                      
-                      const orgs = [
-                        { key: 'mgi-media', label: 'MGI Media' },
-                        { key: 'mgi-communications', label: 'MGI Communications' },
-                        { key: 'gateway', label: 'Gateway' },
-                      ];
-                      
-                      return orgs.map(org => {
-                        const cc = orgMap.get(org.key);
-                        if (!cc) return null;
-                        return (
-                          <option key={cc.id} value={cc.id}>
-                            {org.label}
-                          </option>
-                        );
-                      });
-                    })()}
+                    {costCenters.map(cc => {
+                      // Determine org label based on cost center code
+                      const orgLabel = cc.code.startsWith('MGIM') ? 'MGI Media' 
+                        : cc.code.startsWith('MGIC') ? 'MGI Communications' 
+                        : 'Gateway';
+                      return (
+                        <option key={cc.id} value={cc.id}>
+                          {orgLabel}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>
