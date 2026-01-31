@@ -9,6 +9,7 @@ import {
   Loader2,
   X,
   Check,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -34,6 +35,12 @@ interface UserProfile {
   email: string;
 }
 
+interface TopicItem {
+  id: string;
+  topic: string;
+  notes: string;
+}
+
 export function ProtocolsPanel() {
   const { user } = useAuth();
   const [protocols, setProtocols] = useState<MeetingProtocol[]>([]);
@@ -43,12 +50,13 @@ export function ProtocolsPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [attendeesOpen, setAttendeesOpen] = useState(false);
+  const [topics, setTopics] = useState<TopicItem[]>([
+    { id: crypto.randomUUID(), topic: "", notes: "" }
+  ]);
   const [protocolForm, setProtocolForm] = useState({
     title: "",
     meeting_date: "",
     location: "",
-    topic: "",
-    notes: "",
     decisions: "",
   });
 
@@ -115,20 +123,58 @@ export function ProtocolsPanel() {
       .filter(Boolean);
   };
 
+  const addTopic = () => {
+    setTopics([...topics, { id: crypto.randomUUID(), topic: "", notes: "" }]);
+  };
+
+  const removeTopic = (id: string) => {
+    if (topics.length > 1) {
+      setTopics(topics.filter((t) => t.id !== id));
+    }
+  };
+
+  const updateTopic = (id: string, field: "topic" | "notes", value: string) => {
+    setTopics(
+      topics.map((t) => (t.id === id ? { ...t, [field]: value } : t))
+    );
+  };
+
+  const resetForm = () => {
+    setProtocolForm({
+      title: "",
+      meeting_date: "",
+      location: "",
+      decisions: "",
+    });
+    setSelectedAttendees([]);
+    setTopics([{ id: crypto.randomUUID(), topic: "", notes: "" }]);
+  };
+
   const handleCreateProtocol = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     try {
       const attendeeNames = getSelectedAttendeesNames();
+      
+      // Combine all topics into agenda and all notes into minutes
+      const combinedAgenda = topics
+        .map((t, idx) => `${idx + 1}. ${t.topic}`)
+        .filter((t) => t.trim() !== `${topics.indexOf(topics.find(x => x.topic === '') || topics[0]) + 1}. `)
+        .join("\n");
+      
+      const combinedMinutes = topics
+        .map((t, idx) => t.notes ? `Topic ${idx + 1}: ${t.notes}` : "")
+        .filter(Boolean)
+        .join("\n\n");
 
       const { error } = await supabase.from("meeting_protocols").insert({
         title: protocolForm.title,
         meeting_date: protocolForm.meeting_date,
         location: protocolForm.location || null,
         attendees: attendeeNames,
-        agenda: protocolForm.topic || null,
-        minutes: protocolForm.notes || null,
+        agenda: combinedAgenda || null,
+        minutes: combinedMinutes || null,
         decisions: protocolForm.decisions || null,
         created_by: user.id,
       });
@@ -136,15 +182,7 @@ export function ProtocolsPanel() {
       if (error) throw error;
 
       setShowNewProtocol(false);
-      setProtocolForm({
-        title: "",
-        meeting_date: "",
-        location: "",
-        topic: "",
-        notes: "",
-        decisions: "",
-      });
-      setSelectedAttendees([]);
+      resetForm();
       toast.success("Protocol created");
       fetchProtocols();
     } catch (error) {
@@ -252,13 +290,16 @@ export function ProtocolsPanel() {
       {/* New Protocol Modal */}
       {showNewProtocol && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="card-state w-full max-w-lg p-6 animate-fade-in my-8">
+          <div className="card-state w-full max-w-lg p-6 animate-fade-in my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-foreground">
                 New Meeting Protocol
               </h2>
               <button
-                onClick={() => setShowNewProtocol(false)}
+                onClick={() => {
+                  setShowNewProtocol(false);
+                  resetForm();
+                }}
                 className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
               >
                 <X size={18} />
@@ -374,32 +415,57 @@ export function ProtocolsPanel() {
                 </Popover>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Topic
-                </label>
-                <textarea
-                  value={protocolForm.topic}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, topic: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={3}
-                />
-              </div>
+              {/* Dynamic Topics */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    Topics
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addTopic}
+                    className="text-xs text-accent hover:text-accent/80 flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    Add Topic
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Notes
-                </label>
-                <textarea
-                  value={protocolForm.notes}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, notes: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={4}
-                />
+                {topics.map((topicItem, index) => (
+                  <div
+                    key={topicItem.id}
+                    className="p-4 bg-muted/50 rounded-lg border border-border space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Topic {index + 1}
+                      </span>
+                      {topics.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTopic(topicItem.id)}
+                          className="p-1 text-muted-foreground hover:text-destructive rounded"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={topicItem.topic}
+                      onChange={(e) => updateTopic(topicItem.id, "topic", e.target.value)}
+                      placeholder="Topic title..."
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    <textarea
+                      value={topicItem.notes}
+                      onChange={(e) => updateTopic(topicItem.id, "notes", e.target.value)}
+                      placeholder="Notes for this topic..."
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                      rows={3}
+                    />
+                  </div>
+                ))}
               </div>
 
               <div>
@@ -419,7 +485,10 @@ export function ProtocolsPanel() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowNewProtocol(false)}
+                  onClick={() => {
+                    setShowNewProtocol(false);
+                    resetForm();
+                  }}
                   className="flex-1 py-2.5 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors"
                 >
                   Cancel
