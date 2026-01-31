@@ -1334,7 +1334,9 @@ export type Database = {
           created_at: string
           footer_text: string | null
           id: string
+          is_default: boolean | null
           logo_url: string | null
+          preset_name: string
           primary_color: string | null
           show_logo: boolean | null
           subtitle: string | null
@@ -1347,7 +1349,9 @@ export type Database = {
           created_at?: string
           footer_text?: string | null
           id?: string
+          is_default?: boolean | null
           logo_url?: string | null
+          preset_name?: string
           primary_color?: string | null
           show_logo?: boolean | null
           subtitle?: string | null
@@ -1360,7 +1364,9 @@ export type Database = {
           created_at?: string
           footer_text?: string | null
           id?: string
+          is_default?: boolean | null
           logo_url?: string | null
+          preset_name?: string
           primary_color?: string | null
           show_logo?: boolean | null
           subtitle?: string | null

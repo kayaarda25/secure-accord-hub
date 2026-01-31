@@ -43,6 +43,17 @@ interface TemplateGeneratorProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface LetterheadPreset {
+  id: string;
+  preset_name: string;
+  company_name: string;
+  subtitle: string | null;
+  address: string | null;
+  primary_color: string | null;
+  footer_text: string | null;
+  is_default: boolean | null;
+}
+
 const CONTRACT_TEMPLATES = [
   { id: "standard", name: "Standard-Vertrag", description: "Allgemeiner Geschäftsvertrag" },
   { id: "service", name: "Dienstleistungsvertrag", description: "Für Dienstleistungen und Beratung" },
@@ -52,32 +63,50 @@ const CONTRACT_TEMPLATES = [
 
 export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps) {
   const [activeTab, setActiveTab] = useState("contract");
+  const [letterheadPresets, setLetterheadPresets] = useState<LetterheadPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const { user } = useAuth();
 
-  // Load letterhead settings when dialog opens
+  // Load letterhead presets when dialog opens
   useEffect(() => {
     if (open && user) {
-      loadLetterheadSettings();
+      loadLetterheadPresets();
     }
   }, [open, user]);
 
-  const loadLetterheadSettings = async () => {
+  const loadLetterheadPresets = async () => {
     if (!user) return;
     
     const { data } = await supabase
       .from("letterhead_settings")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .order("preset_name");
 
-    if (data) {
-      setLetterheadConfig({
-        companyName: data.company_name,
-        subtitle: data.subtitle || "",
-        address: data.address || "",
-        primaryColor: data.primary_color || "#c97c5d",
-        footerText: data.footer_text || "Confidential",
-      });
+    if (data && data.length > 0) {
+      setLetterheadPresets(data);
+      // Select default preset
+      const defaultPreset = data.find(p => p.is_default) || data[0];
+      setSelectedPresetId(defaultPreset.id);
+      applyPreset(defaultPreset);
+    }
+  };
+
+  const applyPreset = (preset: LetterheadPreset) => {
+    setLetterheadConfig({
+      companyName: preset.company_name,
+      subtitle: preset.subtitle || "",
+      address: preset.address || "",
+      primaryColor: preset.primary_color || "#c97c5d",
+      footerText: preset.footer_text || "Confidential",
+    });
+  };
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    const preset = letterheadPresets.find(p => p.id === presetId);
+    if (preset) {
+      applyPreset(preset);
     }
   };
   
@@ -188,6 +217,26 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             Dokument-Vorlage generieren
           </DialogTitle>
         </DialogHeader>
+
+        {/* Letterhead Preset Selection */}
+        {letterheadPresets.length > 0 && (
+          <div className="space-y-2 pb-2 border-b">
+            <Label className="text-xs text-muted-foreground">Briefkopf-Preset</Label>
+            <Select value={selectedPresetId} onValueChange={handlePresetChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Briefkopf wählen..." />
+              </SelectTrigger>
+              <SelectContent>
+                {letterheadPresets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.preset_name}
+                    {preset.is_default && " (Standard)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-2">
