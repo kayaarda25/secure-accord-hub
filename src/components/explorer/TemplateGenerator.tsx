@@ -148,6 +148,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
   // Empty document state
   const [emptyDocData, setEmptyDocData] = useState<EmptyDocumentData>({
     title: "Dokument",
+    recipient: "",
     content: "",
     date: new Date().toLocaleDateString("de-CH"),
   });
@@ -555,7 +556,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             </TabsContent>
 
             <TabsContent value="empty" className="m-0 space-y-4">
-              {/* Empty Document - Title & Content only */}
+              {/* Empty Document - Title, Recipient & Content */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -575,6 +576,17 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     />
                   </div>
                 </div>
+
+                {/* Recipient Address */}
+                <div className="space-y-2">
+                  <Label>Empfänger-Adresse</Label>
+                  <Textarea
+                    value={emptyDocData.recipient || ""}
+                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, recipient: e.target.value }))}
+                    placeholder="Name&#10;Strasse und Hausnummer&#10;PLZ Ort&#10;Land"
+                    className="min-h-[100px] font-normal"
+                  />
+                </div>
                 
                 <div className="space-y-2">
                   <Label>Inhalt *</Label>
@@ -582,7 +594,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     value={emptyDocData.content}
                     onChange={(e) => setEmptyDocData(prev => ({ ...prev, content: e.target.value }))}
                     placeholder="Geben Sie hier Ihren Text ein..."
-                    className="min-h-[300px] font-normal"
+                    className="min-h-[250px] font-normal"
                   />
                 </div>
               </div>
