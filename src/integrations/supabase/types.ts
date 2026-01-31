@@ -2372,7 +2372,7 @@ export type Database = {
         | "approved_supervisor"
         | "approved_finance"
         | "rejected"
-      communication_type: "partner" | "authority" | "internal"
+      communication_type: "partner" | "authority" | "internal" | "direct"
       document_status: "valid" | "expiring" | "expired" | "draft"
       message_priority: "normal" | "important" | "urgent"
       organization_type: "mgi_media" | "mgi_communications" | "gateway"
@@ -2510,7 +2510,7 @@ export const Constants = {
         "approved_finance",
         "rejected",
       ],
-      communication_type: ["partner", "authority", "internal"],
+      communication_type: ["partner", "authority", "internal", "direct"],
       document_status: ["valid", "expiring", "expired", "draft"],
       message_priority: ["normal", "important", "urgent"],
       organization_type: ["mgi_media", "mgi_communications", "gateway"],
