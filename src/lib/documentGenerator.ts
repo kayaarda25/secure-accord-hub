@@ -69,7 +69,7 @@ const DEFAULT_LETTERHEAD: LetterheadConfig = {
   companyName: "MGI × AFRIKA",
   subtitle: "Government Cooperation Platform",
   address: "Zürich, Switzerland",
-  primaryColor: "c97c5d",
+  primaryColor: "C9A227", // Gold color matching original template
   footerText: "Confidential",
 };
 
@@ -932,54 +932,172 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
 
 // Meeting Protocol (MoM) Document Generation
 export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Promise<Blob> {
-  const config = currentLetterhead;
+  const primaryColor = "C9A227"; // Gold color matching original template
   
-  // Build topic sections
-  const topicSections = data.topics.flatMap((topic, index) => [
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `# ${topic.topic.toUpperCase()}`,
-          bold: true,
-          size: 24,
-          color: config.primaryColor,
-        }),
-      ],
-      spacing: { before: 300, after: 150 },
-    }),
-    ...topic.notes.split('\n').filter(n => n.trim()).map(note => 
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `- ${note}`,
-            size: 22,
-          }),
-        ],
-        spacing: { after: 80 },
-      })
-    ),
-  ]);
+  // Build topic sections - matching original template format exactly
+  const topicSections = data.topics.flatMap((topic) => {
+    const sections: Paragraph[] = [];
+    
+    if (topic.topic.trim()) {
+      // Topic heading in gold color with # prefix
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `# ${topic.topic.toUpperCase()}`,
+              bold: true,
+              size: 22, // 11pt
+              color: primaryColor,
+            }),
+          ],
+          spacing: { before: 300, after: 100 },
+        })
+      );
+      
+      // Notes as bullet points
+      if (topic.notes.trim()) {
+        const noteLines = topic.notes.split('\n').filter(n => n.trim());
+        noteLines.forEach(note => {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `- ${note.trim()}`,
+                  size: 22, // 11pt
+                }),
+              ],
+              spacing: { after: 60 },
+            })
+          );
+        });
+      }
+    }
+    
+    return sections;
+  });
 
   const doc = new Document({
     sections: [
       {
+        properties: {
+          page: {
+            margin: {
+              top: 1440, // 1 inch
+              right: 1440,
+              bottom: 1440,
+              left: 1440,
+            },
+          },
+        },
         headers: {
-          default: createHeader(),
+          default: new Header({
+            children: [
+              // Company name - right aligned, gold color
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [
+                  new TextRun({
+                    text: "MGI × AFRIKA",
+                    bold: true,
+                    size: 28, // 14pt
+                    color: primaryColor,
+                  }),
+                ],
+              }),
+              // Subtitle - italics
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [
+                  new TextRun({
+                    text: "Government Cooperation Platform",
+                    italics: true,
+                    size: 20, // 10pt
+                    color: "666666",
+                  }),
+                ],
+              }),
+              // Location
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { after: 200 },
+                children: [
+                  new TextRun({
+                    text: "Zürich, Switzerland",
+                    size: 18, // 9pt
+                    color: "999999",
+                  }),
+                ],
+              }),
+              // Separator line
+              new Paragraph({
+                border: {
+                  bottom: {
+                    color: primaryColor,
+                    space: 1,
+                    style: BorderStyle.SINGLE,
+                    size: 6,
+                  },
+                },
+                spacing: { after: 200 },
+                children: [],
+              }),
+            ],
+          }),
         },
         footers: {
-          default: createFooter(),
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: "Page ",
+                    size: 18,
+                    color: "888888",
+                  }),
+                  new TextRun({
+                    children: [PageNumber.CURRENT],
+                    size: 18,
+                    color: "888888",
+                  }),
+                ],
+              }),
+            ],
+          }),
         },
         children: [
-          // Date, Location, Subject line
+          // Date, Location, Subject line - matching original format
           new Paragraph({
+            spacing: { before: 100, after: 400 },
             children: [
               new TextRun({
-                text: `DATE: ${data.date}           LOCATION: ${data.location || 'N/A'}     SUBJECT: ${data.title}`,
+                text: "DATE: ",
                 bold: true,
                 size: 22,
               }),
+              new TextRun({
+                text: `${data.date}           `,
+                size: 22,
+              }),
+              new TextRun({
+                text: "LOCATION: ",
+                bold: true,
+                size: 22,
+              }),
+              new TextRun({
+                text: `${data.location || 'N/A'}     `,
+                size: 22,
+              }),
+              new TextRun({
+                text: "SUBJECT: ",
+                bold: true,
+                size: 22,
+              }),
+              new TextRun({
+                text: data.title,
+                size: 22,
+              }),
             ],
-            spacing: { after: 400 },
           }),
 
           // Attendees Section
@@ -988,11 +1106,11 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
               new TextRun({
                 text: "# ATTENDEES:",
                 bold: true,
-                size: 24,
-                color: config.primaryColor,
+                size: 22,
+                color: primaryColor,
               }),
             ],
-            spacing: { before: 200, after: 150 },
+            spacing: { before: 200, after: 100 },
           }),
           ...data.attendees.map(attendee => 
             new Paragraph({
@@ -1002,38 +1120,35 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                   size: 22,
                 }),
               ],
-              spacing: { after: 60 },
+              spacing: { after: 50 },
             })
           ),
-
-          // Separator
-          new Paragraph({ text: "", spacing: { after: 300 } }),
 
           // Topic Sections
           ...topicSections,
 
           // Decisions Section (if any)
-          ...(data.decisions ? [
+          ...(data.decisions?.trim() ? [
             new Paragraph({
               children: [
                 new TextRun({
                   text: "# DECISIONS",
                   bold: true,
-                  size: 24,
-                  color: config.primaryColor,
+                  size: 22,
+                  color: primaryColor,
                 }),
               ],
-              spacing: { before: 400, after: 150 },
+              spacing: { before: 400, after: 100 },
             }),
             ...data.decisions.split('\n').filter(d => d.trim()).map(decision => 
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: `- ${decision}`,
+                    text: `- ${decision.trim()}`,
                     size: 22,
                   }),
                 ],
-                spacing: { after: 80 },
+                spacing: { after: 60 },
               })
             ),
           ] : []),
