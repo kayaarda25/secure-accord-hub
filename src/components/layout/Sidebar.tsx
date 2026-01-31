@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import {
   LayoutDashboard,
   Receipt,
@@ -20,23 +19,13 @@ import {
   CheckSquare,
   BarChart,
   FolderOpen,
+  Wallet,
+  ScanLine,
+  TrendingUp,
+  Globe,
+  Banknote,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
-interface NavItem {
-  name: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  children?: { name: string; href: string; icon: typeof LayoutDashboard; permission?: string }[];
-  permission?: string;
-}
-
-const secondaryNav = [
-  { name: "Partners", href: "/partners", icon: Building2 },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Security", href: "/security", icon: Shield },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -45,42 +34,18 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState<string[]>(["finances", "documents", "collaboration"]);
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, roles, signOut } = useAuth();
-  const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
 
-  // Build navigation based on permissions - simplified and clean
-  const navigation: NavItem[] = useMemo(() => {
-    const items: NavItem[] = [
-      { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    ];
-
-    // OPEX (if user has permission)
-    if (!permissionsLoading && (permissions.canViewOpex || permissions.canCreateOpex)) {
-      items.push({ name: "OPEX", href: "/opex", icon: Receipt });
-    }
-
-    // Reports
-    items.push({ name: "Reports", href: "/reports", icon: BarChart });
-
-    // Explorer - Document management
-    items.push({ name: "Explorer", href: "/explorer", icon: FolderOpen });
-
-    // Documents
-    items.push({ name: "Documents", href: "/documents", icon: FileText });
-
-    // Communication
-    items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
-
-    // Calendar
-    items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
-
-    // Tasks
-    items.push({ name: "Tasks", href: "/tasks", icon: CheckSquare });
-
-    return items;
-  }, [permissions, permissionsLoading]);
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => 
+      prev.includes(group) 
+        ? prev.filter(g => g !== group)
+        : [...prev, group]
+    );
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -101,6 +66,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     if (roles.includes("partner")) return "Partner";
     return "User";
   };
+
+  const isActive = (path: string) => location.pathname === path;
+  const isGroupActive = (paths: string[]) => paths.some(p => location.pathname === p);
 
   const sidebarContent = (
     <>
@@ -144,83 +112,156 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Primary Navigation */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
-        <div className="space-y-1">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href || 
-              (item.children && item.children.some(c => location.pathname === c.href));
-            const hasChildren = item.children && item.children.length > 0;
+      <nav className="flex-1 py-3 px-2 overflow-y-auto">
+        {/* Dashboard - standalone */}
+        <NavLink
+          to="/"
+          onClick={handleNavClick}
+          className={`nav-link mb-1 ${isActive("/") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`}
+          title={collapsed ? "Dashboard" : undefined}
+        >
+          <LayoutDashboard size={18} className={isActive("/") ? "text-primary" : ""} />
+          {!collapsed && <span>Dashboard</span>}
+        </NavLink>
 
-            if (hasChildren && !collapsed) {
-              return (
-                <Collapsible key={item.name} defaultOpen={isActive}>
-                  <CollapsibleTrigger className={`nav-link w-full justify-between ${isActive ? "nav-link-active" : ""}`}>
-                    <div className="flex items-center gap-3">
-                      <item.icon size={20} className={isActive ? "text-accent" : ""} />
-                      <span>{item.name}</span>
-                    </div>
-                    <ChevronDown size={16} className="transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4 mt-1 space-y-1">
-                    {item.children.map((child) => {
-                      const isChildActive = location.pathname === child.href;
-                      return (
-                        <NavLink
-                          key={child.name}
-                          to={child.href}
-                          onClick={handleNavClick}
-                          className={`nav-link text-sm ${isChildActive ? "nav-link-active" : ""}`}
-                        >
-                          <child.icon size={16} className={isChildActive ? "text-accent" : ""} />
-                          <span>{child.name}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            }
-
-            return (
-              <NavLink
-                key={item.name}
-                to={item.href}
-                onClick={handleNavClick}
-                className={`nav-link ${isActive ? "nav-link-active" : ""} ${
-                  collapsed ? "justify-center px-2" : ""
-                }`}
-                title={collapsed ? item.name : undefined}
-              >
-                <item.icon size={20} className={isActive ? "text-accent" : ""} />
-                {!collapsed && <span>{item.name}</span>}
+        {/* Finances Group */}
+        {!collapsed ? (
+          <Collapsible open={openGroups.includes("finances")} onOpenChange={() => toggleGroup("finances")}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/finances", "/opex", "/receipt-scanner", "/budget", "/finances/invoices", "/finances/declarations"]) ? "text-primary" : ""}`}>
+              <div className="flex items-center gap-3">
+                <Wallet size={18} />
+                <span>Finances</span>
+              </div>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.includes("finances") ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
+              <NavLink to="/finances" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances") ? "nav-link-active" : ""}`}>
+                <BarChart size={16} className={isActive("/finances") ? "text-primary" : ""} />
+                <span>Overview</span>
               </NavLink>
-            );
-          })}
-        </div>
+              <NavLink to="/opex" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/opex") ? "nav-link-active" : ""}`}>
+                <Receipt size={16} className={isActive("/opex") ? "text-primary" : ""} />
+                <span>OPEX</span>
+              </NavLink>
+              <NavLink to="/receipt-scanner" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/receipt-scanner") ? "nav-link-active" : ""}`}>
+                <ScanLine size={16} className={isActive("/receipt-scanner") ? "text-primary" : ""} />
+                <span>Receipt Scanner</span>
+              </NavLink>
+              <NavLink to="/finances/invoices" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/invoices") ? "nav-link-active" : ""}`}>
+                <Banknote size={16} className={isActive("/finances/invoices") ? "text-primary" : ""} />
+                <span>Invoices</span>
+              </NavLink>
+              <NavLink to="/finances/declarations" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/declarations") ? "nav-link-active" : ""}`}>
+                <TrendingUp size={16} className={isActive("/finances/declarations") ? "text-primary" : ""} />
+                <span>Declarations</span>
+              </NavLink>
+              <NavLink to="/budget" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/budget") ? "nav-link-active" : ""}`}>
+                <TrendingUp size={16} className={isActive("/budget") ? "text-primary" : ""} />
+                <span>Budget</span>
+              </NavLink>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/finances" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/finances") ? "nav-link-active" : ""}`} title="Finances">
+            <Wallet size={18} className={isActive("/finances") ? "text-primary" : ""} />
+          </NavLink>
+        )}
 
-        {/* Secondary Navigation */}
-        <div className="mt-6 pt-4 border-t border-border">
+        {/* Reports - standalone */}
+        <NavLink
+          to="/reports"
+          onClick={handleNavClick}
+          className={`nav-link mt-1 ${isActive("/reports") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`}
+          title={collapsed ? "Reports" : undefined}
+        >
+          <BarChart size={18} className={isActive("/reports") ? "text-primary" : ""} />
+          {!collapsed && <span>Reports</span>}
+        </NavLink>
+
+        {/* Documents Group */}
+        {!collapsed ? (
+          <Collapsible open={openGroups.includes("documents")} onOpenChange={() => toggleGroup("documents")}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/explorer", "/documents"]) ? "text-primary" : ""}`}>
+              <div className="flex items-center gap-3">
+                <FileText size={18} />
+                <span>Documents</span>
+              </div>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.includes("documents") ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
+              <NavLink to="/explorer" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/explorer") ? "nav-link-active" : ""}`}>
+                <FolderOpen size={16} className={isActive("/explorer") ? "text-primary" : ""} />
+                <span>Explorer</span>
+              </NavLink>
+              <NavLink to="/documents" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/documents") ? "nav-link-active" : ""}`}>
+                <FileText size={16} className={isActive("/documents") ? "text-primary" : ""} />
+                <span>All Documents</span>
+              </NavLink>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/documents" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/documents") ? "nav-link-active" : ""}`} title="Documents">
+            <FileText size={18} className={isActive("/documents") ? "text-primary" : ""} />
+          </NavLink>
+        )}
+
+        {/* Collaboration Group */}
+        {!collapsed ? (
+          <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks"]) ? "text-primary" : ""}`}>
+              <div className="flex items-center gap-3">
+                <MessageSquare size={18} />
+                <span>Collaboration</span>
+              </div>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.includes("collaboration") ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
+              <NavLink to="/communication" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/communication") ? "nav-link-active" : ""}`}>
+                <MessageSquare size={16} className={isActive("/communication") ? "text-primary" : ""} />
+                <span>Communication</span>
+              </NavLink>
+              <NavLink to="/calendar" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/calendar") ? "nav-link-active" : ""}`}>
+                <Calendar size={16} className={isActive("/calendar") ? "text-primary" : ""} />
+                <span>Calendar</span>
+              </NavLink>
+              <NavLink to="/tasks" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/tasks") ? "nav-link-active" : ""}`}>
+                <CheckSquare size={16} className={isActive("/tasks") ? "text-primary" : ""} />
+                <span>Tasks</span>
+              </NavLink>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
+            <MessageSquare size={18} className={isActive("/communication") ? "text-primary" : ""} />
+          </NavLink>
+        )}
+
+        {/* Administration Section */}
+        <div className="mt-4 pt-3 border-t border-border">
           {!collapsed && (
-            <p className="text-xs font-medium text-muted-foreground px-3 mb-2">Settings</p>
+            <p className="text-[11px] font-medium text-muted-foreground px-3 mb-1.5 uppercase tracking-wider">Admin</p>
           )}
           <div className="space-y-0.5">
-            {secondaryNav.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  onClick={handleNavClick}
-                  className={`nav-link ${isActive ? "nav-link-active" : ""} ${
-                    collapsed ? "justify-center px-2" : ""
-                  }`}
-                  title={collapsed ? item.name : undefined}
-                >
-                  <item.icon size={18} className={isActive ? "text-primary" : ""} />
-                  {!collapsed && <span>{item.name}</span>}
-                </NavLink>
-              );
-            })}
+            <NavLink to="/partners" onClick={handleNavClick} className={`nav-link ${isActive("/partners") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Partners" : undefined}>
+              <Building2 size={18} className={isActive("/partners") ? "text-primary" : ""} />
+              {!collapsed && <span>Partners</span>}
+            </NavLink>
+            <NavLink to="/authorities" onClick={handleNavClick} className={`nav-link ${isActive("/authorities") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Authorities" : undefined}>
+              <Globe size={18} className={isActive("/authorities") ? "text-primary" : ""} />
+              {!collapsed && <span>Authorities</span>}
+            </NavLink>
+            <NavLink to="/users" onClick={handleNavClick} className={`nav-link ${isActive("/users") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Users" : undefined}>
+              <Users size={18} className={isActive("/users") ? "text-primary" : ""} />
+              {!collapsed && <span>Users</span>}
+            </NavLink>
+            <NavLink to="/security" onClick={handleNavClick} className={`nav-link ${isActive("/security") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Security" : undefined}>
+              <Shield size={18} className={isActive("/security") ? "text-primary" : ""} />
+              {!collapsed && <span>Security</span>}
+            </NavLink>
+            <NavLink to="/settings" onClick={handleNavClick} className={`nav-link ${isActive("/settings") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Settings" : undefined}>
+              <Settings size={18} className={isActive("/settings") ? "text-primary" : ""} />
+              {!collapsed && <span>Settings</span>}
+            </NavLink>
           </div>
         </div>
       </nav>
