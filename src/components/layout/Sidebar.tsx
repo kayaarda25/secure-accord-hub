@@ -167,40 +167,40 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border/60">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center glow-gold">
-              <span className="text-accent font-bold text-lg">M</span>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-base font-display">M</span>
             </div>
             <div>
-              <h1 className="font-semibold text-sidebar-accent-foreground text-sm">
-                MGI × AFRICA
+              <h1 className="font-display font-semibold text-sidebar-accent-foreground text-sm tracking-tight">
+                MGI × AFRIKA
               </h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                State Cooperation
+              <p className="text-[9px] text-muted-foreground/70 uppercase tracking-[0.15em] font-medium">
+                Government Platform
               </p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center mx-auto glow-gold">
-            <span className="text-accent font-bold text-lg">M</span>
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center mx-auto shadow-md">
+            <span className="text-white font-bold text-base font-display">M</span>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-colors hidden lg:block"
+          className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-all duration-200 hidden lg:block"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
         {/* Mobile close button */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-colors lg:hidden"
+            className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-all duration-200 lg:hidden"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         )}
       </div>
@@ -337,8 +337,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300 z-50 hidden lg:flex ${
-          collapsed ? "w-20" : "w-64"
+        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border/60 flex-col transition-all duration-300 ease-out z-50 hidden lg:flex ${
+          collapsed ? "w-[72px]" : "w-60"
         }`}
       >
         {sidebarContent}
@@ -347,14 +347,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
         <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-background/60 backdrop-blur-md z-40 lg:hidden"
           onClick={onMobileClose}
         />
       )}
 
       {/* Mobile Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 z-50 lg:hidden ${
+        className={`fixed left-0 top-0 h-screen w-[280px] bg-sidebar border-r border-sidebar-border/60 flex flex-col transition-transform duration-300 ease-out z-50 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
