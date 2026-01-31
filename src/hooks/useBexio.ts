@@ -23,6 +23,14 @@ export function useBexio() {
 
       if (response.error) {
         setIsConnected(false);
+      } else if (response.data?.reconnect_required) {
+        // Token expired, user needs to reconnect
+        setIsConnected(false);
+        toast({
+          title: "Bexio-Sitzung abgelaufen",
+          description: "Bitte verbinden Sie Bexio erneut.",
+          variant: "destructive",
+        });
       } else {
         setIsConnected(response.data?.connected ?? false);
       }
