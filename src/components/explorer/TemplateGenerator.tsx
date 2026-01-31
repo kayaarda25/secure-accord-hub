@@ -429,7 +429,16 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     value={paymentData.purpose}
                     onChange={(e) => setPaymentData(prev => ({ ...prev, purpose: e.target.value }))}
                     placeholder="Beschreibung des Zahlungszwecks"
-                    className="min-h-[80px]"
+                    className="min-h-[60px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Bemerkungen (optional)</Label>
+                  <Textarea
+                    value={paymentData.notes || ""}
+                    onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Zusätzliche Anmerkungen oder Hinweise"
+                    className="min-h-[60px]"
                   />
                 </div>
               </div>
