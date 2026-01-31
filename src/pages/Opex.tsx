@@ -189,7 +189,7 @@ export default function Opex() {
     return newFolder.id;
   };
 
-  // Save OPEX document to explorer
+  // Save OPEX document to explorer as DOCX
   const saveOpexToExplorer = async (
     submittedExpenses: { category: string; label: string; amount: number }[],
     costCenter: CostCenter | undefined,
@@ -198,124 +198,180 @@ export default function Opex() {
   ) => {
     if (!user) return;
 
-    const selectedPeriod = formData.period;
-    const periodDate = new Date(selectedPeriod + "-01");
-    const monthName = periodDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-    const fileName = `OPEX_${costCenter?.code || "NA"}_${selectedPeriod}.html`;
-    
-    // Create HTML content
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>OPEX Report - ${monthName}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
-          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #c9a227; padding-bottom: 20px; }
-          .header h1 { color: #1a1a2e; margin: 0; }
-          .header p { color: #666; margin: 10px 0 0; }
-          .info { margin-bottom: 30px; }
-          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-          .info-label { color: #666; }
-          .info-value { font-weight: bold; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th { background: #1a1a2e; color: white; padding: 12px; text-align: left; }
-          td { padding: 12px; border-bottom: 1px solid #eee; }
-          tr:nth-child(even) { background: #f9f9f9; }
-          .total { background: #c9a227 !important; color: white; font-weight: bold; }
-          .amount { text-align: right; }
-          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
-          .expense-numbers { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>OPEX Report</h1>
-          <p>${monthName}</p>
-        </div>
-        <div class="info">
-          <div class="info-row">
-            <span class="info-label">Kostenstelle:</span>
-            <span class="info-value">${costCenter?.code || "N/A"} - ${costCenter?.name || "N/A"}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Land:</span>
-            <span class="info-value">${costCenter?.country || "N/A"}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Währung:</span>
-            <span class="info-value">${formData.currency}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Erstellt am:</span>
-            <span class="info-value">${new Date().toLocaleDateString("de-DE")}</span>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Kategorie</th>
-              <th class="amount">Betrag</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${submittedExpenses.map(exp => `
-              <tr>
-                <td>${exp.label}</td>
-                <td class="amount">${formatCurrency(exp.amount, formData.currency)}</td>
-              </tr>
-            `).join("")}
-            <tr class="total">
-              <td>Gesamt</td>
-              <td class="amount">${formatCurrency(total, formData.currency)}</td>
-            </tr>
-          </tbody>
-        </table>
-        ${formData.description ? `<p><strong>Notizen:</strong> ${formData.description}</p>` : ""}
-        <div class="expense-numbers">
-          <strong>Ausgabennummern:</strong> ${expenseNumbers.join(", ")}
-        </div>
-        <div class="footer">
-          <p>Automatisch generiert am ${new Date().toLocaleString("de-DE")}</p>
-        </div>
-      </body>
-      </html>
-    `;
+    try {
+      const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType, AlignmentType, BorderStyle, HeadingLevel } = await import("docx");
 
-    // Create blob and upload to storage
-    const blob = new Blob([htmlContent], { type: "text/html" });
-    const filePath = `${user.id}/opex/${Date.now()}_${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from("documents")
-      .upload(filePath, blob, { contentType: "text/html" });
-    
-    if (uploadError) {
-      console.error("Error uploading OPEX document:", uploadError);
-      return;
-    }
+      const selectedPeriod = formData.period;
+      const periodDate = new Date(selectedPeriod + "-01");
+      const monthName = periodDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+      const fileName = `OPEX_${costCenter?.code || "NA"}_${selectedPeriod}.docx`;
 
-    // Get or create OPEX folder
-    const folderId = await getOrCreateOpexFolder();
+      // Create table rows for expenses
+      const expenseRows = submittedExpenses.map(exp => 
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: exp.label })] })],
+              width: { size: 70, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [new Paragraph({ 
+                children: [new TextRun({ text: formatCurrency(exp.amount, formData.currency) })],
+                alignment: AlignmentType.RIGHT,
+              })],
+              width: { size: 30, type: WidthType.PERCENTAGE },
+            }),
+          ],
+        })
+      );
 
-    // Create document entry
-    const { error: docError } = await supabase
-      .from("documents")
-      .insert({
-        name: `OPEX Report ${monthName} - ${costCenter?.name || ""}`,
-        type: "report",
-        file_path: filePath,
-        file_size: blob.size,
-        mime_type: "text/html",
-        uploaded_by: user.id,
-        organization_id: profile?.organization_id || null,
-        folder_id: folderId,
-        description: `OPEX Ausgaben für ${monthName}. Kostenstelle: ${costCenter?.code}. Gesamt: ${formatCurrency(total, formData.currency)}`,
+      // Add total row
+      const totalRow = new TableRow({
+        children: [
+          new TableCell({
+            children: [new Paragraph({ 
+              children: [new TextRun({ text: "Gesamt", bold: true })],
+            })],
+            shading: { fill: "C9A227" },
+          }),
+          new TableCell({
+            children: [new Paragraph({ 
+              children: [new TextRun({ text: formatCurrency(total, formData.currency), bold: true })],
+              alignment: AlignmentType.RIGHT,
+            })],
+            shading: { fill: "C9A227" },
+          }),
+        ],
       });
 
-    if (docError) {
-      console.error("Error creating document entry:", docError);
+      // Create the document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: "OPEX Report", bold: true, size: 48 })],
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: monthName, size: 28, color: "666666" })],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Kostenstelle: ", bold: true }),
+                new TextRun({ text: `${costCenter?.code || "N/A"} - ${costCenter?.name || "N/A"}` }),
+              ],
+              spacing: { after: 100 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Land: ", bold: true }),
+                new TextRun({ text: costCenter?.country || "N/A" }),
+              ],
+              spacing: { after: 100 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Währung: ", bold: true }),
+                new TextRun({ text: formData.currency }),
+              ],
+              spacing: { after: 100 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Erstellt am: ", bold: true }),
+                new TextRun({ text: new Date().toLocaleDateString("de-DE") }),
+              ],
+              spacing: { after: 300 },
+            }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [new Paragraph({ 
+                        children: [new TextRun({ text: "Kategorie", bold: true, color: "FFFFFF" })],
+                      })],
+                      shading: { fill: "1A1A2E" },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({ 
+                        children: [new TextRun({ text: "Betrag", bold: true, color: "FFFFFF" })],
+                        alignment: AlignmentType.RIGHT,
+                      })],
+                      shading: { fill: "1A1A2E" },
+                    }),
+                  ],
+                }),
+                ...expenseRows,
+                totalRow,
+              ],
+            }),
+            ...(formData.description ? [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Notizen: ", bold: true }),
+                  new TextRun({ text: formData.description }),
+                ],
+                spacing: { before: 300 },
+              }),
+            ] : []),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Ausgabennummern: ", bold: true }),
+                new TextRun({ text: expenseNumbers.join(", ") }),
+              ],
+              spacing: { before: 200 },
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: `Automatisch generiert am ${new Date().toLocaleString("de-DE")}`, size: 20, color: "999999" })],
+              spacing: { before: 400 },
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+        }],
+      });
+
+      // Generate blob
+      const blob = await Packer.toBlob(doc);
+      const filePath = `${user.id}/opex/${Date.now()}_${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob, { contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      
+      if (uploadError) {
+        console.error("Error uploading OPEX document:", uploadError);
+        return;
+      }
+
+      // Get or create OPEX folder
+      const folderId = await getOrCreateOpexFolder();
+
+      // Create document entry
+      const { error: docError } = await supabase
+        .from("documents")
+        .insert({
+          name: `OPEX Report ${monthName} - ${costCenter?.name || ""}`,
+          type: "report",
+          file_path: filePath,
+          file_size: blob.size,
+          mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          uploaded_by: user.id,
+          organization_id: profile?.organization_id || null,
+          folder_id: folderId,
+          description: `OPEX Ausgaben für ${monthName}. Kostenstelle: ${costCenter?.code}. Gesamt: ${formatCurrency(total, formData.currency)}`,
+        });
+
+      if (docError) {
+        console.error("Error creating document entry:", docError);
+      }
+    } catch (error) {
+      console.error("Error generating OPEX document:", error);
     }
   };
 
