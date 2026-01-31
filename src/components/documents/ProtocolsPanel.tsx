@@ -12,6 +12,7 @@ import {
   Trash2,
   Download,
   Mail,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -50,6 +51,7 @@ export function ProtocolsPanel() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewProtocol, setShowNewProtocol] = useState(false);
+  const [editingProtocol, setEditingProtocol] = useState<MeetingProtocol | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [attendeesOpen, setAttendeesOpen] = useState(false);
@@ -62,6 +64,7 @@ export function ProtocolsPanel() {
     location: "",
     decisions: "",
   });
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProtocols();
@@ -151,6 +154,91 @@ export function ProtocolsPanel() {
     });
     setSelectedAttendees([]);
     setTopics([{ id: crypto.randomUUID(), topic: "", notes: "" }]);
+    setEditingProtocol(null);
+  };
+
+  // Load protocol data for editing
+  const loadProtocolForEdit = (protocol: MeetingProtocol) => {
+    // Parse topics from agenda/minutes
+    const agendaLines = (protocol.agenda || "").split("\n").filter(l => l.trim());
+    const minutesLines = (protocol.minutes || "").split("\n\n").filter(l => l.trim());
+    
+    const parsedTopics: TopicItem[] = agendaLines.length > 0 
+      ? agendaLines.map((line, idx) => {
+          const topic = line.replace(/^\d+\.\s*/, "");
+          const notesMatch = minutesLines.find(m => m.startsWith(`Topic ${idx + 1}:`));
+          const notes = notesMatch ? notesMatch.replace(`Topic ${idx + 1}: `, "") : "";
+          return { id: crypto.randomUUID(), topic, notes };
+        })
+      : [{ id: crypto.randomUUID(), topic: "", notes: "" }];
+
+    // Find user IDs for attendees
+    const attendeeUserIds = protocol.attendees
+      ?.map(attendeeName => {
+        const foundUser = users.find(u => {
+          const displayName = getUserDisplayName(u);
+          return displayName === attendeeName;
+        });
+        return foundUser?.user_id;
+      })
+      .filter(Boolean) as string[] || [];
+
+    setProtocolForm({
+      title: protocol.title,
+      meeting_date: protocol.meeting_date,
+      location: protocol.location || "",
+      decisions: protocol.decisions || "",
+    });
+    setSelectedAttendees(attendeeUserIds);
+    setTopics(parsedTopics);
+    setEditingProtocol(protocol);
+    setShowNewProtocol(true);
+    setOpenMenuId(null);
+  };
+
+  // Handle update protocol
+  const handleUpdateProtocol = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !editingProtocol) return;
+
+    try {
+      const attendeeNames = getSelectedAttendeesNames();
+      
+      // Combine all topics into agenda and all notes into minutes
+      const combinedAgenda = topics
+        .map((t, idx) => `${idx + 1}. ${t.topic}`)
+        .filter((t) => t.trim() !== `${topics.indexOf(topics.find(x => x.topic === '') || topics[0]) + 1}. `)
+        .join("\n");
+      
+      const combinedMinutes = topics
+        .map((t, idx) => t.notes ? `Topic ${idx + 1}: ${t.notes}` : "")
+        .filter(Boolean)
+        .join("\n\n");
+
+      // Update protocol in database
+      const { error } = await supabase
+        .from("meeting_protocols")
+        .update({
+          title: protocolForm.title,
+          meeting_date: protocolForm.meeting_date,
+          location: protocolForm.location || null,
+          attendees: attendeeNames,
+          agenda: combinedAgenda || null,
+          minutes: combinedMinutes || null,
+          decisions: protocolForm.decisions || null,
+        })
+        .eq("id", editingProtocol.id);
+
+      if (error) throw error;
+
+      setShowNewProtocol(false);
+      resetForm();
+      toast.success("Protocol updated successfully");
+      fetchProtocols();
+    } catch (error) {
+      console.error("Error updating protocol:", error);
+      toast.error("Failed to update protocol");
+    }
   };
 
   // Get or create the Protokolle folder
@@ -457,9 +545,31 @@ export function ProtocolsPanel() {
                 >
                   <Download size={14} />
                 </button>
-                <button className="p-1 rounded hover:bg-muted text-muted-foreground">
-                  <MoreHorizontal size={14} />
-                </button>
+                <Popover 
+                  open={openMenuId === protocol.id} 
+                  onOpenChange={(open) => setOpenMenuId(open ? protocol.id : null)}
+                >
+                  <PopoverTrigger asChild>
+                    <button 
+                      className="p-1 rounded hover:bg-muted text-muted-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="end">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        loadProtocolForEdit(protocol);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded transition-colors"
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <h4 className="font-medium text-foreground mb-2">{protocol.title}</h4>
@@ -510,7 +620,7 @@ export function ProtocolsPanel() {
           <div className="card-state w-full max-w-lg p-6 animate-fade-in my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-foreground">
-                New Meeting Protocol
+                {editingProtocol ? "Edit Meeting Protocol" : "New Meeting Protocol"}
               </h2>
               <button
                 onClick={() => {
@@ -522,7 +632,7 @@ export function ProtocolsPanel() {
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreateProtocol} className="space-y-4">
+            <form onSubmit={editingProtocol ? handleUpdateProtocol : handleCreateProtocol} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                   Title
@@ -714,7 +824,7 @@ export function ProtocolsPanel() {
                   type="submit"
                   className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
                 >
-                  Save
+                  {editingProtocol ? "Update" : "Save"}
                 </button>
               </div>
             </form>
