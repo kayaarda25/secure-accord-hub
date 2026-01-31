@@ -154,6 +154,171 @@ export default function Opex() {
     }
   };
 
+  // Get or create OPEX folder in document explorer
+  const getOrCreateOpexFolder = async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    // Check if OPEX folder exists
+    const { data: existingFolder } = await supabase
+      .from("document_folders")
+      .select("id")
+      .eq("name", "OPEX")
+      .maybeSingle();
+    
+    if (existingFolder) {
+      return existingFolder.id;
+    }
+    
+    // Create OPEX folder
+    const { data: newFolder, error } = await supabase
+      .from("document_folders")
+      .insert({
+        name: "OPEX",
+        created_by: user.id,
+        color: "#c9a227",
+        icon: "receipt",
+      })
+      .select("id")
+      .single();
+    
+    if (error) {
+      console.error("Error creating OPEX folder:", error);
+      return null;
+    }
+    
+    return newFolder.id;
+  };
+
+  // Save OPEX document to explorer
+  const saveOpexToExplorer = async (
+    submittedExpenses: { category: string; label: string; amount: number }[],
+    costCenter: CostCenter | undefined,
+    total: number,
+    expenseNumbers: string[]
+  ) => {
+    if (!user) return;
+
+    const selectedPeriod = formData.period;
+    const periodDate = new Date(selectedPeriod + "-01");
+    const monthName = periodDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+    const fileName = `OPEX_${costCenter?.code || "NA"}_${selectedPeriod}.html`;
+    
+    // Create HTML content
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>OPEX Report - ${monthName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #c9a227; padding-bottom: 20px; }
+          .header h1 { color: #1a1a2e; margin: 0; }
+          .header p { color: #666; margin: 10px 0 0; }
+          .info { margin-bottom: 30px; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { color: #666; }
+          .info-value { font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th { background: #1a1a2e; color: white; padding: 12px; text-align: left; }
+          td { padding: 12px; border-bottom: 1px solid #eee; }
+          tr:nth-child(even) { background: #f9f9f9; }
+          .total { background: #c9a227 !important; color: white; font-weight: bold; }
+          .amount { text-align: right; }
+          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
+          .expense-numbers { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>OPEX Report</h1>
+          <p>${monthName}</p>
+        </div>
+        <div class="info">
+          <div class="info-row">
+            <span class="info-label">Kostenstelle:</span>
+            <span class="info-value">${costCenter?.code || "N/A"} - ${costCenter?.name || "N/A"}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Land:</span>
+            <span class="info-value">${costCenter?.country || "N/A"}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Währung:</span>
+            <span class="info-value">${formData.currency}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Erstellt am:</span>
+            <span class="info-value">${new Date().toLocaleDateString("de-DE")}</span>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Kategorie</th>
+              <th class="amount">Betrag</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${submittedExpenses.map(exp => `
+              <tr>
+                <td>${exp.label}</td>
+                <td class="amount">${formatCurrency(exp.amount, formData.currency)}</td>
+              </tr>
+            `).join("")}
+            <tr class="total">
+              <td>Gesamt</td>
+              <td class="amount">${formatCurrency(total, formData.currency)}</td>
+            </tr>
+          </tbody>
+        </table>
+        ${formData.description ? `<p><strong>Notizen:</strong> ${formData.description}</p>` : ""}
+        <div class="expense-numbers">
+          <strong>Ausgabennummern:</strong> ${expenseNumbers.join(", ")}
+        </div>
+        <div class="footer">
+          <p>Automatisch generiert am ${new Date().toLocaleString("de-DE")}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create blob and upload to storage
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const filePath = `opex/${user.id}/${Date.now()}_${fileName}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(filePath, blob, { contentType: "text/html" });
+    
+    if (uploadError) {
+      console.error("Error uploading OPEX document:", uploadError);
+      return;
+    }
+
+    // Get or create OPEX folder
+    const folderId = await getOrCreateOpexFolder();
+
+    // Create document entry
+    const { error: docError } = await supabase
+      .from("documents")
+      .insert({
+        name: `OPEX Report ${monthName} - ${costCenter?.name || ""}`,
+        type: "report",
+        file_path: filePath,
+        file_size: blob.size,
+        mime_type: "text/html",
+        uploaded_by: user.id,
+        organization_id: profile?.organization_id || null,
+        folder_id: folderId,
+        description: `OPEX Ausgaben für ${monthName}. Kostenstelle: ${costCenter?.code}. Gesamt: ${formatCurrency(total, formData.currency)}`,
+      });
+
+    if (docError) {
+      console.error("Error creating document entry:", docError);
+    }
+  };
+
   const generatePDF = (submittedExpenses: { category: string; label: string; amount: number }[], costCenter: CostCenter | undefined, total: number) => {
     const selectedPeriod = formData.period;
     const periodDate = new Date(selectedPeriod + "-01");
@@ -290,10 +455,14 @@ export default function Opex() {
         throw new Error("Error saving some expenses");
       }
 
-      // Log all created expenses
+      // Collect expense numbers and log all created expenses
+      const expenseNumbers: string[] = [];
       for (const result of results) {
         if (result.data) {
           await logAction("CREATE", "opex_expenses", result.data.id);
+          if (result.data.expense_number) {
+            expenseNumbers.push(result.data.expense_number);
+          }
         }
       }
 
@@ -301,7 +470,10 @@ export default function Opex() {
       const total = nonEmptyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
       const costCenter = costCenters.find(cc => cc.id === formData.cost_center_id);
 
-      // Generate PDF
+      // Save document to explorer
+      await saveOpexToExplorer(nonEmptyExpenses, costCenter, total, expenseNumbers);
+
+      // Generate PDF for printing
       generatePDF(nonEmptyExpenses, costCenter, total);
 
       // Reset form
