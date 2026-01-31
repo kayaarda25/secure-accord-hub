@@ -242,14 +242,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <p className="text-[11px] font-medium text-muted-foreground px-3 mb-1.5 uppercase tracking-wider">Admin</p>
           )}
           <div className="space-y-0.5">
-            <NavLink to="/partners" onClick={handleNavClick} className={`nav-link ${isActive("/partners") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Partners" : undefined}>
-              <Building2 size={18} className={isActive("/partners") ? "text-primary" : ""} />
-              {!collapsed && <span>Partners</span>}
-            </NavLink>
-            <NavLink to="/authorities" onClick={handleNavClick} className={`nav-link ${isActive("/authorities") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Authorities" : undefined}>
-              <Globe size={18} className={isActive("/authorities") ? "text-primary" : ""} />
-              {!collapsed && <span>Authorities</span>}
-            </NavLink>
             <NavLink to="/users" onClick={handleNavClick} className={`nav-link ${isActive("/users") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Users" : undefined}>
               <Users size={18} className={isActive("/users") ? "text-primary" : ""} />
               {!collapsed && <span>Users</span>}
