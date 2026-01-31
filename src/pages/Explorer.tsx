@@ -8,18 +8,26 @@ import {
   LayoutTemplate,
   Grid3X3,
   List,
-  Upload,
   MoreVertical,
   Folder,
   Eye,
   Tag,
   Trash2,
+  Pencil,
+  Copy,
+  Scissors,
+  ClipboardPaste,
+  Users,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { useDocumentExplorer } from "@/hooks/useDocumentExplorer";
+import { useExplorerClipboard } from "@/hooks/useExplorerClipboard";
 import { FolderTree } from "@/components/explorer/FolderTree";
 import { TagManager, DocumentTags } from "@/components/explorer/TagManager";
 import { TemplateGenerator } from "@/components/explorer/TemplateGenerator";
+import { RenameDialog } from "@/components/explorer/RenameDialog";
+import { FileUploader } from "@/components/explorer/FileUploader";
+import { FolderUploader } from "@/components/explorer/FolderUploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,10 +46,23 @@ import { de } from "date-fns/locale";
 
 type ViewMode = "grid" | "list";
 
+interface RenameState {
+  open: boolean;
+  type: "folder" | "document";
+  id: string;
+  currentName: string;
+}
+
 export default function Explorer() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
+  const [renameState, setRenameState] = useState<RenameState>({
+    open: false,
+    type: "document",
+    id: "",
+    currentName: "",
+  });
 
   const {
     folders,
@@ -52,15 +73,28 @@ export default function Explorer() {
     isLoading,
     createFolder,
     deleteFolder,
+    renameFolder,
+    renameDocument,
+    deleteDocument,
     createTag,
     assignTag,
-    moveToFolder,
     getBreadcrumbPath,
     getChildFolders,
   } = useDocumentExplorer();
 
+  const {
+    clipboard,
+    copyDocument,
+    cutDocument,
+    pasteDocument,
+    hasClipboard,
+  } = useExplorerClipboard();
+
   const breadcrumbPath = getBreadcrumbPath(currentFolderId);
   const childFolders = getChildFolders(currentFolderId);
+
+  // Find shared folder
+  const sharedFolder = folders.find(f => f.name === "Geteilt" && f.parent_id === null);
 
   // Filter documents by selected tags
   const filteredDocuments = selectedTags.length > 0
@@ -78,7 +112,7 @@ export default function Explorer() {
     );
   };
 
-  const handleDownload = async (filePath: string, fileName: string) => {
+  const handleDownload = async (filePath: string, fileName: string, mimeType?: string) => {
     try {
       const { data, error } = await supabase.storage
         .from("documents")
@@ -86,16 +120,63 @@ export default function Explorer() {
 
       if (error) throw error;
 
-      const url = URL.createObjectURL(data);
+      // Create blob with proper mime type
+      const blob = new Blob([data], { type: mimeType || data.type });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
       toast.error("Fehler beim Herunterladen");
       console.error(error);
     }
+  };
+
+  const handleRename = (newName: string) => {
+    if (renameState.type === "folder") {
+      renameFolder.mutate({ id: renameState.id, name: newName });
+    } else {
+      renameDocument.mutate({ id: renameState.id, name: newName });
+    }
+  };
+
+  const handleDelete = async (docId: string, filePath: string) => {
+    if (window.confirm("Dokument wirklich löschen?")) {
+      deleteDocument.mutate({ id: docId, filePath });
+    }
+  };
+
+  const handlePaste = () => {
+    pasteDocument(currentFolderId);
+  };
+
+  const handleCreateSharedFolder = async () => {
+    if (sharedFolder) {
+      setCurrentFolderId(sharedFolder.id);
+    } else {
+      createFolder.mutate({ name: "Geteilt", parentId: null, color: "#5dc985" });
+      toast.success("Geteilter Ordner erstellt");
+    }
+  };
+
+  const handleCreateFolderWithReturn = async (name: string, parentId: string | null): Promise<{ id: string } | void> => {
+    return new Promise((resolve) => {
+      createFolder.mutate(
+        { name, parentId, silent: true },
+        {
+          onSuccess: (result) => {
+            resolve({ id: result.data.id });
+          },
+          onError: () => {
+            resolve();
+          },
+        }
+      );
+    });
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -132,7 +213,24 @@ export default function Explorer() {
                   createFolder.mutate({ name, parentId, color })
                 }
                 onDeleteFolder={(id) => deleteFolder.mutate(id)}
+                onRenameFolder={(id, name) => setRenameState({
+                  open: true,
+                  type: "folder",
+                  id,
+                  currentName: name,
+                })}
               />
+              
+              {/* Shared Folder Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start mt-2 text-muted-foreground"
+                onClick={handleCreateSharedFolder}
+              >
+                <Users size={14} className="mr-2" />
+                {sharedFolder ? "Geteilter Ordner" : "Geteilten Ordner erstellen"}
+              </Button>
             </CardContent>
           </Card>
 
@@ -176,6 +274,14 @@ export default function Explorer() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Paste Button */}
+              {hasClipboard && (
+                <Button variant="outline" onClick={handlePaste}>
+                  <ClipboardPaste size={16} className="mr-2" />
+                  Einfügen
+                </Button>
+              )}
+
               {/* View Mode Toggle */}
               <div className="flex items-center border rounded-md p-0.5">
                 <button
@@ -207,11 +313,14 @@ export default function Explorer() {
                 Vorlage erstellen
               </Button>
 
-              {/* Upload Button */}
-              <Button>
-                <Upload size={16} className="mr-2" />
-                Hochladen
-              </Button>
+              {/* Folder Upload Button */}
+              <FolderUploader 
+                currentFolderId={currentFolderId}
+                onCreateFolder={handleCreateFolderWithReturn}
+              />
+
+              {/* File Upload Button */}
+              <FileUploader currentFolderId={currentFolderId} />
             </div>
           </div>
 
@@ -238,25 +347,57 @@ export default function Explorer() {
                           : "space-y-2"
                       )}>
                         {childFolders.map(folder => (
-                          <button
+                          <div
                             key={folder.id}
-                            onClick={() => setCurrentFolderId(folder.id)}
                             className={cn(
-                              "text-left transition-all duration-150 hover:scale-[1.02]",
+                              "group relative text-left transition-all duration-150 hover:scale-[1.02]",
                               viewMode === "grid"
                                 ? "p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-accent/30"
                                 : "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50"
                             )}
                           >
-                            <Folder 
-                              size={viewMode === "grid" ? 32 : 20} 
-                              style={{ color: folder.color }}
-                              className={viewMode === "grid" ? "mb-2" : ""}
-                            />
-                            <span className="font-medium text-sm truncate">
-                              {folder.name}
-                            </span>
-                          </button>
+                            <button
+                              onClick={() => setCurrentFolderId(folder.id)}
+                              className="flex-1 flex items-center gap-2"
+                            >
+                              <Folder 
+                                size={viewMode === "grid" ? 32 : 20} 
+                                style={{ color: folder.color }}
+                                className={viewMode === "grid" ? "mb-2" : ""}
+                              />
+                              <span className="font-medium text-sm truncate">
+                                {folder.name}
+                              </span>
+                            </button>
+                            
+                            {/* Folder Actions */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
+                                  <MoreVertical size={14} />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setRenameState({
+                                  open: true,
+                                  type: "folder",
+                                  id: folder.id,
+                                  currentName: folder.name,
+                                })}>
+                                  <Pencil size={14} className="mr-2" />
+                                  Umbenennen
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => deleteFolder.mutate(folder.id)}
+                                >
+                                  <Trash2 size={14} className="mr-2" />
+                                  Löschen
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -293,9 +434,26 @@ export default function Explorer() {
                                       </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleDownload(doc.file_path, doc.name)}>
+                                      <DropdownMenuItem onClick={() => handleDownload(doc.file_path, doc.name, doc.mime_type)}>
                                         <Download size={14} className="mr-2" />
                                         Herunterladen
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setRenameState({
+                                        open: true,
+                                        type: "document",
+                                        id: doc.id,
+                                        currentName: doc.name,
+                                      })}>
+                                        <Pencil size={14} className="mr-2" />
+                                        Umbenennen
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
+                                        <Copy size={14} className="mr-2" />
+                                        Kopieren
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
+                                        <Scissors size={14} className="mr-2" />
+                                        Ausschneiden
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
                                         <Eye size={14} className="mr-2" />
@@ -306,7 +464,10 @@ export default function Explorer() {
                                         Tag hinzufügen
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem className="text-destructive">
+                                      <DropdownMenuItem 
+                                        className="text-destructive"
+                                        onClick={() => handleDelete(doc.id, doc.file_path)}
+                                      >
                                         <Trash2 size={14} className="mr-2" />
                                         Löschen
                                       </DropdownMenuItem>
@@ -377,7 +538,7 @@ export default function Explorer() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => handleDownload(doc.file_path, doc.name)}
+                                    onClick={() => handleDownload(doc.file_path, doc.name, doc.mime_type)}
                                   >
                                     <Download size={14} />
                                   </Button>
@@ -388,6 +549,23 @@ export default function Explorer() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => setRenameState({
+                                        open: true,
+                                        type: "document",
+                                        id: doc.id,
+                                        currentName: doc.name,
+                                      })}>
+                                        <Pencil size={14} className="mr-2" />
+                                        Umbenennen
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
+                                        <Copy size={14} className="mr-2" />
+                                        Kopieren
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
+                                        <Scissors size={14} className="mr-2" />
+                                        Ausschneiden
+                                      </DropdownMenuItem>
                                       <DropdownMenuItem>
                                         <Eye size={14} className="mr-2" />
                                         Anzeigen
@@ -397,7 +575,10 @@ export default function Explorer() {
                                         Tag hinzufügen
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem className="text-destructive">
+                                      <DropdownMenuItem 
+                                        className="text-destructive"
+                                        onClick={() => handleDelete(doc.id, doc.file_path)}
+                                      >
                                         <Trash2 size={14} className="mr-2" />
                                         Löschen
                                       </DropdownMenuItem>
@@ -439,6 +620,15 @@ export default function Explorer() {
       <TemplateGenerator
         open={showTemplateGenerator}
         onOpenChange={setShowTemplateGenerator}
+      />
+
+      {/* Rename Dialog */}
+      <RenameDialog
+        open={renameState.open}
+        onOpenChange={(open) => setRenameState(prev => ({ ...prev, open }))}
+        currentName={renameState.currentName}
+        itemType={renameState.type}
+        onRename={handleRename}
       />
     </Layout>
   );

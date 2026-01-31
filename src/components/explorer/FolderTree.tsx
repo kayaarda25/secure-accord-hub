@@ -7,6 +7,7 @@ import {
   Plus,
   Trash2,
   MoreVertical,
+  Pencil,
 } from "lucide-react";
 import { DocumentFolder } from "@/hooks/useDocumentExplorer";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface FolderTreeProps {
   onFolderSelect: (folderId: string | null) => void;
   onCreateFolder: (name: string, parentId: string | null, color?: string) => void;
   onDeleteFolder: (folderId: string) => void;
+  onRenameFolder?: (folderId: string, name: string) => void;
 }
 
 interface FolderNodeProps {
@@ -43,6 +45,7 @@ interface FolderNodeProps {
   onFolderSelect: (folderId: string | null) => void;
   onCreateFolder: (name: string, parentId: string | null, color?: string) => void;
   onDeleteFolder: (folderId: string) => void;
+  onRenameFolder?: (folderId: string, name: string) => void;
 }
 
 const FOLDER_COLORS = [
@@ -62,6 +65,7 @@ function FolderNode({
   onFolderSelect,
   onCreateFolder,
   onDeleteFolder,
+  onRenameFolder,
 }: FolderNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
@@ -132,6 +136,12 @@ function FolderNode({
               <Plus size={14} className="mr-2" />
               Unterordner erstellen
             </DropdownMenuItem>
+            {onRenameFolder && (
+              <DropdownMenuItem onClick={() => onRenameFolder(folder.id, folder.name)}>
+                <Pencil size={14} className="mr-2" />
+                Umbenennen
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem 
               onClick={() => onDeleteFolder(folder.id)}
               className="text-destructive"
@@ -155,6 +165,7 @@ function FolderNode({
               onFolderSelect={onFolderSelect}
               onCreateFolder={onCreateFolder}
               onDeleteFolder={onDeleteFolder}
+              onRenameFolder={onRenameFolder}
             />
           ))}
         </div>
@@ -211,6 +222,7 @@ export function FolderTree({
   onFolderSelect,
   onCreateFolder,
   onDeleteFolder,
+  onRenameFolder,
 }: FolderTreeProps) {
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -254,6 +266,7 @@ export function FolderTree({
             onFolderSelect={onFolderSelect}
             onCreateFolder={onCreateFolder}
             onDeleteFolder={onDeleteFolder}
+            onRenameFolder={onRenameFolder}
           />
         ))}
       </div>

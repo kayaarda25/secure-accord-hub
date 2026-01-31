@@ -118,7 +118,7 @@ export function useDocumentExplorer() {
 
   // Create folder mutation
   const createFolder = useMutation({
-    mutationFn: async ({ name, parentId, color }: { name: string; parentId?: string | null; color?: string }) => {
+    mutationFn: async ({ name, parentId, color, silent }: { name: string; parentId?: string | null; color?: string; silent?: boolean }) => {
       const { data, error } = await supabase
         .from("document_folders")
         .insert({
@@ -131,14 +131,84 @@ export function useDocumentExplorer() {
         .single();
 
       if (error) throw error;
-      return data;
+      return { data, silent };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["document-folders"] });
-      toast.success("Ordner erstellt");
+      if (!result.silent) {
+        toast.success("Ordner erstellt");
+      }
     },
     onError: (error) => {
       toast.error("Fehler beim Erstellen des Ordners");
+      console.error(error);
+    },
+  });
+
+  // Rename folder mutation
+  const renameFolder = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from("document_folders")
+        .update({ name })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["document-folders"] });
+      toast.success("Ordner umbenannt");
+    },
+    onError: (error) => {
+      toast.error("Fehler beim Umbenennen");
+      console.error(error);
+    },
+  });
+
+  // Rename document mutation
+  const renameDocument = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from("documents")
+        .update({ name })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
+      toast.success("Dokument umbenannt");
+    },
+    onError: (error) => {
+      toast.error("Fehler beim Umbenennen");
+      console.error(error);
+    },
+  });
+
+  // Delete document mutation
+  const deleteDocument = useMutation({
+    mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
+      // Delete from storage first
+      const { error: storageError } = await supabase.storage
+        .from("documents")
+        .remove([filePath]);
+
+      if (storageError) console.error("Storage delete error:", storageError);
+
+      // Delete from database
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
+      toast.success("Dokument gelöscht");
+    },
+    onError: (error) => {
+      toast.error("Fehler beim Löschen");
       console.error(error);
     },
   });
@@ -293,6 +363,9 @@ export function useDocumentExplorer() {
     isLoading: foldersLoading || tagsLoading || templatesLoading || documentsLoading,
     createFolder,
     deleteFolder,
+    renameFolder,
+    renameDocument,
+    deleteDocument,
     createTag,
     assignTag,
     moveToFolder,
