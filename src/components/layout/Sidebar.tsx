@@ -1,64 +1,37 @@
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  LayoutDashboard,
-  Receipt,
-  FileText,
-  MessageSquare,
-  Calendar,
-  Shield,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Building2,
-  Users,
-  LogOut,
-  X,
-  CheckSquare,
-  ClipboardList,
-  BarChart,
-  FolderOpen,
-  Wallet,
-  ScanLine,
-  TrendingUp,
-  Globe,
-  Banknote,
-} from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
-
-export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({
+  mobileOpen,
+  onMobileClose
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<string[]>(["finances", "documents", "collaboration"]);
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, roles, signOut } = useAuth();
-
+  const {
+    profile,
+    roles,
+    signOut
+  } = useAuth();
   const toggleGroup = (group: string) => {
-    setOpenGroups(prev => 
-      prev.includes(group) 
-        ? prev.filter(g => g !== group)
-        : [...prev, group]
-    );
+    setOpenGroups(prev => prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]);
   };
-
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
-
   const handleNavClick = () => {
     if (onMobileClose) {
       onMobileClose();
     }
   };
-
   const getRoleBadge = () => {
     if (roles.includes("admin")) return "Admin";
     if (roles.includes("state")) return "State";
@@ -67,67 +40,44 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     if (roles.includes("partner")) return "Partner";
     return "User";
   };
-
   const isActive = (path: string) => location.pathname === path;
   const isGroupActive = (paths: string[]) => paths.some(p => location.pathname === p);
-
-  const sidebarContent = (
-    <>
+  const sidebarContent = <>
       {/* Logo */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-border">
-        {!collapsed && (
-          <div className="flex items-center gap-3">
+        {!collapsed && <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-semibold text-sm">M</span>
             </div>
             <div>
-              <h1 className="font-semibold text-foreground text-sm">
-                MGI × AFRIKA
-              </h1>
+              <h1 className="font-semibold text-foreground text-sm">MGI Hub</h1>
               <p className="text-[10px] text-muted-foreground">
                 Government Platform
               </p>
             </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
+          </div>}
+        {collapsed && <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
             <span className="text-primary-foreground font-semibold text-sm">M</span>
-          </div>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors hidden lg:block"
-        >
+          </div>}
+        <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors hidden lg:block">
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
         {/* Mobile close button */}
-        {onMobileClose && (
-          <button
-            onClick={onMobileClose}
-            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors lg:hidden"
-          >
+        {onMobileClose && <button onClick={onMobileClose} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors lg:hidden">
             <X size={18} />
-          </button>
-        )}
+          </button>}
       </div>
 
       {/* Primary Navigation */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
         {/* Dashboard - standalone */}
-        <NavLink
-          to="/"
-          onClick={handleNavClick}
-          className={`nav-link mb-1 ${isActive("/") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`}
-          title={collapsed ? "Dashboard" : undefined}
-        >
+        <NavLink to="/" onClick={handleNavClick} className={`nav-link mb-1 ${isActive("/") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Dashboard" : undefined}>
           <LayoutDashboard size={18} className={isActive("/") ? "text-primary" : ""} />
           {!collapsed && <span>Dashboard</span>}
         </NavLink>
 
         {/* Finances Group */}
-        {!collapsed ? (
-          <Collapsible open={openGroups.includes("finances")} onOpenChange={() => toggleGroup("finances")}>
+        {!collapsed ? <Collapsible open={openGroups.includes("finances")} onOpenChange={() => toggleGroup("finances")}>
             <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/finances", "/opex", "/receipt-scanner", "/budget", "/finances/invoices", "/finances/declarations"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <Wallet size={18} />
@@ -161,27 +111,18 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <span>Budget</span>
               </NavLink>
             </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <NavLink to="/finances" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/finances") ? "nav-link-active" : ""}`} title="Finances">
+          </Collapsible> : <NavLink to="/finances" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/finances") ? "nav-link-active" : ""}`} title="Finances">
             <Wallet size={18} className={isActive("/finances") ? "text-primary" : ""} />
-          </NavLink>
-        )}
+          </NavLink>}
 
         {/* Reports - standalone */}
-        <NavLink
-          to="/reports"
-          onClick={handleNavClick}
-          className={`nav-link mt-1 ${isActive("/reports") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`}
-          title={collapsed ? "Reports" : undefined}
-        >
+        <NavLink to="/reports" onClick={handleNavClick} className={`nav-link mt-1 ${isActive("/reports") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Reports" : undefined}>
           <BarChart size={18} className={isActive("/reports") ? "text-primary" : ""} />
           {!collapsed && <span>Reports</span>}
         </NavLink>
 
         {/* Documents Group */}
-        {!collapsed ? (
-          <Collapsible open={openGroups.includes("documents")} onOpenChange={() => toggleGroup("documents")}>
+        {!collapsed ? <Collapsible open={openGroups.includes("documents")} onOpenChange={() => toggleGroup("documents")}>
             <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/explorer", "/documents", "/protocols"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <FileText size={18} />
@@ -203,16 +144,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <span>Protocols</span>
               </NavLink>
             </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <NavLink to="/documents" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/documents") ? "nav-link-active" : ""}`} title="Documents">
+          </Collapsible> : <NavLink to="/documents" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/documents") ? "nav-link-active" : ""}`} title="Documents">
             <FileText size={18} className={isActive("/documents") ? "text-primary" : ""} />
-          </NavLink>
-        )}
+          </NavLink>}
 
         {/* Collaboration Group */}
-        {!collapsed ? (
-          <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
+        {!collapsed ? <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
             <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <MessageSquare size={18} />
@@ -234,18 +171,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <span>Tasks</span>
               </NavLink>
             </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
+          </Collapsible> : <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
             <MessageSquare size={18} className={isActive("/communication") ? "text-primary" : ""} />
-          </NavLink>
-        )}
+          </NavLink>}
 
         {/* Administration Section */}
         <div className="mt-4 pt-3 border-t border-border">
-          {!collapsed && (
-            <p className="text-[11px] font-medium text-muted-foreground px-3 mb-1.5 uppercase tracking-wider">Admin</p>
-          )}
+          {!collapsed && <p className="text-[11px] font-medium text-muted-foreground px-3 mb-1.5 uppercase tracking-wider">Admin</p>}
           <div className="space-y-0.5">
             <NavLink to="/users" onClick={handleNavClick} className={`nav-link ${isActive("/users") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Users" : undefined}>
               <Users size={18} className={isActive("/users") ? "text-primary" : ""} />
@@ -265,8 +197,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Footer */}
       <div className="p-3 border-t border-border">
-        {!collapsed ? (
-          <div className="flex items-center gap-3 px-2">
+        {!collapsed ? <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
               <span className="text-sm font-medium text-foreground">
                 {profile?.first_name?.[0] || "U"}
@@ -281,61 +212,33 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 {getRoleBadge()}
               </p>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
-              title="Sign out"
-            >
+            <button onClick={handleSignOut} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" title="Sign out">
               <LogOut size={16} />
             </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2">
+          </div> : <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
               <span className="text-sm font-medium text-foreground">
                 {profile?.first_name?.[0] || "U"}
               </span>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
-              title="Sign out"
-            >
+            <button onClick={handleSignOut} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" title="Sign out">
               <LogOut size={16} />
             </button>
-          </div>
-        )}
+          </div>}
       </div>
-    </>
-  );
-
-  return (
-    <>
+    </>;
+  return <>
       {/* Desktop Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-border flex-col transition-all duration-200 z-50 hidden lg:flex ${
-          collapsed ? "w-16" : "w-56"
-        }`}
-      >
+      <aside className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-border flex-col transition-all duration-200 z-50 hidden lg:flex ${collapsed ? "w-16" : "w-56"}`}>
         {sidebarContent}
       </aside>
 
       {/* Mobile Sidebar Overlay */}
-      {mobileOpen && (
-        <div 
-          className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={onMobileClose}
-        />
-      )}
+      {mobileOpen && <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 lg:hidden" onClick={onMobileClose} />}
 
       {/* Mobile Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-border flex flex-col transition-transform duration-200 z-50 lg:hidden ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      <aside className={`fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-border flex flex-col transition-transform duration-200 z-50 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         {sidebarContent}
       </aside>
-    </>
-  );
+    </>;
 }
