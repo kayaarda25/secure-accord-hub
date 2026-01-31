@@ -97,10 +97,12 @@ export function Sidebar({
                 <ScanLine size={16} className={isActive("/receipt-scanner") ? "text-primary" : ""} />
                 <span>Receipt Scanner</span>
               </NavLink>
-              <NavLink to="/finances/invoices" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/invoices") ? "nav-link-active" : ""}`}>
-                <Banknote size={16} className={isActive("/finances/invoices") ? "text-primary" : ""} />
-                <span>Invoices</span>
-              </NavLink>
+              {permissions.orgType !== "mgi_communications" && (
+                <NavLink to="/finances/invoices" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/invoices") ? "nav-link-active" : ""}`}>
+                  <Banknote size={16} className={isActive("/finances/invoices") ? "text-primary" : ""} />
+                  <span>Invoices</span>
+                </NavLink>
+              )}
               {permissions.canViewDeclarations && (
                 <NavLink to="/finances/declarations" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/finances/declarations") ? "nav-link-active" : ""}`}>
                   <TrendingUp size={16} className={isActive("/finances/declarations") ? "text-primary" : ""} />
