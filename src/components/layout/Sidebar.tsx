@@ -1,4 +1,5 @@
 import { useState } from "react";
+import mgiLogo from "@/assets/mgi-media-logo.jfif";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote } from "lucide-react";
@@ -46,9 +47,7 @@ export function Sidebar({
       {/* Logo */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-border">
         {!collapsed && <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-semibold text-sm">M</span>
-            </div>
+            <img src={mgiLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover" />
             <div>
               <h1 className="font-semibold text-foreground text-sm">MGI Hub</h1>
               <p className="text-[10px] text-muted-foreground">
@@ -56,9 +55,7 @@ export function Sidebar({
               </p>
             </div>
           </div>}
-        {collapsed && <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-            <span className="text-primary-foreground font-semibold text-sm">M</span>
-          </div>}
+        {collapsed && <img src={mgiLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover mx-auto" />}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors hidden lg:block">
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
