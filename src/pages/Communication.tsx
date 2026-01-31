@@ -13,20 +13,16 @@ import {
   Globe,
   Plus,
   Search,
-  Filter,
   Send,
   Paperclip,
-  FileText,
-  Calendar,
   CheckCircle,
   Star,
   MoreHorizontal,
-  ChevronRight,
   Loader2,
-  Clock,
   Video,
   MessageCircle,
   Lock,
+  Calendar,
 } from "lucide-react";
 
 type CommunicationType = "partner" | "authority" | "internal" | "direct";
@@ -67,17 +63,6 @@ interface Message {
   sender_name?: string;
 }
 
-interface MeetingProtocol {
-  id: string;
-  title: string;
-  meeting_date: string;
-  location: string | null;
-  attendees: string[];
-  agenda: string | null;
-  minutes: string | null;
-  decisions: string | null;
-  created_at: string;
-}
 
 interface UserProfile {
   id: string;
@@ -92,16 +77,16 @@ export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
   const { toast } = useToast();
   const { ready: cryptoReady, encrypt, decrypt } = useE2ECrypto(user?.id);
-  const [activeTab, setActiveTab] = useState<CommunicationType | "meetings">("direct");
+  const [activeTab, setActiveTab] = useState<CommunicationType>("direct");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [protocols, setProtocols] = useState<MeetingProtocol[]>([]);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
-  const [showNewProtocol, setShowNewProtocol] = useState(false);
+  
   const [showVideoMeeting, setShowVideoMeeting] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
   const [meetingRoomCode, setMeetingRoomCode] = useState<string | undefined>(undefined);
@@ -116,16 +101,6 @@ export default function Communication() {
     selectedMembers: [] as string[],
   });
 
-  // Form state for new protocol
-  const [protocolForm, setProtocolForm] = useState({
-    title: "",
-    meeting_date: "",
-    location: "",
-    attendees: "",
-    agenda: "",
-    minutes: "",
-    decisions: "",
-  });
 
   useEffect(() => {
     fetchAvailableUsers();
@@ -167,9 +142,6 @@ export default function Communication() {
 
   useEffect(() => {
     fetchThreads();
-    if (activeTab === "meetings") {
-      fetchProtocols();
-    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -254,7 +226,7 @@ export default function Communication() {
         const { data } = await (supabase as any)
           .from("communication_threads")
           .select("*")
-          .eq("type", activeTab === "meetings" ? "internal" : activeTab)
+          .eq("type", activeTab)
           .order("updated_at", { ascending: false });
 
         if (data) {
@@ -307,23 +279,6 @@ export default function Communication() {
     }
   };
 
-  const fetchProtocols = async () => {
-    setIsLoading(true);
-    try {
-      const { data } = await supabase
-        .from("meeting_protocols")
-        .select("*")
-        .order("meeting_date", { ascending: false });
-
-      if (data) {
-        setProtocols(data as MeetingProtocol[]);
-      }
-    } catch (error) {
-      console.error("Error fetching protocols:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCreateThread = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,41 +375,8 @@ export default function Communication() {
     }
   };
 
-  const handleCreateProtocol = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
 
-    try {
-      const { error } = await supabase.from("meeting_protocols").insert({
-        title: protocolForm.title,
-        meeting_date: protocolForm.meeting_date,
-        location: protocolForm.location || null,
-        attendees: protocolForm.attendees.split(",").map((a) => a.trim()),
-        agenda: protocolForm.agenda || null,
-        minutes: protocolForm.minutes || null,
-        decisions: protocolForm.decisions || null,
-        created_by: user.id,
-      });
-
-      if (error) throw error;
-
-      setShowNewProtocol(false);
-      setProtocolForm({
-        title: "",
-        meeting_date: "",
-        location: "",
-        attendees: "",
-        agenda: "",
-        minutes: "",
-        decisions: "",
-      });
-      fetchProtocols();
-    } catch (error) {
-      console.error("Error creating protocol:", error);
-    }
-  };
-
-  const getTabIcon = (tab: CommunicationType | "meetings") => {
+  const getTabIcon = (tab: CommunicationType) => {
     switch (tab) {
       case "direct":
         return <MessageCircle size={18} />;
@@ -464,8 +386,6 @@ export default function Communication() {
         return <Globe size={18} />;
       case "internal":
         return <Users size={18} />;
-      case "meetings":
-        return <Calendar size={18} />;
     }
   };
 
@@ -520,7 +440,6 @@ export default function Communication() {
     { id: "partner" as const, label: "Partners", visible: false },
     { id: "authority" as const, label: "Authorities", visible: false },
     { id: "internal" as const, label: "Internal", visible: false },
-    { id: "meetings" as const, label: "Protocols", visible: true },
   ];
 
   return (
@@ -588,81 +507,7 @@ export default function Communication() {
           ))}
       </div>
 
-      {activeTab === "meetings" ? (
-        // Meeting Protocols View
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  type="text"
-                  placeholder="Search protocols..."
-                  className="pl-10 pr-4 py-2 bg-muted rounded-xl text-sm text-foreground border-0 focus:ring-2 focus:ring-accent w-full sm:w-64"
-                />
-              </div>
-            </div>
-            <button
-              onClick={() => setShowNewProtocol(true)}
-              className="px-4 py-2 bg-accent text-accent-foreground rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors flex items-center gap-2 glow-gold"
-            >
-              <Plus size={16} />
-              New Protocol
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {protocols.map((protocol, index) => (
-              <div
-                key={protocol.id}
-                className="card-state p-4 hover:bg-muted/30 transition-colors cursor-pointer animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <span className="badge-gold">{formatDate(protocol.meeting_date)}</span>
-                  <button className="p-1 rounded hover:bg-muted text-muted-foreground">
-                    <MoreHorizontal size={14} />
-                  </button>
-                </div>
-                <h4 className="font-medium text-foreground mb-2">{protocol.title}</h4>
-                {protocol.location && (
-                  <p className="text-xs text-muted-foreground mb-2">📍 {protocol.location}</p>
-                )}
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {protocol.attendees?.slice(0, 3).map((attendee) => (
-                    <span
-                      key={attendee}
-                      className="px-2 py-0.5 text-xs bg-muted rounded text-muted-foreground"
-                    >
-                      {attendee}
-                    </span>
-                  ))}
-                  {protocol.attendees?.length > 3 && (
-                    <span className="px-2 py-0.5 text-xs bg-muted rounded text-muted-foreground">
-                      +{protocol.attendees.length - 3}
-                    </span>
-                  )}
-                </div>
-                {protocol.decisions && (
-                  <div className="flex items-center gap-2 text-xs text-success">
-                    <CheckCircle size={12} />
-                    <span>Decisions documented</span>
-                  </div>
-                )}
-              </div>
-            ))}
-            {protocols.length === 0 && !isLoading && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                No protocols available
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        // Threads & Messages View
+      {/* Threads & Messages View */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 h-auto lg:h-[calc(100vh-250px)]">
           {/* Thread List */}
           <div className="card-state flex flex-col max-h-[300px] lg:max-h-none">
@@ -826,7 +671,6 @@ export default function Communication() {
             )}
           </div>
         </div>
-      )}
 
       {/* New Thread Modal */}
       {showNewThread && (
@@ -994,136 +838,6 @@ export default function Communication() {
                   ) : (
                     "Create"
                   )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* New Protocol Modal */}
-      {showNewProtocol && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="card-state w-full max-w-lg p-6 animate-fade-in my-8">
-            <h2 className="text-xl font-semibold text-foreground mb-6">
-              New Meeting Protocol
-            </h2>
-            <form onSubmit={handleCreateProtocol} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={protocolForm.title}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, title: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={protocolForm.meeting_date}
-                    onChange={(e) =>
-                      setProtocolForm({ ...protocolForm, meeting_date: e.target.value })
-                    }
-                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={protocolForm.location}
-                    onChange={(e) =>
-                      setProtocolForm({ ...protocolForm, location: e.target.value })
-                    }
-                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Attendees (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={protocolForm.attendees}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, attendees: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                  placeholder="John Smith, Jane Doe, ..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Agenda
-                </label>
-                <textarea
-                  value={protocolForm.agenda}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, agenda: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Minutes / Notes
-                </label>
-                <textarea
-                  value={protocolForm.minutes}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, minutes: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Decisions
-                </label>
-                <textarea
-                  value={protocolForm.decisions}
-                  onChange={(e) =>
-                    setProtocolForm({ ...protocolForm, decisions: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={2}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewProtocol(false)}
-                  className="flex-1 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-accent text-accent-foreground rounded-xl font-medium hover:bg-accent/90 transition-colors"
-                >
-                  Save
                 </button>
               </div>
             </form>
