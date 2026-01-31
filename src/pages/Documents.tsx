@@ -1192,89 +1192,155 @@ export default function Documents() {
 
         <TabsContent value="signatures">
           <div className="space-y-6">
-            {/* Pending Signatures */}
-            {pendingSignatures.length > 0 ? (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <Clock size={20} className="text-warning" />
-                  Ausstehende Signaturen ({pendingSignatures.length})
-                </h3>
-                <div className="space-y-2">
-                  {pendingSignatures.map((sig) => (
-                    <div
-                      key={sig.id}
-                      className="flex items-center justify-between p-4 card-state rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText size={16} className="text-muted-foreground" />
-                        <div>
-                          <span className="text-sm font-medium">{sig.document.name}</span>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(sig.document.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSign(sig.id)}
-                          className="px-3 py-1.5 bg-success text-success-foreground rounded text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1"
-                        >
-                          <CheckCircle size={14} />
-                          Signieren
-                        </button>
-                        <button
-                          onClick={() => handleReject(sig.id)}
-                          className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded text-sm font-medium hover:bg-destructive/90 transition-colors flex items-center gap-1"
-                        >
-                          <XCircle size={14} />
-                          Ablehnen
-                        </button>
+            {/* Documents with signature requests (pending or signed) */}
+            {(() => {
+              // Filter documents that have signature entries (either pending or signed)
+              const documentsWithSignatures = documents.filter(
+                doc => doc.signatures && doc.signatures.length > 0
+              );
+
+              // Get pending signatures for current user
+              const myPendingSignatures = documentsWithSignatures
+                .flatMap((doc) =>
+                  (doc.signatures || [])
+                    .filter((sig) => sig.signer_id === user?.id && sig.status === "pending")
+                    .map((sig) => ({ ...sig, document: doc }))
+                );
+
+              // Get signed documents (where any signature is signed)
+              const signedDocuments = documentsWithSignatures.filter(
+                doc => doc.signatures?.some(s => s.status === "signed")
+              );
+
+              // Get documents with only pending signatures (not yet signed by anyone)
+              const pendingOnlyDocuments = documentsWithSignatures.filter(
+                doc => doc.signatures?.every(s => s.status === "pending")
+              );
+
+              if (documentsWithSignatures.length === 0) {
+                return (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <PenTool size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Keine Dokumente mit Signaturanfragen vorhanden</p>
+                    <p className="text-sm mt-2">Laden Sie ein Dokument im Documents-Tab hoch und wählen Sie Unterzeichner aus.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Pending Signatures for Current User */}
+                  {myPendingSignatures.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <Clock size={20} className="text-warning" />
+                        Ausstehende Signaturen ({myPendingSignatures.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {myPendingSignatures.map((sig) => (
+                          <div
+                            key={sig.id}
+                            className="flex items-center justify-between p-4 card-state rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText size={16} className="text-muted-foreground" />
+                              <div>
+                                <span className="text-sm font-medium">{sig.document.name}</span>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(sig.document.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleSign(sig.id)}
+                                className="px-3 py-1.5 bg-success text-success-foreground rounded text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1"
+                              >
+                                <CheckCircle size={14} />
+                                Signieren
+                              </button>
+                              <button
+                                onClick={() => handleReject(sig.id)}
+                                className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded text-sm font-medium hover:bg-destructive/90 transition-colors flex items-center gap-1"
+                              >
+                                <XCircle size={14} />
+                                Ablehnen
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <PenTool size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Keine ausstehenden Signaturen</p>
-              </div>
-            )}
+                  )}
 
-            {/* Signed Documents */}
-            {documents.filter(doc => doc.signatures?.some(s => s.status === "signed")).length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <CheckCircle size={20} className="text-success" />
-                  Signierte Dokumente
-                </h3>
-                <div className="space-y-2">
-                  {documents
-                    .filter(doc => doc.signatures?.some(s => s.status === "signed"))
-                    .map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-4 card-state rounded-lg cursor-pointer hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedDocument(doc);
-                          setShowDetailDialog(true);
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText size={16} className="text-muted-foreground" />
-                          <div>
-                            <span className="text-sm font-medium">{doc.name}</span>
-                            <p className="text-xs text-muted-foreground">
-                              {(doc.signatures || []).filter(s => s.status === "signed").length} Signatur(en)
-                            </p>
+                  {/* Signed Documents */}
+                  {signedDocuments.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <CheckCircle size={20} className="text-success" />
+                        Signierte Dokumente ({signedDocuments.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {signedDocuments.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-4 card-state rounded-lg cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              setSelectedDocument(doc);
+                              setShowDetailDialog(true);
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText size={16} className="text-muted-foreground" />
+                              <div>
+                                <span className="text-sm font-medium">{doc.name}</span>
+                                <p className="text-xs text-muted-foreground">
+                                  {(doc.signatures || []).filter(s => s.status === "signed").length} Signatur(en)
+                                </p>
+                              </div>
+                            </div>
+                            {getStatusBadge(getDocumentStatus(doc))}
                           </div>
-                        </div>
-                        {getStatusBadge(getDocumentStatus(doc))}
+                        ))}
                       </div>
-                    ))}
-                </div>
-              </div>
-            )}
+                    </div>
+                  )}
+
+                  {/* Pending Documents (waiting for others) */}
+                  {pendingOnlyDocuments.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <Clock size={20} className="text-muted-foreground" />
+                        Warten auf Signatur ({pendingOnlyDocuments.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {pendingOnlyDocuments.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-4 card-state rounded-lg cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              setSelectedDocument(doc);
+                              setShowDetailDialog(true);
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText size={16} className="text-muted-foreground" />
+                              <div>
+                                <span className="text-sm font-medium">{doc.name}</span>
+                                <p className="text-xs text-muted-foreground">
+                                  {(doc.signatures || []).filter(s => s.status === "pending").length} ausstehend
+                                </p>
+                              </div>
+                            </div>
+                            {getStatusBadge("pending")}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </TabsContent>
       </Tabs>
