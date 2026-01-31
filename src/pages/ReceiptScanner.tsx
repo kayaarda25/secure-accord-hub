@@ -107,12 +107,15 @@ export default function ReceiptScanner() {
       let filtered = data || [];
       if (orgName) {
         if (orgName.includes("mgi m") || orgName.includes("mgi media")) {
-          filtered = filtered.filter(cc => cc.code.startsWith("MGIM"));
+          filtered = filtered.filter(cc => cc.code.startsWith("MGIM") && cc.name.toLowerCase().includes("allgemein"));
         } else if (orgName.includes("mgi c") || orgName.includes("mgi communication")) {
-          filtered = filtered.filter(cc => cc.code.startsWith("MGIC"));
+          filtered = filtered.filter(cc => cc.code.startsWith("MGIC") && cc.name.toLowerCase().includes("allgemein"));
         } else if (orgName.includes("gateway")) {
-          filtered = filtered.filter(cc => cc.code.startsWith("GW"));
+          filtered = filtered.filter(cc => cc.code.startsWith("GW") && cc.name.toLowerCase().includes("allgemein"));
         }
+      } else {
+        // If no org, still only show Allgemein cost centers
+        filtered = filtered.filter(cc => cc.name.toLowerCase().includes("allgemein"));
       }
       
       setCostCenters(filtered);
