@@ -37,6 +37,7 @@ export interface PaymentInstructionData {
 
 export interface EmptyDocumentData {
   title: string;
+  recipient?: string;
   content: string;
   date: string;
 }
@@ -737,6 +738,16 @@ export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promis
     })
   );
 
+  // Recipient address paragraphs
+  const recipientParagraphs = data.recipient ? data.recipient.split('\n').map(line => 
+    new Paragraph({
+      children: [
+        new TextRun({ text: line, size: 22 }),
+      ],
+      spacing: { after: 40 },
+    })
+  ) : [];
+
   const doc = new Document({
     sections: [
       {
@@ -747,6 +758,12 @@ export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promis
           default: createFooter(),
         },
         children: [
+          // Recipient Address (top left, before title)
+          ...(recipientParagraphs.length > 0 ? [
+            ...recipientParagraphs,
+            new Paragraph({ text: "", spacing: { after: 300 } }),
+          ] : []),
+
           // Title
           new Paragraph({
             text: data.title,
@@ -835,6 +852,8 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
     .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
     .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
     .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
+    .recipient { margin-bottom: 2rem; }
+    .recipient p { margin: 0.1rem 0; }
     .title { text-align: center; margin: 2rem 0; }
     .title h2 { font-size: 1.8rem; margin-bottom: 0.5rem; }
     .meta { text-align: center; color: #666; margin-bottom: 2rem; }
@@ -850,6 +869,12 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
     <p><em>${config.subtitle}</em></p>
     <p>${config.address}</p>
   </div>
+
+  ${data.recipient ? `
+  <div class="recipient">
+    ${data.recipient.split('\n').map(line => `<p>${line}</p>`).join('')}
+  </div>
+  ` : ''}
   
   <div class="title">
     <h2>${data.title}</h2>
