@@ -20,7 +20,6 @@ import {
   Users,
   Building2,
   Share2,
-  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +29,6 @@ import { toast } from "sonner";
 import { SignatureDisplay } from "@/components/documents/SignatureDisplay";
 import { DocumentDetailDialog } from "@/components/documents/DocumentDetailDialog";
 import { SignaturePositionSelector, SignaturePosition } from "@/components/documents/SignaturePositionSelector";
-import { ProtocolsPanel } from "@/components/documents/ProtocolsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Profile {
@@ -679,10 +677,6 @@ export default function Documents() {
             <PenTool size={16} />
             Signatures
           </TabsTrigger>
-          <TabsTrigger value="protocols" className="flex items-center gap-2">
-            <ClipboardList size={16} />
-            Protocols
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="documents">
@@ -1282,10 +1276,6 @@ export default function Documents() {
               </div>
             )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="protocols">
-          <ProtocolsPanel />
         </TabsContent>
       </Tabs>
 
