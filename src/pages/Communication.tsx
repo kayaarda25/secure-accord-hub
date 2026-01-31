@@ -313,19 +313,24 @@ export default function Communication() {
 
       if (error) throw error;
 
-      // Add participants to thread
-      if (data && threadForm.selectedMembers.length > 0) {
+      // Add participants to thread (always add creator + selected members for direct chats)
+      if (data) {
         const participantInserts = [
-          { thread_id: data.id, user_id: user.id }, // Add creator
+          { thread_id: data.id, user_id: user.id, added_by: user.id }, // Add creator
           ...threadForm.selectedMembers.map(userId => ({
             thread_id: data.id,
             user_id: userId,
+            added_by: user.id,
           })),
         ];
         
-        await (supabase as any)
+        const { error: participantsError } = await (supabase as any)
           .from("thread_participants")
           .insert(participantInserts);
+        
+        if (participantsError) {
+          console.error("Error adding participants:", participantsError);
+        }
       }
 
       setShowNewThread(false);
