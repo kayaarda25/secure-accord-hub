@@ -4,7 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import {
   LayoutDashboard,
-  Wallet,
   Receipt,
   FileText,
   MessageSquare,
@@ -16,15 +15,10 @@ import {
   ChevronDown,
   Building2,
   Users,
-  Globe,
   LogOut,
-  FileSpreadsheet,
-  Banknote,
   X,
   CheckSquare,
-  TrendingUp,
   BarChart,
-  ScanLine,
   FolderOpen,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -39,7 +33,6 @@ interface NavItem {
 
 const secondaryNav = [
   { name: "Partners", href: "/partners", icon: Building2 },
-  { name: "Authorities", href: "/authorities", icon: Globe },
   { name: "Users", href: "/users", icon: Users },
   { name: "Security", href: "/security", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -57,85 +50,33 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { profile, roles, signOut } = useAuth();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
 
-  // Build navigation based on permissions
+  // Build navigation based on permissions - simplified and clean
   const navigation: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
     ];
 
-    // Don't show permission-based items while loading
-    if (permissionsLoading) {
-      // Only show basic items while loading
-      items.push({ name: "Documents", href: "/documents", icon: FileText });
-      items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
-      items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
-      items.push({ name: "Tasks", href: "/tasks", icon: CheckSquare });
-      return items;
+    // OPEX (if user has permission)
+    if (!permissionsLoading && (permissions.canViewOpex || permissions.canCreateOpex)) {
+      items.push({ name: "OPEX", href: "/opex", icon: Receipt });
     }
 
-    // Finances menu (Declarations, Invoices)
-    const financeChildren: NavItem["children"] = [];
-    
-    if (permissions.canViewDeclarations || permissions.canCreateDeclarations) {
-      financeChildren.push({ 
-        name: "Declarations", 
-        href: "/finances/declarations", 
-        icon: FileSpreadsheet,
-        permission: "view_declarations" 
-      });
-    }
-    
-    if (permissions.canViewInvoices || permissions.canCreateInvoices) {
-      financeChildren.push({ 
-        name: "Invoices", 
-        href: "/finances/invoices", 
-        icon: Banknote,
-        permission: "view_invoices" 
-      });
-    }
-
-    if (financeChildren.length > 0) {
-      items.push({
-        name: "Finances",
-        href: "/finances",
-        icon: Wallet,
-        children: [
-          { name: "Overview", href: "/finances", icon: Wallet },
-          ...financeChildren
-        ]
-      });
-    }
-
-    // OPEX
-    if (permissions.canViewOpex || permissions.canCreateOpex) {
-      items.push({ name: "OPEX", href: "/opex", icon: Receipt, permission: "view_opex" });
-      items.push({ name: "Receipt Scanner", href: "/receipt-scanner", icon: ScanLine, permission: "view_opex" });
-    }
-
-    // Budget
-    if (permissions.canViewBudget || permissions.canCreateBudget) {
-      items.push({ name: "Budget", href: "/budget", icon: TrendingUp, permission: "view_budget" });
-    }
-
-    // Invoices as standalone item (if user has permission)
-    if (permissions.canViewInvoices || permissions.canCreateInvoices) {
-      items.push({ name: "Invoices", href: "/finances/invoices", icon: Banknote });
-    }
-
-    // Reports (always visible)
+    // Reports
     items.push({ name: "Reports", href: "/reports", icon: BarChart });
 
-    // Explorer (always visible)
+    // Explorer - Document management
     items.push({ name: "Explorer", href: "/explorer", icon: FolderOpen });
 
-    // Documents (always visible)
+    // Documents
     items.push({ name: "Documents", href: "/documents", icon: FileText });
 
-    // Communication (always visible)
+    // Communication
     items.push({ name: "Communication", href: "/communication", icon: MessageSquare });
 
-    // Calendar and Tasks at the bottom
+    // Calendar
     items.push({ name: "Calendar", href: "/calendar", icon: Calendar });
+
+    // Tasks
     items.push({ name: "Tasks", href: "/tasks", icon: CheckSquare });
 
     return items;
@@ -161,40 +102,33 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     return "User";
   };
 
-  const getOrgLabel = () => {
-    if (permissions.orgType === "gateway") return "Gateway";
-    if (permissions.orgType === "mgi_media") return "MGI Media";
-    if (permissions.orgType === "mgi_communications") return "MGI Comm";
-    return "";
-  };
-
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border/60">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-border">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-base font-display">M</span>
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-semibold text-sm">M</span>
             </div>
             <div>
-              <h1 className="font-display font-semibold text-sidebar-accent-foreground text-sm tracking-tight">
+              <h1 className="font-semibold text-foreground text-sm">
                 MGI × AFRIKA
               </h1>
-              <p className="text-[9px] text-muted-foreground/70 uppercase tracking-[0.15em] font-medium">
+              <p className="text-[10px] text-muted-foreground">
                 Government Platform
               </p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center mx-auto shadow-md">
-            <span className="text-white font-bold text-base font-display">M</span>
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
+            <span className="text-primary-foreground font-semibold text-sm">M</span>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-all duration-200 hidden lg:block"
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors hidden lg:block"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -202,7 +136,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground transition-all duration-200 lg:hidden"
+            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors lg:hidden"
           >
             <X size={18} />
           </button>
@@ -265,11 +199,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Secondary Navigation */}
-        <div className="mt-8 pt-4 border-t border-sidebar-border">
+        <div className="mt-6 pt-4 border-t border-border">
           {!collapsed && (
-            <p className="section-header px-4 mb-2">Administration</p>
+            <p className="text-xs font-medium text-muted-foreground px-3 mb-2">Settings</p>
           )}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {secondaryNav.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -282,7 +216,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   }`}
                   title={collapsed ? item.name : undefined}
                 >
-                  <item.icon size={20} className={isActive ? "text-accent" : ""} />
+                  <item.icon size={18} className={isActive ? "text-primary" : ""} />
                   {!collapsed && <span>{item.name}</span>}
                 </NavLink>
               );
@@ -292,26 +226,26 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-3 border-t border-border">
         {!collapsed ? (
           <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
-              <span className="text-sm font-medium text-accent">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+              <span className="text-sm font-medium text-foreground">
                 {profile?.first_name?.[0] || "U"}
                 {profile?.last_name?.[0] || ""}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-accent-foreground truncate">
+              <p className="text-sm font-medium text-foreground truncate">
                 {profile?.first_name || "User"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {getRoleBadge()} {getOrgLabel() && `• ${getOrgLabel()}`}
+                {getRoleBadge()}
               </p>
             </div>
             <button
               onClick={handleSignOut}
-              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
               title="Sign out"
             >
               <LogOut size={16} />
@@ -319,14 +253,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
-              <span className="text-sm font-medium text-accent">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+              <span className="text-sm font-medium text-foreground">
                 {profile?.first_name?.[0] || "U"}
               </span>
             </div>
             <button
               onClick={handleSignOut}
-              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-muted-foreground hover:text-destructive transition-colors"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
               title="Sign out"
             >
               <LogOut size={16} />
@@ -341,8 +275,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border/60 flex-col transition-all duration-300 ease-out z-50 hidden lg:flex ${
-          collapsed ? "w-[72px]" : "w-60"
+        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-border flex-col transition-all duration-200 z-50 hidden lg:flex ${
+          collapsed ? "w-16" : "w-56"
         }`}
       >
         {sidebarContent}
@@ -351,14 +285,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
         <div 
-          className="fixed inset-0 bg-background/60 backdrop-blur-md z-40 lg:hidden"
+          className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={onMobileClose}
         />
       )}
 
       {/* Mobile Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-[280px] bg-sidebar border-r border-sidebar-border/60 flex flex-col transition-transform duration-300 ease-out z-50 lg:hidden ${
+        className={`fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-border flex flex-col transition-transform duration-200 z-50 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
