@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.mgi.afrika",
+  "productName": "MGI AFRIKA",
+  "copyright": "Copyright © 2024 MGI Group",
+  "directories": {
+    "output": "electron-dist",
+    "buildResources": "electron/resources"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "!electron/resources"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/mgi-favicon.svg",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "MGI AFRIKA",
+    "installerIcon": "public/mgi-favicon.svg",
+    "uninstallerIcon": "public/mgi-favicon.svg",
+    "installerHeaderIcon": "public/mgi-favicon.svg",
+    "license": "LICENSE.txt"
+  },
+  "mac": {
+    "target": ["dmg", "zip"],
+    "icon": "public/mgi-favicon.svg",
+    "category": "public.app-category.business",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "icon": "public/mgi-favicon.svg",
+    "category": "Office",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  }
+}
