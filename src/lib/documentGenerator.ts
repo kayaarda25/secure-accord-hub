@@ -35,23 +35,49 @@ export interface PaymentInstructionData {
   notes?: string;
 }
 
-const COMPANY_INFO = {
-  name: "MGI × AFRIKA",
+export interface LetterheadConfig {
+  companyName: string;
+  subtitle: string;
+  address: string;
+  primaryColor: string;
+  footerText: string;
+}
+
+const DEFAULT_LETTERHEAD: LetterheadConfig = {
+  companyName: "MGI × AFRIKA",
   subtitle: "Government Cooperation Platform",
   address: "Zürich, Switzerland",
+  primaryColor: "c97c5d",
+  footerText: "Confidential",
 };
 
+// Global letterhead config that can be set before generating documents
+let currentLetterhead: LetterheadConfig = { ...DEFAULT_LETTERHEAD };
+
+export function setLetterheadConfig(config: Partial<LetterheadConfig>) {
+  currentLetterhead = {
+    ...DEFAULT_LETTERHEAD,
+    ...config,
+    primaryColor: (config.primaryColor || DEFAULT_LETTERHEAD.primaryColor).replace("#", ""),
+  };
+}
+
+export function getLetterheadConfig(): LetterheadConfig {
+  return currentLetterhead;
+}
+
 function createHeader(): Header {
+  const config = currentLetterhead;
   return new Header({
     children: [
       new Paragraph({
         alignment: AlignmentType.RIGHT,
         children: [
           new TextRun({
-            text: COMPANY_INFO.name,
+            text: config.companyName,
             bold: true,
             size: 24,
-            color: "c97c5d",
+            color: config.primaryColor,
           }),
         ],
       }),
@@ -59,7 +85,7 @@ function createHeader(): Header {
         alignment: AlignmentType.RIGHT,
         children: [
           new TextRun({
-            text: COMPANY_INFO.subtitle,
+            text: config.subtitle,
             size: 18,
             color: "666666",
             italics: true,
@@ -70,14 +96,14 @@ function createHeader(): Header {
         alignment: AlignmentType.RIGHT,
         border: {
           bottom: {
-            color: "c97c5d",
+            color: config.primaryColor,
             size: 1,
             style: BorderStyle.SINGLE,
           },
         },
         children: [
           new TextRun({
-            text: COMPANY_INFO.address,
+            text: config.address,
             size: 16,
             color: "888888",
           }),
@@ -89,6 +115,7 @@ function createHeader(): Header {
 }
 
 function createFooter(): Footer {
+  const config = currentLetterhead;
   return new Footer({
     children: [
       new Paragraph({
@@ -103,7 +130,7 @@ function createFooter(): Footer {
         spacing: { before: 200 },
         children: [
           new TextRun({
-            text: `${COMPANY_INFO.name} | Confidential`,
+            text: `${config.companyName} | ${config.footerText}`,
             size: 16,
             color: "888888",
           }),
@@ -498,6 +525,7 @@ function createTableRow(label: string, value: string, isMultiline: boolean = fal
 
 // PDF generation using browser print
 export function generateContractPdf(data: ContractData): void {
+  const config = currentLetterhead;
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
@@ -513,13 +541,13 @@ export function generateContractPdf(data: ContractData): void {
   <style>
     @page { margin: 2cm; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
-    .header { text-align: right; border-bottom: 2px solid #c97c5d; padding-bottom: 1rem; margin-bottom: 2rem; }
-    .header h1 { color: #c97c5d; margin: 0; font-size: 1.5rem; }
+    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
+    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
     .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
     .title { text-align: center; margin: 2rem 0; }
     .title h2 { font-size: 1.8rem; margin-bottom: 0.5rem; }
     .meta { text-align: center; color: #666; margin-bottom: 2rem; }
-    h3 { color: #c97c5d; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; }
+    h3 { color: #${config.primaryColor}; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; }
     .party { margin-bottom: 1rem; }
     .party strong { display: inline-block; width: 100px; }
     .terms ol { margin-left: 1.5rem; }
@@ -532,9 +560,9 @@ export function generateContractPdf(data: ContractData): void {
 </head>
 <body>
   <div class="header">
-    <h1>${COMPANY_INFO.name}</h1>
-    <p><em>${COMPANY_INFO.subtitle}</em></p>
-    <p>${COMPANY_INFO.address}</p>
+    <h1>${config.companyName}</h1>
+    <p><em>${config.subtitle}</em></p>
+    <p>${config.address}</p>
   </div>
   
   <div class="title">
@@ -594,7 +622,7 @@ export function generateContractPdf(data: ContractData): void {
   </div>
 
   <div class="footer">
-    ${COMPANY_INFO.name} | Confidential
+    ${config.companyName} | ${config.footerText}
   </div>
 
   <script>
@@ -609,6 +637,7 @@ export function generateContractPdf(data: ContractData): void {
 }
 
 export function generatePaymentInstructionPdf(data: PaymentInstructionData): void {
+  const config = currentLetterhead;
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
@@ -624,8 +653,8 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
   <style>
     @page { margin: 2cm; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
-    .header { text-align: right; border-bottom: 2px solid #c97c5d; padding-bottom: 1rem; margin-bottom: 2rem; }
-    .header h1 { color: #c97c5d; margin: 0; font-size: 1.5rem; }
+    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
+    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
     .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
     .title { text-align: center; margin: 2rem 0; }
     .title h2 { font-size: 1.8rem; margin-bottom: 0.3rem; }
@@ -641,9 +670,9 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
 </head>
 <body>
   <div class="header">
-    <h1>${COMPANY_INFO.name}</h1>
-    <p><em>${COMPANY_INFO.subtitle}</em></p>
-    <p>${COMPANY_INFO.address}</p>
+    <h1>${config.companyName}</h1>
+    <p><em>${config.subtitle}</em></p>
+    <p>${config.address}</p>
   </div>
   
   <div class="title">
@@ -663,7 +692,6 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
     <tr><th>Zweck / Purpose</th><td>${data.purpose}</td></tr>
     ${data.dueDate ? `<tr><th>Fälligkeitsdatum / Due Date</th><td>${data.dueDate}</td></tr>` : ""}
   </table>
-  </table>
 
   <div class="signature-section">
     <h4>Autorisiert durch / Authorized by:</h4>
@@ -677,7 +705,7 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
   </div>
 
   <div class="footer">
-    ${COMPANY_INFO.name} | Confidential
+    ${config.companyName} | ${config.footerText}
   </div>
 
   <script>

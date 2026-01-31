@@ -21,11 +21,13 @@ import {
   Globe,
   Save,
   PenTool,
+  FileText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/settings/SignaturePad";
+import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
 
 interface NotificationPreferences {
   id: string;
@@ -164,6 +166,10 @@ export default function Settings() {
             <PenTool className="h-4 w-4" />
             Signatur
           </TabsTrigger>
+          <TabsTrigger value="letterhead" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Briefkopf
+          </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             Benachrichtigungen
@@ -258,9 +264,13 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* Signature Tab */}
         <TabsContent value="signature">
           <SignaturePad />
+        </TabsContent>
+
+        {/* Letterhead Tab */}
+        <TabsContent value="letterhead">
+          <LetterheadSettings />
         </TabsContent>
 
         {/* Notifications Tab */}

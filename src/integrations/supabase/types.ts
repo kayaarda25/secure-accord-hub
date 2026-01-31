@@ -1327,6 +1327,48 @@ export type Database = {
           },
         ]
       }
+      letterhead_settings: {
+        Row: {
+          address: string | null
+          company_name: string
+          created_at: string
+          footer_text: string | null
+          id: string
+          logo_url: string | null
+          primary_color: string | null
+          show_logo: boolean | null
+          subtitle: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          footer_text?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          show_logo?: boolean | null
+          subtitle?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          footer_text?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          show_logo?: boolean | null
+          subtitle?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       login_attempts: {
         Row: {
           attempted_at: string
