@@ -398,7 +398,7 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
               createTableRow("Verwendungszweck / Reference:", data.reference),
               createTableRow("Zweck / Purpose:", data.purpose),
               ...(data.dueDate ? [createTableRow("Fälligkeitsdatum / Due Date:", data.dueDate)] : []),
-              ...(data.notes ? [createTableRow("Bemerkungen / Notes:", data.notes)] : []),
+              ...(data.notes ? [createTableRow("Bemerkungen / Notes:", data.notes, true)] : []),
             ],
           }),
 
@@ -452,12 +452,16 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
   saveAs(blob, `Payment_Instruction_${data.reference}_${new Date().toISOString().split("T")[0]}.docx`);
 }
 
-function createTableRow(label: string, value: string): TableRow {
+function createTableRow(label: string, value: string, isMultiline: boolean = false): TableRow {
+  // Split value by newlines for multiline support
+  const lines = isMultiline ? value.split('\n').filter(line => line.trim()) : [value];
+  
   return new TableRow({
     children: [
       new TableCell({
         width: { size: 35, type: WidthType.PERCENTAGE },
         shading: { fill: "f5f5f5" },
+        verticalAlign: "top" as const,
         children: [
           new Paragraph({
             children: [
@@ -469,14 +473,15 @@ function createTableRow(label: string, value: string): TableRow {
       }),
       new TableCell({
         width: { size: 65, type: WidthType.PERCENTAGE },
-        children: [
+        verticalAlign: "top" as const,
+        children: lines.map((line, index) => 
           new Paragraph({
             children: [
-              new TextRun({ text: value, size: 22 }),
+              new TextRun({ text: line, size: 22 }),
             ],
-            spacing: { before: 100, after: 100 },
-          }),
-        ],
+            spacing: { before: index === 0 ? 100 : 50, after: index === lines.length - 1 ? 100 : 50 },
+          })
+        ),
       }),
     ],
   });
@@ -646,7 +651,7 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
     <tr><th>Verwendungszweck / Reference</th><td>${data.reference}</td></tr>
     <tr><th>Zweck / Purpose</th><td>${data.purpose}</td></tr>
     ${data.dueDate ? `<tr><th>Fälligkeitsdatum / Due Date</th><td>${data.dueDate}</td></tr>` : ""}
-    ${data.notes ? `<tr><th>Bemerkungen / Notes</th><td>${data.notes}</td></tr>` : ""}
+    ${data.notes ? `<tr><th style="vertical-align: top;">Bemerkungen / Notes</th><td style="white-space: pre-wrap;">${data.notes}</td></tr>` : ""}
   </table>
 
   <div class="signature-section">
