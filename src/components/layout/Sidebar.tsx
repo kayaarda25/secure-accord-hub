@@ -195,7 +195,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               </NavLink>
               <NavLink to="/documents" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/documents") ? "nav-link-active" : ""}`}>
                 <FileText size={16} className={isActive("/documents") ? "text-primary" : ""} />
-                <span>All Documents</span>
+                <span>Signatures</span>
               </NavLink>
             </CollapsibleContent>
           </Collapsible>
