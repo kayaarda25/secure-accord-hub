@@ -58,6 +58,7 @@ interface OpexExpense {
 
 export default function Opex() {
   const { user, profile, hasAnyRole } = useAuth();
+  const [isGatewayUser, setIsGatewayUser] = useState(false);
   const { logAction } = useAuditLog();
   const { isExporting, exportToCSV, exportToExcel, exportToPDF } = useExport();
   const [expenses, setExpenses] = useState<OpexExpense[]>([]);
@@ -113,17 +114,20 @@ export default function Opex() {
         setExpenses(expensesData as unknown as OpexExpense[]);
       }
 
-      // Get user's organization name for filtering
+      // Get user's organization name and type for filtering
       let userOrgName = "";
+      let userOrgType = "";
       if (profile?.organization_id) {
         const { data: orgData } = await supabase
           .from("organizations")
-          .select("name")
+          .select("name, org_type")
           .eq("id", profile.organization_id)
           .maybeSingle();
         
         if (orgData) {
           userOrgName = orgData.name.toLowerCase();
+          userOrgType = orgData.org_type || "";
+          setIsGatewayUser(userOrgType === "gateway");
         }
       }
 
@@ -485,6 +489,13 @@ export default function Opex() {
 
     setIsSubmitting(true);
     try {
+      // For Gateway users, expenses are auto-approved
+      const expenseStatus = isGatewayUser ? "approved_finance" : "pending";
+      const approvalFields = isGatewayUser ? {
+        finance_approver_id: user.id,
+        finance_approved_at: new Date().toISOString(),
+      } : {};
+
       // Insert all expenses
       const insertPromises = nonEmptyExpenses.map(exp => 
         supabase
@@ -498,6 +509,8 @@ export default function Opex() {
             currency: formData.currency,
             submitted_by: user.id,
             expense_number: "",
+            status: expenseStatus,
+            ...approvalFields,
           })
           .select()
           .single()
@@ -800,7 +813,7 @@ export default function Opex() {
         />
         <MetricCard
           title="Organizations"
-          value={hasAnyRole(['state']) ? "2" : "3"}
+          value={isGatewayUser ? "2" : "3"}
           changeLabel="Active organizations"
           icon={<Receipt size={20} className="text-muted-foreground" />}
         />
@@ -839,7 +852,7 @@ export default function Opex() {
           ];
 
           // Check if current user is from Gateway (should see combined MGI view)
-          const isGatewayUser = hasAnyRole(['state']);
+          // Using state variable set from organization type
 
           const displayOrgs = isGatewayUser
             ? [
