@@ -285,7 +285,7 @@ export default function Opex() {
 
     // Create blob and upload to storage
     const blob = new Blob([htmlContent], { type: "text/html" });
-    const filePath = `opex/${user.id}/${Date.now()}_${fileName}`;
+    const filePath = `${user.id}/opex/${Date.now()}_${fileName}`;
     
     const { error: uploadError } = await supabase.storage
       .from("documents")
