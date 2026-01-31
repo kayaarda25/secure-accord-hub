@@ -206,8 +206,8 @@ export function ProtocolsPanel() {
         return;
       }
 
-      // Upload file to storage
-      const filePath = `protocols/${protocolId}/${filename}`;
+      // Upload file to storage - path must start with user.id for RLS policy
+      const filePath = `${user.id}/protocols/${protocolId}/${filename}`;
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(filePath, docBlob, {
