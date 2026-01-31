@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Download, FileType } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,10 +30,13 @@ import {
   generateContractPdf,
   generatePaymentInstructionDocx,
   generatePaymentInstructionPdf,
+  setLetterheadConfig,
   type ContractData,
   type PaymentInstructionData,
 } from "@/lib/documentGenerator";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TemplateGeneratorProps {
   open: boolean;
@@ -49,6 +52,34 @@ const CONTRACT_TEMPLATES = [
 
 export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps) {
   const [activeTab, setActiveTab] = useState("contract");
+  const { user } = useAuth();
+
+  // Load letterhead settings when dialog opens
+  useEffect(() => {
+    if (open && user) {
+      loadLetterheadSettings();
+    }
+  }, [open, user]);
+
+  const loadLetterheadSettings = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from("letterhead_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (data) {
+      setLetterheadConfig({
+        companyName: data.company_name,
+        subtitle: data.subtitle || "",
+        address: data.address || "",
+        primaryColor: data.primary_color || "#c97c5d",
+        footerText: data.footer_text || "Confidential",
+      });
+    }
+  };
   
   // Contract state
   const [contractTemplate, setContractTemplate] = useState("standard");
