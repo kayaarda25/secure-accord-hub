@@ -4,6 +4,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useExport } from "@/hooks/useExport";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { ExportMenu } from "@/components/export/ExportMenu";
 import {
@@ -58,7 +59,8 @@ interface OpexExpense {
 
 export default function Opex() {
   const { user, profile, hasAnyRole } = useAuth();
-  const [isGatewayUser, setIsGatewayUser] = useState(false);
+  const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
+  const isGatewayUser = permissions.isGateway;
   const { logAction } = useAuditLog();
   const { isExporting, exportToCSV, exportToExcel, exportToPDF } = useExport();
   const [expenses, setExpenses] = useState<OpexExpense[]>([]);
@@ -98,8 +100,18 @@ export default function Opex() {
   const canApprove = hasAnyRole(["finance", "management"]);
 
   useEffect(() => {
+    if (!user || permissionsLoading) return;
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, permissionsLoading, permissions.orgType]);
+
+  const getCostCenterDisplayCode = (code?: string) => {
+    if (!code) return "N/A";
+    if (isGatewayUser && (code.startsWith("MGIM") || code.startsWith("MGIC"))) {
+      return code.replace(/^MGIM/, "MGI").replace(/^MGIC/, "MGI");
+    }
+    return code;
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -114,23 +126,6 @@ export default function Opex() {
         setExpenses(expensesData as unknown as OpexExpense[]);
       }
 
-      // Get user's organization name and type for filtering
-      let userOrgName = "";
-      let userOrgType = "";
-      if (profile?.organization_id) {
-        const { data: orgData } = await supabase
-          .from("organizations")
-          .select("name, org_type")
-          .eq("id", profile.organization_id)
-          .maybeSingle();
-        
-        if (orgData) {
-          userOrgName = orgData.name.toLowerCase();
-          userOrgType = orgData.org_type || "";
-          setIsGatewayUser(userOrgType === "gateway");
-        }
-      }
-
       // Fetch cost centers
       const { data: costCentersData } = await supabase
         .from("cost_centers")
@@ -140,14 +135,18 @@ export default function Opex() {
       if (costCentersData) {
         // Filter cost centers based on user's organization - only Allgemein
         let filtered = costCentersData as CostCenter[];
-        if (userOrgName) {
-          if (userOrgName.includes("mgi m") || userOrgName.includes("mgi media")) {
-            filtered = filtered.filter(cc => cc.code.startsWith("MGIM") && cc.name.toLowerCase().includes("allgemein"));
-          } else if (userOrgName.includes("mgi c") || userOrgName.includes("mgi communication")) {
-            filtered = filtered.filter(cc => cc.code.startsWith("MGIC") && cc.name.toLowerCase().includes("allgemein"));
-          } else if (userOrgName.includes("gateway")) {
-            filtered = filtered.filter(cc => cc.code.startsWith("GW") && cc.name.toLowerCase().includes("allgemein"));
-          }
+        if (permissions.orgType === "mgi_media") {
+          filtered = filtered.filter(
+            (cc) => cc.code.startsWith("MGIM") && cc.name.toLowerCase().includes("allgemein")
+          );
+        } else if (permissions.orgType === "mgi_communications") {
+          filtered = filtered.filter(
+            (cc) => cc.code.startsWith("MGIC") && cc.name.toLowerCase().includes("allgemein")
+          );
+        } else if (permissions.orgType === "gateway") {
+          filtered = filtered.filter(
+            (cc) => cc.code.startsWith("GW") && cc.name.toLowerCase().includes("allgemein")
+          );
         }
         setCostCenters(filtered);
       }
@@ -975,7 +974,7 @@ export default function Opex() {
                   </td>
                   <td className="p-4 hidden md:table-cell">
                     <span className="badge-gold">
-                      {expense.cost_center?.code || "N/A"}
+                      {getCostCenterDisplayCode(expense.cost_center?.code)}
                     </span>
                   </td>
                   <td className="p-4">{getStatusBadge(expense.status)}</td>
@@ -1081,8 +1080,8 @@ export default function Opex() {
                     <option value="">Select organization</option>
                     {costCenters.map(cc => {
                       // Determine org label based on cost center code
-                      const orgLabel = cc.code.startsWith('MGIM') ? 'MGI Media' 
-                        : cc.code.startsWith('MGIC') ? 'MGI Communications' 
+                      const orgLabel = (cc.code.startsWith('MGIM') || cc.code.startsWith('MGIC'))
+                        ? (isGatewayUser ? 'MGI' : (cc.code.startsWith('MGIM') ? 'MGI Media' : 'MGI Communications'))
                         : 'Gateway';
                       return (
                         <option key={cc.id} value={cc.id}>
