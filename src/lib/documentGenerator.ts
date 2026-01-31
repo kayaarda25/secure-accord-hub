@@ -930,45 +930,101 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
   printWindow.document.close();
 }
 
-// Meeting Protocol (MoM) Document Generation
+// Meeting Protocol (MoM) Document Generation - Exact template match
 export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Promise<Blob> {
-  const primaryColor = "C9A227"; // Gold color matching original template
+  const primaryColor = "1a5276"; // Dark blue matching original template
+  const lineColor = "cccccc"; // Gray for table borders
   
   // Build topic sections - matching original template format exactly
   const topicSections = data.topics.flatMap((topic) => {
     const sections: Paragraph[] = [];
     
     if (topic.topic.trim()) {
-      // Topic heading in gold color with # prefix
+      // Topic heading - underlined, small caps style
       sections.push(
         new Paragraph({
+          border: {
+            bottom: {
+              color: lineColor,
+              style: BorderStyle.SINGLE,
+              size: 6,
+            },
+          },
           children: [
             new TextRun({
-              text: `# ${topic.topic.toUpperCase()}`,
+              text: topic.topic.toUpperCase(),
               bold: true,
-              size: 22, // 11pt
+              size: 22,
               color: primaryColor,
+              smallCaps: true,
             }),
           ],
-          spacing: { before: 300, after: 100 },
+          spacing: { before: 400, after: 200 },
         })
       );
       
-      // Notes as bullet points
+      // Notes as bullet points with bold title and description
       if (topic.notes.trim()) {
         const noteLines = topic.notes.split('\n').filter(n => n.trim());
         noteLines.forEach(note => {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `- ${note.trim()}`,
-                  size: 22, // 11pt
-                }),
-              ],
-              spacing: { after: 60 },
-            })
-          );
+          // Check if note has a colon (title: description format)
+          const colonIndex = note.indexOf(':');
+          if (colonIndex > 0 && colonIndex < 60) {
+            const title = note.substring(0, colonIndex + 1);
+            const description = note.substring(colonIndex + 1).trim();
+            
+            sections.push(
+              new Paragraph({
+                indent: { left: 720 }, // Indent bullet points
+                children: [
+                  new TextRun({
+                    text: "● ",
+                    size: 22,
+                  }),
+                  new TextRun({
+                    text: title,
+                    bold: true,
+                    size: 22,
+                  }),
+                ],
+                spacing: { before: 150, after: 50 },
+              })
+            );
+            
+            if (description) {
+              sections.push(
+                new Paragraph({
+                  indent: { left: 720 },
+                  children: [
+                    new TextRun({
+                      text: description,
+                      size: 22,
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                })
+              );
+            }
+          } else {
+            // Simple bullet point
+            sections.push(
+              new Paragraph({
+                indent: { left: 720 },
+                children: [
+                  new TextRun({
+                    text: "● ",
+                    size: 22,
+                  }),
+                  new TextRun({
+                    text: note.trim(),
+                    bold: true,
+                    size: 22,
+                  }),
+                ],
+                spacing: { before: 150, after: 100 },
+              })
+            );
+          }
         });
       }
     }
@@ -982,147 +1038,151 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
         properties: {
           page: {
             margin: {
-              top: 1440, // 1 inch
-              right: 1440,
-              bottom: 1440,
-              left: 1440,
+              top: 1134, // 0.79 inch / 2cm
+              right: 1134,
+              bottom: 1134,
+              left: 1134,
             },
           },
         },
-        headers: {
-          default: new Header({
-            children: [
-              // Company name - right aligned, gold color
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: "MGI × AFRIKA",
-                    bold: true,
-                    size: 28, // 14pt
-                    color: primaryColor,
-                  }),
-                ],
-              }),
-              // Subtitle - italics
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: "Government Cooperation Platform",
-                    italics: true,
-                    size: 20, // 10pt
-                    color: "666666",
-                  }),
-                ],
-              }),
-              // Location
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                spacing: { after: 200 },
-                children: [
-                  new TextRun({
-                    text: "Zürich, Switzerland",
-                    size: 18, // 9pt
-                    color: "999999",
-                  }),
-                ],
-              }),
-              // Separator line
-              new Paragraph({
-                border: {
-                  bottom: {
-                    color: primaryColor,
-                    space: 1,
-                    style: BorderStyle.SINGLE,
-                    size: 6,
-                  },
-                },
-                spacing: { after: 200 },
-                children: [],
-              }),
-            ],
-          }),
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: "Page ",
-                    size: 18,
-                    color: "888888",
-                  }),
-                  new TextRun({
-                    children: [PageNumber.CURRENT],
-                    size: 18,
-                    color: "888888",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
         children: [
-          // Date, Location, Subject line - matching original format
-          new Paragraph({
-            spacing: { before: 100, after: 400 },
-            children: [
-              new TextRun({
-                text: "DATE: ",
-                bold: true,
-                size: 22,
-              }),
-              new TextRun({
-                text: `${data.date}           `,
-                size: 22,
-              }),
-              new TextRun({
-                text: "LOCATION: ",
-                bold: true,
-                size: 22,
-              }),
-              new TextRun({
-                text: `${data.location || 'N/A'}     `,
-                size: 22,
-              }),
-              new TextRun({
-                text: "SUBJECT: ",
-                bold: true,
-                size: 22,
-              }),
-              new TextRun({
-                text: data.title,
-                size: 22,
+          // DATE / LOCATION / SUBJECT row with top border
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 25, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 12, color: primaryColor },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Date: ", bold: true, smallCaps: true, size: 20 }),
+                          new TextRun({ text: data.date, size: 20 }),
+                        ],
+                        spacing: { before: 100, after: 100 },
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 25, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 12, color: primaryColor },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Location: ", bold: true, smallCaps: true, size: 20 }),
+                          new TextRun({ text: data.location || "N/A", size: 20 }),
+                        ],
+                        spacing: { before: 100, after: 100 },
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 12, color: primaryColor },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "Subject: ", bold: true, smallCaps: true, size: 20 }),
+                          new TextRun({ text: data.title, size: 20 }),
+                        ],
+                        spacing: { before: 100, after: 100 },
+                      }),
+                    ],
+                  }),
+                ],
               }),
             ],
           }),
 
-          // Attendees Section
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "# ATTENDEES:",
-                bold: true,
-                size: 22,
-                color: primaryColor,
+          // Spacing
+          new Paragraph({ text: "", spacing: { after: 200 } }),
+
+          // Attendees table with border
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 6, color: lineColor },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "Attendees:",
+                            bold: true,
+                            smallCaps: true,
+                            size: 20,
+                            color: primaryColor,
+                          }),
+                        ],
+                        spacing: { before: 100, after: 50 },
+                      }),
+                      ...data.attendees.slice(0, Math.ceil(data.attendees.length / 2)).map(attendee =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({ text: attendee, size: 20 }),
+                          ],
+                          spacing: { after: 30 },
+                        })
+                      ),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 6, color: lineColor },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "", size: 20 }),
+                        ],
+                        spacing: { before: 100, after: 50 },
+                      }),
+                      ...data.attendees.slice(Math.ceil(data.attendees.length / 2)).map(attendee =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({ text: attendee, size: 20 }),
+                          ],
+                          spacing: { after: 30 },
+                        })
+                      ),
+                    ],
+                  }),
+                ],
               }),
             ],
-            spacing: { before: 200, after: 100 },
           }),
-          ...data.attendees.map(attendee => 
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `- ${attendee}`,
-                  size: 22,
-                }),
-              ],
-              spacing: { after: 50 },
-            })
-          ),
+
+          // Spacing before topics
+          new Paragraph({ text: "", spacing: { after: 300 } }),
 
           // Topic Sections
           ...topicSections,
@@ -1130,28 +1190,54 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
           // Decisions Section (if any)
           ...(data.decisions?.trim() ? [
             new Paragraph({
+              border: {
+                bottom: {
+                  color: lineColor,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
               children: [
                 new TextRun({
-                  text: "# DECISIONS",
+                  text: "DECISIONS",
                   bold: true,
                   size: 22,
                   color: primaryColor,
+                  smallCaps: true,
                 }),
               ],
-              spacing: { before: 400, after: 100 },
+              spacing: { before: 400, after: 200 },
             }),
             ...data.decisions.split('\n').filter(d => d.trim()).map(decision => 
               new Paragraph({
+                indent: { left: 720 },
                 children: [
                   new TextRun({
-                    text: `- ${decision.trim()}`,
+                    text: "● ",
+                    size: 22,
+                  }),
+                  new TextRun({
+                    text: decision.trim(),
                     size: 22,
                   }),
                 ],
-                spacing: { after: 60 },
+                spacing: { after: 80 },
               })
             ),
           ] : []),
+
+          // Bottom border line
+          new Paragraph({
+            border: {
+              bottom: {
+                color: primaryColor,
+                style: BorderStyle.SINGLE,
+                size: 12,
+              },
+            },
+            spacing: { before: 400 },
+            children: [],
+          }),
         ],
       },
     ],
