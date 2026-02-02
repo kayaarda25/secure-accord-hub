@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import {
   Save,
   PenTool,
   FileText,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,6 +56,9 @@ export default function Settings() {
   const [phone, setPhone] = useState(profile?.phone || "");
   const [position, setPosition] = useState(profile?.position || "");
   const [department, setDepartment] = useState(profile?.department || "");
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
@@ -62,8 +67,62 @@ export default function Settings() {
       setPhone(profile.phone || "");
       setPosition(profile.position || "");
       setDepartment(profile.department || "");
+      setAvatarUrl(profile.avatar_url || "");
     }
   }, [profile]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Fehler", description: "Bitte wählen Sie eine Bilddatei", variant: "destructive" });
+      return;
+    }
+
+    // Validate file size (max 1MB)
+    if (file.size > 1024 * 1024) {
+      toast({ title: "Fehler", description: "Die Datei darf maximal 1MB groß sein", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // Create unique file path
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      toast({ title: "Erfolg", description: "Profilbild wurde aktualisiert" });
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      toast({ title: "Fehler", description: "Profilbild konnte nicht hochgeladen werden", variant: "destructive" });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -196,12 +255,34 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={profile?.avatar_url || ""} />
+                  <AvatarImage src={avatarUrl} />
                   <AvatarFallback className="text-xl">{getInitials()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" size="sm">
-                    Foto ändern
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAvatarUpload}
+                    accept="image/jpeg,image/png,image/gif"
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                  >
+                    {isUploadingAvatar ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Hochladen...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Foto ändern
+                      </>
+                    )}
                   </Button>
                   <p className="text-sm text-muted-foreground mt-1">
                     JPG, GIF oder PNG. Max 1MB.
