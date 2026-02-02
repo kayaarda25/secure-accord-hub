@@ -7,6 +7,8 @@ import { useExport } from "@/hooks/useExport";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { ExportMenu } from "@/components/export/ExportMenu";
+import { ExpenseNotesDialog } from "@/components/opex/ExpenseNotesDialog";
+import { OpexOverviewChart } from "@/components/opex/OpexOverviewChart";
 import {
   Receipt,
   Plus,
@@ -22,6 +24,7 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  MessageSquare,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -54,6 +57,7 @@ interface OpexExpense {
   expense_date: string;
   status: string;
   submitted_at: string;
+  category?: string;
   cost_center?: CostCenter;
 }
 
@@ -70,6 +74,8 @@ export default function Opex() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [selectedExpenseForNotes, setSelectedExpenseForNotes] = useState<OpexExpense | null>(null);
 
   // Expense categories without emojis
   const expenseCategories = [
@@ -928,6 +934,11 @@ export default function Opex() {
         })()}
       </div>
 
+      {/* OPEX Overview Chart */}
+      <div className="mb-6">
+        <OpexOverviewChart expenses={expenses} expenseCategories={expenseCategories} />
+      </div>
+
       {/* Expenses Table */}
       <div className="card-state">
         <div className="p-4 border-b border-border flex items-center justify-between">
@@ -1012,6 +1023,16 @@ export default function Opex() {
                           <XCircle size={16} />
                         </button>
                       )}
+                      <button 
+                        onClick={() => {
+                          setSelectedExpenseForNotes(expense);
+                          setNotesDialogOpen(true);
+                        }}
+                        className="p-2 rounded hover:bg-accent/10 text-muted-foreground hover:text-accent transition-colors"
+                        title="Kommentare"
+                      >
+                        <MessageSquare size={16} />
+                      </button>
                       <button className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                         <Eye size={16} />
                       </button>
@@ -1221,6 +1242,19 @@ export default function Opex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Notes Dialog */}
+      {selectedExpenseForNotes && (
+        <ExpenseNotesDialog
+          open={notesDialogOpen}
+          onOpenChange={(open) => {
+            setNotesDialogOpen(open);
+            if (!open) setSelectedExpenseForNotes(null);
+          }}
+          expenseId={selectedExpenseForNotes.id}
+          expenseTitle={selectedExpenseForNotes.title}
+        />
+      )}
     </Layout>
   );
 }
