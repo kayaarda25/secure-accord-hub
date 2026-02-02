@@ -1706,6 +1706,41 @@ export type Database = {
         }
         Relationships: []
       }
+      opex_expense_notes: {
+        Row: {
+          content: string
+          created_at: string
+          expense_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          expense_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          expense_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opex_expense_notes_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "opex_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opex_expenses: {
         Row: {
           amount: number
