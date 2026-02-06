@@ -229,27 +229,49 @@ export function useDocumentExplorer() {
   // Delete document mutation
   const deleteDocument = useMutation({
     mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
-      // Delete from storage first
+      // First verify the document exists and user has permission
+      const { data: existingDoc, error: checkError } = await supabase
+        .from("documents")
+        .select("id, uploaded_by")
+        .eq("id", id)
+        .maybeSingle();
+      
+      if (checkError) throw checkError;
+      if (!existingDoc) throw new Error("Dokument nicht gefunden");
+
+      // Delete from database first (RLS will enforce permissions)
+      const { error, count } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+      
+      // Check if anything was actually deleted (RLS may have blocked it)
+      const { data: stillExists } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+      
+      if (stillExists) {
+        throw new Error("Keine Berechtigung zum Löschen dieses Dokuments");
+      }
+
+      // Only delete from storage if database delete was successful
       const { error: storageError } = await supabase.storage
         .from("documents")
         .remove([filePath]);
 
       if (storageError) console.error("Storage delete error:", storageError);
-
-      // Delete from database
-      const { error } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
       toast.success("Dokument gelöscht");
     },
-    onError: (error) => {
-      toast.error("Fehler beim Löschen");
+    onError: (error: Error) => {
+      toast.error(error.message || "Fehler beim Löschen");
       console.error(error);
     },
   });
