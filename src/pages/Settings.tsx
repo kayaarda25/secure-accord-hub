@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage, Language } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/settings/SignaturePad";
 import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
@@ -53,27 +54,10 @@ export default function Settings() {
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const { permissions } = useOrganizationPermissions();
+  const { language, setLanguage, t } = useLanguage();
   
   // Only MGI Media users with finance/admin/management roles can see Rates tab
   const canViewRates = permissions.isMgiMediaFinance;
-
-  // Language/region state (persisted)
-  const [language, setLanguage] = useState<string>(() => {
-    try {
-      return localStorage.getItem("app_language") || "de";
-    } catch {
-      return "de";
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("app_language", language);
-    } catch {
-      // ignore
-    }
-    document.documentElement.lang = language;
-  }, [language]);
 
   // Profile form state
   const [firstName, setFirstName] = useState(profile?.first_name || "");
@@ -239,38 +223,38 @@ export default function Settings() {
   };
 
   return (
-    <Layout title="Einstellungen" subtitle="Profil und Präferenzen verwalten">
+    <Layout title={t("settings.title")} subtitle={t("settings.subtitle")}>
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="flex-wrap">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            Profil
+            {t("settings.profile")}
           </TabsTrigger>
           <TabsTrigger value="signature" className="flex items-center gap-2">
             <PenTool className="h-4 w-4" />
-            Signatur
+            {t("settings.signature")}
           </TabsTrigger>
           <TabsTrigger value="letterhead" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Briefkopf
+            {t("settings.letterhead")}
           </TabsTrigger>
           {canViewRates && (
             <TabsTrigger value="rates" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Rates
+              {t("settings.rates")}
             </TabsTrigger>
           )}
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            Benachrichtigungen
+            {t("settings.notifications")}
           </TabsTrigger>
           <TabsTrigger value="appearance" className="flex items-center gap-2">
             <Palette className="h-4 w-4" />
-            Darstellung
+            {t("settings.appearance")}
           </TabsTrigger>
           <TabsTrigger value="language" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            Sprache
+            {t("settings.language")}
           </TabsTrigger>
         </TabsList>
 
@@ -278,9 +262,9 @@ export default function Settings() {
         <TabsContent value="profile">
           <Card>
             <CardHeader>
-              <CardTitle>Profil bearbeiten</CardTitle>
+              <CardTitle>{t("settings.profile.title")}</CardTitle>
               <CardDescription>
-                Aktualisieren Sie Ihre persönlichen Informationen
+                {t("settings.profile.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -306,24 +290,24 @@ export default function Settings() {
                     {isUploadingAvatar ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Hochladen...
+                        {t("settings.profile.uploading")}
                       </>
                     ) : (
                       <>
                         <Upload className="h-4 w-4 mr-2" />
-                        Foto ändern
+                        {t("settings.profile.changePhoto")}
                       </>
                     )}
                   </Button>
                   <p className="text-sm text-muted-foreground mt-1">
-                    JPG, GIF oder PNG. Max 1MB.
+                    {t("settings.profile.photoHint")}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="firstName">Vorname</Label>
+                  <Label htmlFor="firstName">{t("settings.profile.firstName")}</Label>
                   <Input
                     id="firstName"
                     value={firstName}
@@ -331,7 +315,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="lastName">Nachname</Label>
+                  <Label htmlFor="lastName">{t("settings.profile.lastName")}</Label>
                   <Input
                     id="lastName"
                     value={lastName}
@@ -339,11 +323,11 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">E-Mail</Label>
+                  <Label htmlFor="email">{t("settings.profile.email")}</Label>
                   <Input id="email" value={profile?.email || ""} disabled />
                 </div>
                 <div>
-                  <Label htmlFor="phone">Telefon</Label>
+                  <Label htmlFor="phone">{t("settings.profile.phone")}</Label>
                   <Input
                     id="phone"
                     value={phone}
@@ -351,7 +335,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="position">Position</Label>
+                  <Label htmlFor="position">{t("settings.profile.position")}</Label>
                   <Input
                     id="position"
                     value={position}
@@ -359,7 +343,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="department">Abteilung</Label>
+                  <Label htmlFor="department">{t("settings.profile.department")}</Label>
                   <Input
                     id="department"
                     value={department}
@@ -370,7 +354,7 @@ export default function Settings() {
 
               <Button onClick={handleSaveProfile} disabled={isSaving}>
                 <Save className="h-4 w-4 mr-2" />
-                {isSaving ? "Speichern..." : "Speichern"}
+                {isSaving ? t("settings.profile.saving") : t("settings.profile.save")}
               </Button>
             </CardContent>
           </Card>
@@ -396,23 +380,23 @@ export default function Settings() {
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
-              <CardTitle>Benachrichtigungseinstellungen</CardTitle>
+              <CardTitle>{t("settings.notifications.title")}</CardTitle>
               <CardDescription>
-                Wählen Sie, welche Benachrichtigungen Sie erhalten möchten
+                {t("settings.notifications.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Laden...</div>
+                <div className="text-center py-8 text-muted-foreground">{t("settings.notifications.loading")}</div>
               ) : notificationPrefs && (
                 <>
                   <div className="space-y-4">
-                    <h4 className="font-medium">Kanäle</h4>
+                    <h4 className="font-medium">{t("settings.notifications.channels")}</h4>
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>E-Mail-Benachrichtigungen</Label>
+                        <Label>{t("settings.notifications.email")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Benachrichtigungen per E-Mail erhalten
+                          {t("settings.notifications.emailDesc")}
                         </p>
                       </div>
                       <Switch
@@ -422,9 +406,9 @@ export default function Settings() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Push-Benachrichtigungen</Label>
+                        <Label>{t("settings.notifications.push")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Browser-Benachrichtigungen erhalten
+                          {t("settings.notifications.pushDesc")}
                         </p>
                       </div>
                       <Switch
@@ -435,44 +419,44 @@ export default function Settings() {
                   </div>
 
                   <div className="border-t pt-6 space-y-4">
-                    <h4 className="font-medium">Kategorien</h4>
+                    <h4 className="font-medium">{t("settings.notifications.categories")}</h4>
                     <div className="flex items-center justify-between">
-                      <Label>Aufgaben</Label>
+                      <Label>{t("settings.notifications.tasks")}</Label>
                       <Switch
                         checked={notificationPrefs.task_notifications}
                         onCheckedChange={(v) => handleToggleNotification("task_notifications", v)}
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label>Dokumente</Label>
+                      <Label>{t("settings.notifications.documents")}</Label>
                       <Switch
                         checked={notificationPrefs.document_notifications}
                         onCheckedChange={(v) => handleToggleNotification("document_notifications", v)}
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label>Ausgaben & OPEX</Label>
+                      <Label>{t("settings.notifications.expenses")}</Label>
                       <Switch
                         checked={notificationPrefs.expense_notifications}
                         onCheckedChange={(v) => handleToggleNotification("expense_notifications", v)}
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label>Kalender</Label>
+                      <Label>{t("settings.notifications.calendar")}</Label>
                       <Switch
                         checked={notificationPrefs.calendar_notifications}
                         onCheckedChange={(v) => handleToggleNotification("calendar_notifications", v)}
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label>Genehmigungen</Label>
+                      <Label>{t("settings.notifications.approvals")}</Label>
                       <Switch
                         checked={notificationPrefs.approval_notifications}
                         onCheckedChange={(v) => handleToggleNotification("approval_notifications", v)}
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label>Budget</Label>
+                      <Label>{t("settings.notifications.budget")}</Label>
                       <Switch
                         checked={notificationPrefs.budget_notifications}
                         onCheckedChange={(v) => handleToggleNotification("budget_notifications", v)}
@@ -489,29 +473,29 @@ export default function Settings() {
         <TabsContent value="appearance">
           <Card>
             <CardHeader>
-              <CardTitle>Darstellung</CardTitle>
+              <CardTitle>{t("settings.appearance.title")}</CardTitle>
               <CardDescription>
-                Passen Sie das Aussehen der Anwendung an
+                {t("settings.appearance.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label>Farbschema</Label>
+                <Label>{t("settings.appearance.colorScheme")}</Label>
                 <div className="grid grid-cols-3 gap-4 mt-2">
                   <Button variant="outline" className="justify-start">
-                    ☀️ Hell
+                    ☀️ {t("settings.appearance.light")}
                   </Button>
                   <Button variant="default" className="justify-start">
-                    🌙 Dunkel
+                    🌙 {t("settings.appearance.dark")}
                   </Button>
                   <Button variant="outline" className="justify-start">
-                    💻 System
+                    💻 {t("settings.appearance.system")}
                   </Button>
                 </div>
               </div>
 
               <div>
-                <Label>Akzentfarbe</Label>
+                <Label>{t("settings.appearance.accentColor")}</Label>
                 <div className="flex gap-2 mt-2">
                   <button className="h-8 w-8 rounded-full bg-amber-500 ring-2 ring-offset-2 ring-amber-500" />
                   <button className="h-8 w-8 rounded-full bg-blue-500" />
@@ -528,15 +512,15 @@ export default function Settings() {
         <TabsContent value="language">
           <Card>
             <CardHeader>
-              <CardTitle>Sprache & Region</CardTitle>
+              <CardTitle>{t("settings.language.title")}</CardTitle>
               <CardDescription>
-                Sprache und regionale Einstellungen anpassen
+                {t("settings.language.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label>Sprache</Label>
-                <Select value={language} onValueChange={setLanguage}>
+                <Label>{t("settings.language.language")}</Label>
+                <Select value={language} onValueChange={(v) => setLanguage(v as Language)}>
                   <SelectTrigger className="w-full mt-2">
                     <SelectValue />
                   </SelectTrigger>
@@ -550,7 +534,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <Label>Zeitzone</Label>
+                <Label>{t("settings.language.timezone")}</Label>
                 <Select defaultValue="europe-zurich">
                   <SelectTrigger className="w-full mt-2">
                     <SelectValue />
@@ -564,7 +548,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <Label>Datumsformat</Label>
+                <Label>{t("settings.language.dateFormat")}</Label>
                 <Select defaultValue="dd-mm-yyyy">
                   <SelectTrigger className="w-full mt-2">
                     <SelectValue />
