@@ -357,26 +357,32 @@ export default function Employees() {
         </Card>
       </div>
 
-      {/* Dialogs */}
-      <EmployeeEditDialog
-        employee={selectedEmployee}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSuccess={fetchEmployees}
-      />
+      {/* Dialogs - only mount when needed to avoid Radix ref composition issues */}
+      {editDialogOpen && selectedEmployee && (
+        <EmployeeEditDialog
+          employee={selectedEmployee}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={fetchEmployees}
+        />
+      )}
 
-      <RolesDialog
-        employee={selectedEmployee}
-        open={rolesDialogOpen}
-        onOpenChange={setRolesDialogOpen}
-        onSuccess={fetchEmployees}
-      />
+      {rolesDialogOpen && selectedEmployee && (
+        <RolesDialog
+          employee={selectedEmployee}
+          open={rolesDialogOpen}
+          onOpenChange={setRolesDialogOpen}
+          onSuccess={fetchEmployees}
+        />
+      )}
 
-      <InviteEmployeeDialog
-        open={inviteDialogOpen}
-        onOpenChange={setInviteDialogOpen}
-        onSuccess={fetchEmployees}
-      />
+      {inviteDialogOpen && (
+        <InviteEmployeeDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          onSuccess={fetchEmployees}
+        />
+      )}
     </Layout>
   );
 }
