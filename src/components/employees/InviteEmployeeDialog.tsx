@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Mail, Copy } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type AppRole = "admin" | "state" | "management" | "finance" | "partner";
@@ -50,26 +50,28 @@ const ROLES: { role: AppRole; label: string }[] = [
 export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEmployeeDialogProps) {
   const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    department: "",
-    position: "",
-    roles: [] as AppRole[],
-  });
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState<string | undefined>(undefined);
+  const [position, setPosition] = useState<string | undefined>(undefined);
+  const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
 
   const toggleRole = (role: AppRole) => {
-    setFormData((prev) => ({
-      ...prev,
-      roles: prev.roles.includes(role)
-        ? prev.roles.filter((r) => r !== role)
-        : [...prev.roles, role],
-    }));
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
+
+  const resetForm = () => {
+    setEmail("");
+    setDepartment(undefined);
+    setPosition(undefined);
+    setSelectedRoles([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email) {
+    if (!email) {
       toast.error("E-Mail-Adresse ist erforderlich");
       return;
     }
@@ -83,11 +85,11 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
     try {
       const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
-          email: formData.email,
-          department: formData.department || null,
-          position: formData.position || null,
+          email,
+          department: department || null,
+          position: position || null,
           organizationId: profile.organization_id,
-          roles: formData.roles,
+          roles: selectedRoles,
         },
       });
 
@@ -99,10 +101,9 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
       }
 
       toast.success("Einladung erfolgreich gesendet!", {
-        description: `Eine E-Mail wurde an ${formData.email} gesendet.`,
+        description: `Eine E-Mail wurde an ${email} gesendet.`,
       });
 
-      // Show invitation link option
       if (data?.invitationUrl) {
         toast.info("Einladungslink", {
           description: "Der Link kann auch manuell geteilt werden.",
@@ -117,7 +118,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
         });
       }
 
-      setFormData({ email: "", department: "", position: "", roles: [] });
+      resetForm();
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -128,8 +129,15 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      resetForm();
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -143,13 +151,13 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-Mail-Adresse *</Label>
+              <Label htmlFor="invite-email">E-Mail-Adresse *</Label>
               <Input
-                id="email"
+                id="invite-email"
                 type="email"
                 placeholder="name@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -157,10 +165,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Abteilung</Label>
-                <Select
-                  value={formData.department}
-                  onValueChange={(value) => setFormData({ ...formData, department: value })}
-                >
+                <Select value={department} onValueChange={setDepartment}>
                   <SelectTrigger>
                     <SelectValue placeholder="Auswählen" />
                   </SelectTrigger>
@@ -175,10 +180,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
               </div>
               <div className="space-y-2">
                 <Label>Position</Label>
-                <Select
-                  value={formData.position}
-                  onValueChange={(value) => setFormData({ ...formData, position: value })}
-                >
+                <Select value={position} onValueChange={setPosition}>
                   <SelectTrigger>
                     <SelectValue placeholder="Auswählen" />
                   </SelectTrigger>
@@ -203,8 +205,9 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
                     onClick={() => toggleRole(role)}
                   >
                     <Checkbox
-                      checked={formData.roles.includes(role)}
-                      onCheckedChange={() => toggleRole(role)}
+                      checked={selectedRoles.includes(role)}
+                      onCheckedChange={() => {}}
+                      className="pointer-events-none"
                     />
                     <Label className="cursor-pointer text-sm">{label}</Label>
                   </div>
@@ -213,7 +216,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Abbrechen
             </Button>
             <Button type="submit" disabled={isLoading}>
