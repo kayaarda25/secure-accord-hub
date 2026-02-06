@@ -239,6 +239,13 @@ export default function Declarations() {
     field: 'minutes' | 'usd',
     value: string
   ) => {
+    // Calculate rate outside setFormData to access current carrierRates
+    const isInbound = section === 'mgiIncomingRevenue' || section === 'giaIncomingCost';
+    const rate = getCarrierRate(provider, formData.country, isInbound);
+    
+    console.log(`Rate lookup: provider=${provider}, country=${formData.country}, isInbound=${isInbound}, rate=${rate}`);
+    console.log("Available carrier rates:", carrierRates);
+    
     setFormData(prev => {
       const newData = { ...prev };
       const currentProviderData = { ...prev[section][provider] };
@@ -247,13 +254,13 @@ export default function Declarations() {
       // Auto-calculate USD when minutes are entered
       if (field === 'minutes' && value) {
         const minutes = parseNumber(value);
-        // Determine if this is inbound or outbound based on section
-        const isInbound = section === 'mgiIncomingRevenue' || section === 'giaIncomingCost';
-        const rate = getCarrierRate(provider, prev.country, isInbound);
         
         if (rate > 0) {
           const calculatedUsd = minutes * rate;
           currentProviderData.usd = calculatedUsd.toFixed(2);
+          console.log(`Calculated USD: ${minutes} * ${rate} = ${calculatedUsd}`);
+        } else {
+          console.log(`No rate found for ${provider} in ${prev.country}`);
         }
       }
       
