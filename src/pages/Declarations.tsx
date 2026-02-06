@@ -94,11 +94,22 @@ const createEmptyProviderData = (): Record<string, ProviderData> => {
   );
 };
 
+interface CarrierRate {
+  id: string;
+  carrier_name: string;
+  country: string;
+  inbound_rate: number;
+  outbound_rate: number;
+  currency: string;
+  is_active: boolean;
+}
+
 export default function Declarations() {
   const { user } = useAuth();
   const { logAction } = useAuditLog();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
+  const [carrierRates, setCarrierRates] = useState<CarrierRate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
@@ -125,7 +136,52 @@ export default function Declarations() {
 
   useEffect(() => {
     fetchDeclarations();
+    fetchCarrierRates();
   }, []);
+
+  const fetchCarrierRates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("carrier_rates")
+        .select("*")
+        .eq("is_active", true);
+      
+      if (error) throw error;
+      setCarrierRates(data || []);
+    } catch (error) {
+      console.error("Error fetching carrier rates:", error);
+    }
+  };
+
+  // Get rate for a specific carrier and country
+  const getCarrierRate = (carrierName: string, country: string, isInbound: boolean): number => {
+    // Map country names to country codes used in carrier_rates
+    const countryCodeMap: Record<string, string> = {
+      "Angola": "AO",
+      "Uganda": "UG",
+      "Kenya": "KE",
+      "Tanzania": "TZ",
+      "Rwanda": "RW",
+      "DR Congo": "CD",
+      "South Sudan": "SS",
+      "Burundi": "BI",
+      "Ethiopia": "ET",
+      "Zambia": "ZM",
+      "Malawi": "MW",
+    };
+    
+    const countryCode = countryCodeMap[country] || country;
+    
+    const rate = carrierRates.find(
+      r => r.carrier_name.toLowerCase() === carrierName.toLowerCase() && 
+           (r.country === countryCode || r.country.toLowerCase() === country.toLowerCase())
+    );
+    
+    if (rate) {
+      return isInbound ? rate.inbound_rate : rate.outbound_rate;
+    }
+    return 0;
+  };
 
   const fetchDeclarations = async () => {
     setIsLoading(true);
@@ -179,16 +235,32 @@ export default function Declarations() {
     field: 'minutes' | 'usd',
     value: string
   ) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [provider]: {
-          ...prev[section][provider],
-          [field]: value,
+    setFormData(prev => {
+      const newData = { ...prev };
+      const currentProviderData = { ...prev[section][provider] };
+      currentProviderData[field] = value;
+      
+      // Auto-calculate USD when minutes are entered
+      if (field === 'minutes' && value) {
+        const minutes = parseNumber(value);
+        // Determine if this is inbound or outbound based on section
+        const isInbound = section === 'mgiIncomingRevenue' || section === 'giaIncomingCost';
+        const rate = getCarrierRate(provider, prev.country, isInbound);
+        
+        if (rate > 0) {
+          const calculatedUsd = minutes * rate;
+          currentProviderData.usd = calculatedUsd.toFixed(2);
+        }
+      }
+      
+      return {
+        ...newData,
+        [section]: {
+          ...prev[section],
+          [provider]: currentProviderData,
         },
-      },
-    }));
+      };
+    });
   };
 
   const calculateTotals = (data: Record<string, ProviderData>) => {
