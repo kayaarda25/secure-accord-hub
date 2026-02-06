@@ -26,12 +26,12 @@ interface RolesDialogProps {
   onSuccess: () => void;
 }
 
-const ROLE_CONFIG: { role: AppRole; label: string; description: string; color: string }[] = [
-  { role: "admin", label: "Administrator", description: "Voller Zugriff auf alle Funktionen", color: "destructive" },
-  { role: "management", label: "Management", description: "Kann Berichte und Übersichten einsehen", color: "default" },
-  { role: "finance", label: "Finance", description: "Zugriff auf Finanzmodule", color: "secondary" },
-  { role: "state", label: "State", description: "Staatliche Aufsichtsfunktion", color: "outline" },
-  { role: "partner", label: "Partner", description: "Externer Partnerzugang", color: "secondary" },
+const ROLE_CONFIG: { role: AppRole; label: string; description: string; variant: "destructive" | "default" | "secondary" | "outline" }[] = [
+  { role: "admin", label: "Administrator", description: "Voller Zugriff auf alle Funktionen", variant: "destructive" },
+  { role: "management", label: "Management", description: "Kann Berichte und Übersichten einsehen", variant: "default" },
+  { role: "finance", label: "Finance", description: "Zugriff auf Finanzmodule", variant: "secondary" },
+  { role: "state", label: "State", description: "Staatliche Aufsichtsfunktion", variant: "outline" },
+  { role: "partner", label: "Partner", description: "Externer Partnerzugang", variant: "secondary" },
 ];
 
 export function RolesDialog({ employee, open, onOpenChange, onSuccess }: RolesDialogProps) {
@@ -104,27 +104,31 @@ export function RolesDialog({ employee, open, onOpenChange, onSuccess }: RolesDi
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {ROLE_CONFIG.map(({ role, label, description, color }) => (
-            <div
-              key={role}
-              className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
-              onClick={() => toggleRole(role)}
-            >
-              <Checkbox
-                checked={selectedRoles.includes(role)}
-                onCheckedChange={() => toggleRole(role)}
-              />
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Label className="cursor-pointer font-medium">{label}</Label>
-                  <Badge variant={color as any} className="text-xs">
-                    {role}
-                  </Badge>
+          {ROLE_CONFIG.map(({ role, label, description, variant }) => {
+            const isChecked = selectedRoles.includes(role);
+            return (
+              <div
+                key={role}
+                className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
+                onClick={() => toggleRole(role)}
+              >
+                <Checkbox
+                  checked={isChecked}
+                  onCheckedChange={() => {}}
+                  className="pointer-events-none"
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Label className="cursor-pointer font-medium">{label}</Label>
+                    <Badge variant={variant} className="text-xs">
+                      {role}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{description}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{description}</p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
