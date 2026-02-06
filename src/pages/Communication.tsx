@@ -132,9 +132,13 @@ export default function Communication() {
   });
 
 
+  // Fetch available users first, then threads when users are loaded
   useEffect(() => {
     fetchAvailableUsers();
   }, []);
+
+  // Fetch threads only after availableUsers are loaded
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
   const fetchAvailableUsers = async () => {
     try {
@@ -146,8 +150,10 @@ export default function Communication() {
       
       if (error) throw error;
       setAvailableUsers(data || []);
+      setUsersLoaded(true);
     } catch (error) {
       console.error("Error fetching users:", error);
+      setUsersLoaded(true); // Still mark as loaded to avoid blocking
     }
   };
 
@@ -170,9 +176,12 @@ export default function Communication() {
   const canViewPartner = hasAnyRole(["management", "partner", "admin"]);
   const canViewAuthority = hasAnyRole(["state", "management", "admin"]);
 
+  // Fetch threads only after users are loaded
   useEffect(() => {
-    fetchThreads();
-  }, [activeTab]);
+    if (usersLoaded) {
+      fetchThreads();
+    }
+  }, [activeTab, usersLoaded]);
 
   useEffect(() => {
     if (selectedThread) {
