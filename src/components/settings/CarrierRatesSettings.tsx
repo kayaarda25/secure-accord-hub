@@ -51,6 +51,7 @@ interface CarrierRate {
 }
 
 const COUNTRIES = [
+  { code: "AO", name: "Angola" },
   { code: "UG", name: "Uganda" },
   { code: "KE", name: "Kenia" },
   { code: "TZ", name: "Tansania" },

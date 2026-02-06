@@ -172,10 +172,14 @@ export default function Declarations() {
     
     const countryCode = countryCodeMap[country] || country;
     
-    const rate = carrierRates.find(
-      r => r.carrier_name.toLowerCase() === carrierName.toLowerCase() && 
-           (r.country === countryCode || r.country.toLowerCase() === country.toLowerCase())
-    );
+    // Find rate matching carrier name and country (check both code and full name)
+    const rate = carrierRates.find(r => {
+      const carrierMatch = r.carrier_name.toLowerCase() === carrierName.toLowerCase();
+      const countryMatch = r.country === countryCode || 
+                          r.country.toLowerCase() === country.toLowerCase() ||
+                          r.country === country;
+      return carrierMatch && countryMatch;
+    });
     
     if (rate) {
       return isInbound ? rate.inbound_rate : rate.outbound_rate;
