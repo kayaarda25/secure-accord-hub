@@ -10,17 +10,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMgiAggregation } from "@/hooks/useMgiAggregation";
 import {
   Wallet,
   Building2,
   Users,
   Receipt,
 } from "lucide-react";
-
-interface Organization {
-  id: string;
-  name: string;
-}
 
 interface CompanyStats {
   employeeCount: number;
@@ -31,7 +27,7 @@ interface CompanyStats {
 
 const Index = () => {
   const { hasRole } = useAuth();
-  const [companies, setCompanies] = useState<Organization[]>([]);
+  const { aggregatedOrgs, mgiOrgIds, isGatewayUser, isLoading: orgsLoading } = useMgiAggregation();
   const [selectedCompany, setSelectedCompany] = useState<string>("all");
   const [companyStats, setCompanyStats] = useState<Record<string, CompanyStats>>({});
   const [loading, setLoading] = useState(true);
@@ -39,72 +35,74 @@ const Index = () => {
   const isManagement = hasRole("management") || hasRole("admin") || hasRole("state");
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
-
-  useEffect(() => {
-    if (companies.length > 0) {
+    if (!orgsLoading && aggregatedOrgs.length > 0) {
       fetchCompanyStats();
     }
-  }, [companies]);
+  }, [aggregatedOrgs, orgsLoading, mgiOrgIds]);
 
-  const fetchCompanies = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name")
-        .eq("type", "internal")
-        .order("name");
-
-      if (error) throw error;
-      setCompanies(data || []);
-    } catch (error) {
-      console.error("Error fetching companies:", error);
-    } finally {
-      setLoading(false);
+  // Helper to get org IDs for stats fetching
+  const getOrgIdsForStats = (aggregatedOrgId: string): string[] => {
+    const org = aggregatedOrgs.find(o => o.id === aggregatedOrgId);
+    if (org?.isAggregate && org.originalIds) {
+      return org.originalIds;
     }
+    return [aggregatedOrgId];
   };
 
   const fetchCompanyStats = async () => {
     try {
       const stats: Record<string, CompanyStats> = {};
 
-      for (const company of companies) {
-        const { count: employeeCount } = await supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("organization_id", company.id);
+      for (const company of aggregatedOrgs) {
+        const orgIds = getOrgIdsForStats(company.id);
+        
+        // Aggregate stats from all org IDs (for MGI combined, this includes both MGI M and MGI C)
+        let totalEmployees = 0;
+        let totalPendingExpenses = 0;
+        let totalBudget = 0;
+        let totalUsedBudget = 0;
 
-        const { count: pendingExpenses } = await supabase
-          .from("opex_expenses")
-          .select("*, cost_centers!inner(organization_id)", { count: "exact", head: true })
-          .eq("cost_centers.organization_id", company.id)
-          .eq("status", "pending");
+        for (const orgId of orgIds) {
+          const { count: employeeCount } = await supabase
+            .from("profiles")
+            .select("*", { count: "exact", head: true })
+            .eq("organization_id", orgId);
 
-        const { data: costCenters } = await supabase
-          .from("cost_centers")
-          .select("budget_annual, budget_used")
-          .eq("organization_id", company.id);
+          const { count: pendingExpenses } = await supabase
+            .from("opex_expenses")
+            .select("*, cost_centers!inner(organization_id)", { count: "exact", head: true })
+            .eq("cost_centers.organization_id", orgId)
+            .eq("status", "pending");
 
-        const totalBudget = costCenters?.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0) || 0;
-        const usedBudget = costCenters?.reduce((sum, cc) => sum + (cc.budget_used || 0), 0) || 0;
+          const { data: costCenters } = await supabase
+            .from("cost_centers")
+            .select("budget_annual, budget_used")
+            .eq("organization_id", orgId);
+
+          totalEmployees += employeeCount || 0;
+          totalPendingExpenses += pendingExpenses || 0;
+          totalBudget += costCenters?.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0) || 0;
+          totalUsedBudget += costCenters?.reduce((sum, cc) => sum + (cc.budget_used || 0), 0) || 0;
+        }
 
         stats[company.id] = {
-          employeeCount: employeeCount || 0,
-          pendingExpenses: pendingExpenses || 0,
-          totalBudget,
-          usedBudget,
+          employeeCount: totalEmployees,
+          pendingExpenses: totalPendingExpenses,
+          totalBudget: totalBudget,
+          usedBudget: totalUsedBudget,
         };
       }
 
       setCompanyStats(stats);
     } catch (error) {
       console.error("Error fetching company stats:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("de-CH", {
       style: "currency",
       currency: "CHF",
       minimumFractionDigits: 0,
@@ -132,18 +130,21 @@ const Index = () => {
 
   const totalStats = getTotalStats();
 
+  // Filter companies for tabs - for Gateway users, show Gateway + MGI (combined)
+  const displayCompanies = aggregatedOrgs;
+
   return (
     <Layout
       title="Dashboard"
-      subtitle="Overview"
+      subtitle="Übersicht"
     >
       {/* Company Tabs for Management View */}
-      {isManagement && companies.length > 0 && (
+      {isManagement && displayCompanies.length > 0 && (
         <Tabs value={selectedCompany} onValueChange={setSelectedCompany} className="mb-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="all">All Companies</TabsTrigger>
-            {companies.map((company) => (
-              <TabsTrigger key={company.id} value={company.id}>
+          <TabsList className="w-full flex">
+            <TabsTrigger value="all" className="flex-1">Alle Unternehmen</TabsTrigger>
+            {displayCompanies.map((company) => (
+              <TabsTrigger key={company.id} value={company.id} className="flex-1">
                 {company.name}
               </TabsTrigger>
             ))}
@@ -152,16 +153,13 @@ const Index = () => {
           <TabsContent value="all" className="mt-6">
             {/* Overview for all companies */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {companies.map((company) => {
+              {displayCompanies.map((company) => {
                 const stats = companyStats[company.id] || {
                   employeeCount: 0,
                   pendingExpenses: 0,
                   totalBudget: 0,
                   usedBudget: 0,
                 };
-                const budgetPercent = stats.totalBudget > 0 
-                  ? Math.round((stats.usedBudget / stats.totalBudget) * 100) 
-                  : 0;
 
                 return (
                   <Card key={company.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setSelectedCompany(company.id)}>
@@ -176,14 +174,14 @@ const Index = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground flex items-center gap-2">
                             <Users className="h-4 w-4" />
-                            Employees
+                            Mitarbeiter
                           </span>
                           <span className="font-semibold">{stats.employeeCount}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground flex items-center gap-2">
                             <Receipt className="h-4 w-4" />
-                            Pending OPEX
+                            Offene OPEX
                           </span>
                           <span className="font-semibold">{stats.pendingExpenses}</span>
                         </div>
@@ -197,35 +195,35 @@ const Index = () => {
             {/* Global KPI Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <MetricCard
-                title="Total Budget"
+                title="Gesamtbudget"
                 value={formatCurrency(totalStats.totalBudget)}
-                changeLabel="All companies"
+                changeLabel="Alle Unternehmen"
                 icon={<Wallet size={20} className="text-accent" />}
                 variant="accent"
               />
               <MetricCard
-                title="Total Employees"
+                title="Mitarbeiter gesamt"
                 value={totalStats.employees.toString()}
-                changeLabel="Active users"
+                changeLabel="Aktive Benutzer"
                 icon={<Users size={20} className="text-success" />}
                 variant="success"
               />
               <MetricCard
-                title="Pending OPEX"
+                title="Offene OPEX"
                 value={totalStats.pendingExpenses.toString()}
-                changeLabel="Awaiting approval"
+                changeLabel="Warten auf Genehmigung"
                 icon={<Receipt size={20} className="text-info" />}
               />
               <MetricCard
-                title="Companies"
-                value={companies.length.toString()}
-                changeLabel="Internal organizations"
+                title="Unternehmen"
+                value={displayCompanies.length.toString()}
+                changeLabel="Interne Organisationen"
                 icon={<Building2 size={20} className="text-muted-foreground" />}
               />
             </div>
           </TabsContent>
 
-          {companies.map((company) => {
+          {displayCompanies.map((company) => {
             const stats = companyStats[company.id] || {
               employeeCount: 0,
               pendingExpenses: 0,
@@ -241,29 +239,29 @@ const Index = () => {
                 {/* Company-specific KPI Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <MetricCard
-                    title="Annual Budget"
+                    title="Jahresbudget"
                     value={formatCurrency(stats.totalBudget)}
-                    changeLabel={`${budgetPercent}% used`}
+                    changeLabel={`${budgetPercent}% verwendet`}
                     icon={<Wallet size={20} className="text-accent" />}
                     variant="accent"
                   />
                   <MetricCard
-                    title="Budget Used"
+                    title="Budget verwendet"
                     value={formatCurrency(stats.usedBudget)}
-                    changeLabel="Expenses to date"
+                    changeLabel="Ausgaben bis dato"
                     icon={<Wallet size={20} className="text-success" />}
                     variant="success"
                   />
                   <MetricCard
-                    title="Employees"
+                    title="Mitarbeiter"
                     value={stats.employeeCount.toString()}
-                    changeLabel="Active users"
+                    changeLabel="Aktive Benutzer"
                     icon={<Users size={20} className="text-info" />}
                   />
                   <MetricCard
-                    title="Pending OPEX"
+                    title="Offene OPEX"
                     value={stats.pendingExpenses.toString()}
-                    changeLabel="Awaiting approval"
+                    changeLabel="Warten auf Genehmigung"
                     icon={<Receipt size={20} className="text-muted-foreground" />}
                   />
                 </div>
@@ -284,34 +282,34 @@ const Index = () => {
       )}
 
       {/* Non-Management View or No Companies */}
-      {(!isManagement || companies.length === 0) && (
+      {(!isManagement || displayCompanies.length === 0) && (
         <>
           {/* KPI Metrics from database */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
-              title="Total Budget"
+              title="Gesamtbudget"
               value={formatCurrency(totalStats.totalBudget)}
-              changeLabel="All cost centers"
+              changeLabel="Alle Kostenstellen"
               icon={<Wallet size={20} className="text-accent" />}
               variant="accent"
             />
             <MetricCard
-              title="Employees"
+              title="Mitarbeiter"
               value={totalStats.employees.toString()}
-              changeLabel="Registered users"
+              changeLabel="Registrierte Benutzer"
               icon={<Users size={20} className="text-success" />}
               variant="success"
             />
             <MetricCard
-              title="Pending OPEX"
+              title="Offene OPEX"
               value={totalStats.pendingExpenses.toString()}
-              changeLabel="Awaiting approval"
+              changeLabel="Warten auf Genehmigung"
               icon={<Receipt size={20} className="text-info" />}
             />
             <MetricCard
-              title="Companies"
-              value={companies.length.toString()}
-              changeLabel="Internal organizations"
+              title="Unternehmen"
+              value={displayCompanies.length.toString()}
+              changeLabel="Interne Organisationen"
               icon={<Building2 size={20} className="text-muted-foreground" />}
             />
           </div>
