@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link2, Link2Off, Loader2, ExternalLink } from "lucide-react";
 import { useBexio } from "@/hooks/useBexio";
+import bexioLogo from "@/assets/bexio-logo.png";
 
 export function BexioConnectionCard() {
   const { isConnected, isLoading, connect, disconnect } = useBexio();
@@ -13,7 +14,7 @@ export function BexioConnectionCard() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
-              <span className="font-bold text-[#1a3c50] dark:text-[#4db8c7] text-xl tracking-tight" style={{ fontFamily: 'system-ui, sans-serif' }}>bexio</span>
+              <img src={bexioLogo} alt="Bexio" className="h-5 w-auto" />
               Integration
             </CardTitle>
             <CardDescription>
