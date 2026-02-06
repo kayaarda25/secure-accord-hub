@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Users, Mail, Phone, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Employee {
   id: string;
@@ -27,17 +28,22 @@ interface Employee {
 }
 
 export default function Employees() {
+  const { profile } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (profile?.organization_id) {
+      fetchEmployees();
+    }
+  }, [profile?.organization_id]);
 
   const fetchEmployees = async () => {
+    if (!profile?.organization_id) return;
+    
     try {
-      // Fetch profiles with organization info
+      // Fetch profiles from the same organization
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -56,6 +62,7 @@ export default function Employees() {
           )
         `)
         .eq("is_active", true)
+        .eq("organization_id", profile.organization_id)
         .order("first_name", { ascending: true });
 
       if (profilesError) throw profilesError;
