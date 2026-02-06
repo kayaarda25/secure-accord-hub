@@ -526,6 +526,7 @@ export default function Settings() {
                     <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
                     <SelectItem value="en">🇬🇧 English</SelectItem>
                     <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                    <SelectItem value="pt">🇵🇹 Português</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
