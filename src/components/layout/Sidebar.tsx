@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog, FolderKanban } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -155,7 +155,7 @@ export function Sidebar({
 
         {/* Collaboration Group */}
         {!collapsed ? <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
-            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks"]) ? "text-primary" : ""}`}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks", "/projects"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <MessageSquare size={18} />
                 <span>{t("nav.collaboration")}</span>
@@ -174,6 +174,10 @@ export function Sidebar({
               <NavLink to="/tasks" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/tasks") ? "nav-link-active" : ""}`}>
                 <CheckSquare size={16} className={isActive("/tasks") ? "text-primary" : ""} />
                 <span>{t("nav.tasks")}</span>
+              </NavLink>
+              <NavLink to="/projects" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/projects") ? "nav-link-active" : ""}`}>
+                <FolderKanban size={16} className={isActive("/projects") ? "text-primary" : ""} />
+                <span>{t("nav.projects")}</span>
               </NavLink>
             </CollapsibleContent>
           </Collapsible> : <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title={t("nav.collaboration")}>
