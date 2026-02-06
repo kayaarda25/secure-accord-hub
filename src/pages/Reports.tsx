@@ -1005,59 +1005,7 @@ export default function Reports() {
 
         {/* Generate Reports Tab */}
         <TabsContent value="generate" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reportTypes.map((report) => (
-              <Card key={report.value} className="hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <report.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{report.label}</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleGenerateReport(report.value, "pdf")}
-                      disabled={isGenerating === report.value}
-                    >
-                      {isGenerating === report.value ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
-                      PDF
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleGenerateReport(report.value, "excel")}
-                      disabled={isGenerating === report.value}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Excel
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleGenerateReport(report.value, "csv")}
-                      disabled={isGenerating === report.value}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      CSV
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Quick Date Range Selector */}
+          {/* Quick Date Range Selector - TOP */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Zeitraum für Reports</CardTitle>
@@ -1206,6 +1154,59 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Report Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reportTypes.map((report) => (
+              <Card key={report.value} className="hover:border-primary/50 transition-colors">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <report.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{report.label}</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGenerateReport(report.value, "pdf")}
+                      disabled={isGenerating === report.value}
+                    >
+                      {isGenerating === report.value ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      PDF
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGenerateReport(report.value, "excel")}
+                      disabled={isGenerating === report.value}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Excel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGenerateReport(report.value, "csv")}
+                      disabled={isGenerating === report.value}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      CSV
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         {/* Scheduled Reports Tab */}
