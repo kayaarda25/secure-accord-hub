@@ -502,18 +502,221 @@ export default function Reports() {
     }
   };
 
-  const handleGenerateReport = async (type: string, format: string) => {
+  const handleGenerateReport = async (type: string, exportFormat: string) => {
     setIsGenerating(type);
     
-    // Simulate report generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const fromDate = reportDateFrom ? reportDateFrom.toISOString().split('T')[0] : '';
+      const toDate = reportDateTo ? reportDateTo.toISOString().split('T')[0] : '';
+      const reportLabel = reportTypes.find((r) => r.value === type)?.label || type;
+      
+      let reportData: Record<string, unknown>[] = [];
+      let columns: { key: string; label: string }[] = [];
+      
+      // Fetch data based on report type
+      if (type === "opex") {
+        const { data: expenses } = await supabase
+          .from("opex_expenses")
+          .select("expense_number, title, amount, currency, category, status, expense_date")
+          .gte("expense_date", fromDate)
+          .lte("expense_date", toDate)
+          .order("expense_date", { ascending: false });
+        
+        reportData = (expenses || []).map(e => ({
+          expense_number: e.expense_number,
+          title: e.title,
+          amount: e.amount,
+          currency: e.currency,
+          category: e.category || "–",
+          status: e.status === "approved_finance" ? "Genehmigt" : e.status === "rejected" ? "Abgelehnt" : "Ausstehend",
+          expense_date: format(new Date(e.expense_date), "dd.MM.yyyy"),
+        }));
+        columns = [
+          { key: "expense_number", label: "Nr." },
+          { key: "title", label: "Titel" },
+          { key: "amount", label: "Betrag" },
+          { key: "currency", label: "Währung" },
+          { key: "category", label: "Kategorie" },
+          { key: "status", label: "Status" },
+          { key: "expense_date", label: "Datum" },
+        ];
+      } else if (type === "declarations") {
+        const { data: declarations } = await supabase
+          .from("declarations")
+          .select("declaration_number, country, declaration_type, status, period_start, period_end, total_mgi_balance, total_gia_balance")
+          .gte("period_start", fromDate)
+          .lte("period_end", toDate)
+          .order("period_start", { ascending: false });
+        
+        reportData = (declarations || []).map(d => ({
+          declaration_number: d.declaration_number,
+          country: d.country,
+          type: d.declaration_type,
+          status: d.status === "approved" ? "Genehmigt" : d.status === "rejected" ? "Abgelehnt" : "Ausstehend",
+          period: `${format(new Date(d.period_start), "dd.MM.yyyy")} - ${format(new Date(d.period_end), "dd.MM.yyyy")}`,
+          mgi_balance: d.total_mgi_balance || 0,
+          gia_balance: d.total_gia_balance || 0,
+        }));
+        columns = [
+          { key: "declaration_number", label: "Nr." },
+          { key: "country", label: "Land" },
+          { key: "type", label: "Typ" },
+          { key: "status", label: "Status" },
+          { key: "period", label: "Periode" },
+          { key: "mgi_balance", label: "MGI Balance (USD)" },
+          { key: "gia_balance", label: "GIA Balance (USD)" },
+        ];
+      } else if (type === "budget") {
+        const { data: budgets } = await supabase
+          .from("budget_plans")
+          .select("fiscal_year, planned_amount, q1_amount, q2_amount, q3_amount, q4_amount, status")
+          .eq("fiscal_year", new Date().getFullYear())
+          .order("fiscal_year", { ascending: false });
+        
+        reportData = (budgets || []).map(b => ({
+          fiscal_year: b.fiscal_year,
+          planned_amount: formatCurrency(b.planned_amount),
+          q1: formatCurrency(b.q1_amount || 0),
+          q2: formatCurrency(b.q2_amount || 0),
+          q3: formatCurrency(b.q3_amount || 0),
+          q4: formatCurrency(b.q4_amount || 0),
+          status: b.status === "approved" ? "Genehmigt" : "Entwurf",
+        }));
+        columns = [
+          { key: "fiscal_year", label: "Jahr" },
+          { key: "planned_amount", label: "Geplant" },
+          { key: "q1", label: "Q1" },
+          { key: "q2", label: "Q2" },
+          { key: "q3", label: "Q3" },
+          { key: "q4", label: "Q4" },
+          { key: "status", label: "Status" },
+        ];
+      } else if (type === "financial_summary") {
+        // Combine declarations data for financial summary
+        const { data: declarations } = await supabase
+          .from("declarations")
+          .select("country, total_mgi_balance, total_gia_balance, opex_mgi, opex_gia")
+          .gte("period_start", fromDate)
+          .lte("period_end", toDate);
+        
+        const totalMgi = (declarations || []).reduce((sum, d) => sum + (d.total_mgi_balance || 0), 0);
+        const totalGia = (declarations || []).reduce((sum, d) => sum + (d.total_gia_balance || 0), 0);
+        const totalOpexMgi = (declarations || []).reduce((sum, d) => sum + (d.opex_mgi || 0), 0);
+        const totalOpexGia = (declarations || []).reduce((sum, d) => sum + (d.opex_gia || 0), 0);
+        
+        reportData = [
+          { category: "MGI Balance", amount: formatCurrency(totalMgi, "USD") },
+          { category: "GIA Balance", amount: formatCurrency(totalGia, "USD") },
+          { category: "OPEX MGI", amount: formatCurrency(totalOpexMgi, "USD") },
+          { category: "OPEX GIA", amount: formatCurrency(totalOpexGia, "USD") },
+          { category: "Netto (MGI + GIA)", amount: formatCurrency(totalMgi + totalGia, "USD") },
+        ];
+        columns = [
+          { key: "category", label: "Kategorie" },
+          { key: "amount", label: "Betrag" },
+        ];
+      }
+      
+      const filename = `${type}_report_${format(reportDateFrom, "yyyy-MM-dd")}_${format(reportDateTo, "yyyy-MM-dd")}`;
+      
+      if (exportFormat === "csv") {
+        downloadCSV(reportData, columns, filename);
+      } else if (exportFormat === "excel") {
+        downloadExcel(reportData, columns, filename, reportLabel);
+      } else if (exportFormat === "pdf") {
+        downloadPDF(reportData, columns, filename, reportLabel);
+      }
+      
+      toast({
+        title: "Report heruntergeladen",
+        description: `${reportLabel}-Report wurde als ${exportFormat.toUpperCase()} exportiert.`,
+      });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast({
+        title: "Fehler",
+        description: "Report konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
+  // Download helper functions
+  const downloadCSV = (data: Record<string, unknown>[], columns: { key: string; label: string }[], filename: string) => {
+    const headers = columns.map(col => col.label).join(",");
+    const rows = data.map(row =>
+      columns.map(col => {
+        const value = row[col.key];
+        if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value ?? "";
+      }).join(",")
+    );
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    downloadBlob(blob, `${filename}.csv`);
+  };
+
+  const downloadExcel = (data: Record<string, unknown>[], columns: { key: string; label: string }[], filename: string, title: string) => {
+    const escapeXml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const headers = columns.map(col => `<th>${escapeXml(col.label)}</th>`).join("");
+    const rows = data.map(row =>
+      "<tr>" + columns.map(col => `<td>${escapeXml(String(row[col.key] ?? ""))}</td>`).join("") + "</tr>"
+    ).join("");
     
-    toast({
-      title: "Report generiert",
-      description: `Der ${reportTypes.find((r) => r.value === type)?.label}-Report wurde erstellt.`,
-    });
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#C9A227" ss:Pattern="Solid"/></Style></Styles>
+  <Worksheet ss:Name="${escapeXml(title)}">
+    <Table><Row ss:StyleID="Header">${headers}</Row>${rows}</Table>
+  </Worksheet>
+</Workbook>`;
     
-    setIsGenerating(null);
+    const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+    downloadBlob(blob, `${filename}.xls`);
+  };
+
+  const downloadPDF = (data: Record<string, unknown>[], columns: { key: string; label: string }[], filename: string, title: string) => {
+    const escapeHtml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("");
+    const rows = data.map(row =>
+      "<tr>" + columns.map(col => `<td>${escapeHtml(String(row[col.key] ?? ""))}</td>`).join("") + "</tr>"
+    ).join("");
+    
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>@page{margin:1cm}body{font-family:Arial,sans-serif;color:#333;padding:20px}
+.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #c9a227;padding-bottom:15px}
+.header h1{color:#1a1a2e;margin:0 0 5px;font-size:24px}.header p{color:#666;margin:0;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#1a1a2e;color:white;padding:10px 8px;text-align:left;font-weight:600}
+td{padding:8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}
+.footer{margin-top:30px;text-align:center;color:#666;font-size:10px}</style></head>
+<body><div class="header"><h1>${escapeHtml(title)}</h1>
+<p>Zeitraum: ${format(reportDateFrom, "dd.MM.yyyy")} – ${format(reportDateTo, "dd.MM.yyyy")}</p></div>
+<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>
+<div class="footer"><p>Erstellt am ${new Date().toLocaleString("de-DE")}</p></div></body></html>`;
+    
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleDeleteReport = async (id: string) => {
