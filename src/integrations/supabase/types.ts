@@ -2626,6 +2626,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_calendar_event_creator: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_calendar_event_participant: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_login_blocked: {
         Args: {
           _email: string
