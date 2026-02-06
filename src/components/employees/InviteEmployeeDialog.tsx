@@ -2,12 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Mail } from "lucide-react";
+import { Loader2, Mail, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type AppRole = "admin" | "state" | "management" | "finance" | "partner";
@@ -152,7 +150,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="invite-email">E-Mail-Adresse *</Label>
+              <span className="text-sm font-medium">E-Mail-Adresse *</span>
               <Input
                 id="invite-email"
                 type="email"
@@ -165,7 +163,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Abteilung</Label>
+                <span className="text-sm font-medium">Abteilung</span>
                 <Select value={department} onValueChange={setDepartment}>
                   <SelectTrigger>
                     <SelectValue placeholder="Auswählen" />
@@ -180,7 +178,7 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Position</Label>
+                <span className="text-sm font-medium">Position</span>
                 <Select value={position} onValueChange={setPosition}>
                   <SelectTrigger>
                     <SelectValue placeholder="Auswählen" />
@@ -197,22 +195,30 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
             </div>
 
             <div className="space-y-2">
-              <Label>Rollen zuweisen</Label>
+              <span className="text-sm font-medium">Rollen zuweisen</span>
               <div className="grid grid-cols-2 gap-2">
-                {ROLES.map(({ role, label }) => (
-                  <div
-                    key={role}
-                    className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 cursor-pointer"
-                    onClick={() => toggleRole(role)}
-                  >
-                    <Checkbox
-                      checked={selectedRoles.includes(role)}
-                      onCheckedChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    <Label className="cursor-pointer text-sm">{label}</Label>
-                  </div>
-                ))}
+                {ROLES.map(({ role, label }) => {
+                  const isChecked = selectedRoles.includes(role);
+                  return (
+                    <div
+                      key={role}
+                      className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 cursor-pointer"
+                      onClick={() => toggleRole(role)}
+                    >
+                      {/* Native checkbox visual to avoid Radix compose-refs loop */}
+                      <div
+                        className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
+                          isChecked
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-primary"
+                        }`}
+                      >
+                        {isChecked && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="cursor-pointer text-sm">{label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

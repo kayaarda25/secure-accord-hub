@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -119,7 +118,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="first_name">Vorname</Label>
+                <label htmlFor="first_name" className="text-sm font-medium leading-none">Vorname</label>
                 <Input
                   id="first_name"
                   value={formData.first_name}
@@ -128,7 +127,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="last_name">Nachname</Label>
+                <label htmlFor="last_name" className="text-sm font-medium leading-none">Nachname</label>
                 <Input
                   id="last_name"
                   value={formData.last_name}
@@ -139,7 +138,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
             </div>
 
             <div className="space-y-2">
-              <Label>Abteilung</Label>
+              <span className="text-sm font-medium leading-none">Abteilung</span>
               <Select
                 value={formData.department}
                 onValueChange={(value) => setFormData({ ...formData, department: value })}
@@ -158,7 +157,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
             </div>
 
             <div className="space-y-2">
-              <Label>Position</Label>
+              <span className="text-sm font-medium leading-none">Position</span>
               <Select
                 value={formData.position}
                 onValueChange={(value) => setFormData({ ...formData, position: value })}
@@ -177,7 +176,7 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefon</Label>
+              <label htmlFor="phone" className="text-sm font-medium leading-none">Telefon</label>
               <Input
                 id="phone"
                 value={formData.phone}

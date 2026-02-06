@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2, Shield, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 type AppRole = "admin" | "state" | "management" | "finance" | "partner";
@@ -112,14 +110,19 @@ export function RolesDialog({ employee, open, onOpenChange, onSuccess }: RolesDi
                 className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
                 onClick={() => toggleRole(role)}
               >
-                <Checkbox
-                  checked={isChecked}
-                  onCheckedChange={() => {}}
-                  className="pointer-events-none"
-                />
+                {/* Native checkbox visual to avoid Radix compose-refs loop */}
+                <div
+                  className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
+                    isChecked
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "border-primary"
+                  }`}
+                >
+                  {isChecked && <Check className="h-3 w-3" />}
+                </div>
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <Label className="cursor-pointer font-medium">{label}</Label>
+                    <span className="cursor-pointer font-medium text-sm">{label}</span>
                     <Badge variant={variant} className="text-xs">
                       {role}
                     </Badge>
