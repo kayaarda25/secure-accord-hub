@@ -13,12 +13,8 @@ export function BexioConnectionCard() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
-              <img 
-                src="https://www.bexio.com/hubfs/brand_assets/logo/bexio-logo.svg" 
-                alt="Bexio" 
-                className="h-5 w-auto dark:invert"
-              />
-              Bexio Integration
+              <span className="font-bold text-[#1a3c50] dark:text-[#4db8c7] text-xl tracking-tight" style={{ fontFamily: 'system-ui, sans-serif' }}>bexio</span>
+              Integration
             </CardTitle>
             <CardDescription>
               Verbinden Sie Bexio für automatische Buchhaltung
