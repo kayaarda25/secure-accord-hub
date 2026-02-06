@@ -33,6 +33,10 @@ interface FolderTreeProps {
   ) => void;
   onDeleteFolder: (folderId: string) => void;
   onRenameFolder?: (folderId: string, name: string) => void;
+  onDragOver?: (e: React.DragEvent, folderId: string) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, folderId: string) => void;
+  dropTargetId?: string | null;
 }
 
 interface FolderNodeProps {
@@ -50,6 +54,10 @@ interface FolderNodeProps {
   ) => void;
   onDeleteFolder: (folderId: string) => void;
   onRenameFolder?: (folderId: string, name: string) => void;
+  onDragOver?: (e: React.DragEvent, folderId: string) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, folderId: string) => void;
+  dropTargetId?: string | null;
 }
 
 function FolderNode({ 
@@ -61,6 +69,10 @@ function FolderNode({
   onCreateFolder,
   onDeleteFolder,
   onRenameFolder,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  dropTargetId,
 }: FolderNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
@@ -76,10 +88,14 @@ function FolderNode({
           "group flex items-center gap-1.5 py-1.5 px-2 rounded-md cursor-pointer transition-all duration-150 text-sm",
           isActive 
             ? "bg-accent/15 text-accent" 
-            : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+            : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
+          dropTargetId === folder.id && "ring-2 ring-accent bg-accent/10"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onFolderSelect(folder.id)}
+        onDragOver={onDragOver ? (e) => onDragOver(e, folder.id) : undefined}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop ? (e) => onDrop(e, folder.id) : undefined}
       >
         {hasChildren ? (
           <button
@@ -151,6 +167,10 @@ function FolderNode({
               onCreateFolder={onCreateFolder}
               onDeleteFolder={onDeleteFolder}
               onRenameFolder={onRenameFolder}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              dropTargetId={dropTargetId}
             />
           ))}
         </div>
@@ -174,6 +194,10 @@ export function FolderTree({
   onCreateFolder,
   onDeleteFolder,
   onRenameFolder,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  dropTargetId,
 }: FolderTreeProps) {
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
@@ -208,6 +232,10 @@ export function FolderTree({
             onCreateFolder={onCreateFolder}
             onDeleteFolder={onDeleteFolder}
             onRenameFolder={onRenameFolder}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            dropTargetId={dropTargetId}
           />
         ))}
       </div>
