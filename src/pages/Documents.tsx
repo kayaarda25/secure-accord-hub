@@ -144,13 +144,15 @@ export default function Documents() {
         setOrganizations(orgsData as Organization[]);
       }
 
-      // Fetch documents with signatures
+      // Fetch documents with signatures - only documents without folder_id (not in Explorer)
+      // OR documents that have signature requests
       const { data: docsData } = await supabase
         .from("documents")
         .select(`
           *,
           signatures:document_signatures(*, signature_image, signature_position)
         `)
+        .is("folder_id", null)
         .order("created_at", { ascending: false });
 
       if (docsData && profilesData) {
