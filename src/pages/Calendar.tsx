@@ -2,13 +2,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,7 +22,9 @@ import {
   X,
   Repeat,
   Share2,
+  Video,
 } from "lucide-react";
+import { CreateEventDialog } from "@/components/calendar/CreateEventDialog";
 
 interface CalendarEvent {
   id: string;
@@ -66,24 +62,16 @@ interface Profile {
 }
 
 const months = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "Januar", "Februar", "März", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember"
 ];
 
 const EVENT_TYPES = [
   { value: "meeting", label: "Meeting", icon: Users },
   { value: "deadline", label: "Deadline", icon: AlertTriangle },
-  { value: "finance", label: "Finance", icon: Wallet },
-  { value: "contract", label: "Contract", icon: FileText },
-  { value: "other", label: "Other", icon: CalendarIcon },
-];
-
-const RECURRENCE_OPTIONS = [
-  { value: "none", label: "No repeat" },
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
+  { value: "finance", label: "Finanzen", icon: Wallet },
+  { value: "contract", label: "Vertrag", icon: FileText },
+  { value: "other", label: "Sonstiges", icon: CalendarIcon },
 ];
 
 export default function Calendar() {
@@ -95,23 +83,6 @@ export default function Calendar() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    event_date: "",
-    start_time: "",
-    end_time: "",
-    location: "",
-    event_type: "meeting",
-    priority: "normal",
-    is_recurring: false,
-    recurrence_type: "none",
-    recurrence_end_date: "",
-    selectedParticipants: [] as string[],
-  });
 
   useEffect(() => {
     fetchEvents();
@@ -162,65 +133,6 @@ export default function Calendar() {
     }
   };
 
-  const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    if (!formData.title || !formData.event_date) {
-      toast.error("Please fill in required fields");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const { data: eventData, error: eventError } = await supabase
-        .from("calendar_events")
-        .insert({
-          title: formData.title,
-          description: formData.description || null,
-          event_date: formData.event_date,
-          start_time: formData.start_time || null,
-          end_time: formData.end_time || null,
-          location: formData.location || null,
-          event_type: formData.event_type,
-          priority: formData.priority,
-          is_recurring: formData.is_recurring,
-          recurrence_type: formData.is_recurring ? formData.recurrence_type : null,
-          recurrence_end_date: formData.is_recurring && formData.recurrence_end_date ? formData.recurrence_end_date : null,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-
-      if (eventError) throw eventError;
-
-      // Add participants if any selected
-      if (formData.selectedParticipants.length > 0) {
-        const participantsToInsert = formData.selectedParticipants.map(userId => ({
-          event_id: eventData.id,
-          user_id: userId,
-          status: "pending",
-        }));
-
-        const { error: partError } = await supabase
-          .from("calendar_event_participants")
-          .insert(participantsToInsert);
-
-        if (partError) throw partError;
-      }
-
-      toast.success("Event created successfully");
-      resetForm();
-      setCreateDialogOpen(false);
-      fetchEvents();
-    } catch (error) {
-      console.error("Error creating event:", error);
-      toast.error("Failed to create event");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleRespondToEvent = async (eventId: string, status: "accepted" | "declined") => {
     if (!user) return;
 
@@ -232,29 +144,12 @@ export default function Calendar() {
         .eq("user_id", user.id);
 
       if (error) throw error;
-      toast.success(`Event ${status}`);
+      toast.success(`Termin ${status === "accepted" ? "angenommen" : "abgelehnt"}`);
       fetchEvents();
     } catch (error) {
       console.error("Error responding to event:", error);
-      toast.error("Failed to respond to event");
+      toast.error("Fehler beim Antworten auf den Termin");
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      event_date: "",
-      start_time: "",
-      end_time: "",
-      location: "",
-      event_type: "meeting",
-      priority: "normal",
-      is_recurring: false,
-      recurrence_type: "none",
-      recurrence_end_date: "",
-      selectedParticipants: [],
-    });
   };
 
   const getEventIcon = (type: string) => {
@@ -286,11 +181,16 @@ export default function Calendar() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return new Date(dateStr).toLocaleDateString("de-DE", {
       weekday: "short",
       day: "numeric",
       month: "short",
     });
+  };
+
+  const isZoomLink = (location: string | null): boolean => {
+    if (!location) return false;
+    return location.includes("zoom.us") || location.includes("zoom.com");
   };
 
   const formatTime = (timeStr: string | null) => {
@@ -340,7 +240,7 @@ export default function Calendar() {
 
   if (isLoading) {
     return (
-      <Layout title="Calendar & Deadlines" subtitle="Overview of all important dates">
+      <Layout title="Kalender & Termine" subtitle="Übersicht aller wichtigen Termine">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -349,14 +249,14 @@ export default function Calendar() {
   }
 
   return (
-    <Layout title="Calendar & Deadlines" subtitle="Overview of all important dates">
+    <Layout title="Kalender & Termine" subtitle="Übersicht aller wichtigen Termine">
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
         <Card className="mb-6 border-warning/50 bg-warning/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Share2 className="h-4 w-4" />
-              Pending Invitations ({pendingInvitations.length})
+              Offene Einladungen ({pendingInvitations.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -374,7 +274,7 @@ export default function Calendar() {
                       onClick={() => handleRespondToEvent(event.id, "accepted")}
                     >
                       <Check className="h-4 w-4 mr-1" />
-                      Accept
+                      Annehmen
                     </Button>
                     <Button 
                       size="sm" 
@@ -382,7 +282,7 @@ export default function Calendar() {
                       onClick={() => handleRespondToEvent(event.id, "declined")}
                     >
                       <X className="h-4 w-4 mr-1" />
-                      Decline
+                      Ablehnen
                     </Button>
                   </div>
                 </div>
@@ -426,216 +326,17 @@ export default function Calendar() {
           </button>
         </div>
 
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="glow-gold">
-              <Plus size={16} className="mr-2" />
-              New Event
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Event</DialogTitle>
-              <DialogDescription>
-                Add a new event to your calendar
-              </DialogDescription>
-            </DialogHeader>
-            
-            <form onSubmit={handleCreateEvent} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Title *</Label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Event title"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={formData.event_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, event_date: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select 
-                    value={formData.event_type} 
-                    onValueChange={(v) => setFormData(prev => ({ ...prev, event_type: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EVENT_TYPES.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Start Time</Label>
-                  <Input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Time</Label>
-                  <Input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Location</Label>
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="Event location"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select 
-                  value={formData.priority} 
-                  onValueChange={(v) => setFormData(prev => ({ ...prev, priority: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Event description"
-                />
-              </div>
-
-              {/* Recurrence */}
-              <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="recurring"
-                    checked={formData.is_recurring}
-                    onCheckedChange={(checked) => 
-                      setFormData(prev => ({ ...prev, is_recurring: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="recurring" className="flex items-center gap-2">
-                    <Repeat className="h-4 w-4" />
-                    Recurring Event
-                  </Label>
-                </div>
-
-                {formData.is_recurring && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Repeat</Label>
-                      <Select 
-                        value={formData.recurrence_type} 
-                        onValueChange={(v) => setFormData(prev => ({ ...prev, recurrence_type: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {RECURRENCE_OPTIONS.filter(o => o.value !== "none").map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Until</Label>
-                      <Input
-                        type="date"
-                        value={formData.recurrence_end_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, recurrence_end_date: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Share with participants */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Share2 className="h-4 w-4" />
-                  Share with
-                </Label>
-                <div className="max-h-32 overflow-y-auto border rounded-lg p-2 space-y-1">
-                  {profiles
-                    .filter(p => p.user_id !== user?.id)
-                    .map(profile => (
-                      <div key={profile.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={profile.id}
-                          checked={formData.selectedParticipants.includes(profile.user_id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData(prev => ({
-                                ...prev,
-                                selectedParticipants: [...prev.selectedParticipants, profile.user_id]
-                              }));
-                            } else {
-                              setFormData(prev => ({
-                                ...prev,
-                                selectedParticipants: prev.selectedParticipants.filter(id => id !== profile.user_id)
-                              }));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={profile.id} className="text-sm">
-                          {profile.first_name || profile.last_name 
-                            ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
-                            : profile.email}
-                        </Label>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="glow-gold">
-                  {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4" />
-                  )}
-                  Create Event
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button className="glow-gold" onClick={() => setCreateDialogOpen(true)}>
+          <Plus size={16} className="mr-2" />
+          Neuer Termin
+        </Button>
+        
+        <CreateEventDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          profiles={profiles}
+          onEventCreated={fetchEvents}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -643,7 +344,7 @@ export default function Calendar() {
         <div className="lg:col-span-2 card-state p-4 sm:p-6">
           {/* Weekday Headers */}
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+            {["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"].map((day) => (
               <div
                 key={day}
                 className="text-center text-xs font-medium text-muted-foreground py-2"
@@ -724,12 +425,12 @@ export default function Calendar() {
 
         {/* Upcoming Events */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-foreground">Upcoming Events</h3>
+          <h3 className="font-semibold text-foreground">Anstehende Termine</h3>
           {upcomingEvents.length === 0 ? (
             <div className="card-state p-6 text-center">
               <CalendarIcon size={32} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">No upcoming events</p>
-              <p className="text-xs text-muted-foreground mt-1">Click "New Event" to add one</p>
+              <p className="text-sm text-muted-foreground">Keine anstehenden Termine</p>
+              <p className="text-xs text-muted-foreground mt-1">Klicken Sie auf "Neuer Termin" um einen hinzuzufügen</p>
             </div>
           ) : (
             upcomingEvents.map((event, index) => (
@@ -768,15 +469,31 @@ export default function Calendar() {
                   </div>
                   {event.location && (
                     <div className="flex items-center gap-2">
-                      <MapPin size={12} />
-                      <span>{event.location}</span>
+                      {isZoomLink(event.location) ? (
+                        <>
+                          <Video size={12} className="text-accent" />
+                          <a 
+                            href={event.location} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-accent hover:underline truncate"
+                          >
+                            Zoom-Meeting beitreten
+                          </a>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin size={12} />
+                          <span>{event.location}</span>
+                        </>
+                      )}
                     </div>
                   )}
                   {event.participants && event.participants.length > 0 && (
                     <div className="flex items-center gap-2">
                       <Users size={12} />
                       <span>
-                        {event.participants.length} participant{event.participants.length !== 1 ? "s" : ""}
+                        {event.participants.length} Teilnehmer
                       </span>
                     </div>
                   )}
