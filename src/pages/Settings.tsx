@@ -24,12 +24,15 @@ import {
   FileText,
   Upload,
   Loader2,
+  TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad } from "@/components/settings/SignaturePad";
 import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
+import { CarrierRatesSettings } from "@/components/settings/CarrierRatesSettings";
+import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 
 interface NotificationPreferences {
   id: string;
@@ -47,8 +50,12 @@ export default function Settings() {
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const { user, profile } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
+  const { permissions } = useOrganizationPermissions();
+  
+  // Only MGI Media users with finance/admin/management roles can see Rates tab
+  const canViewRates = permissions.isMgiMediaFinance;
 
   // Profile form state
   const [firstName, setFirstName] = useState(profile?.first_name || "");
@@ -229,6 +236,12 @@ export default function Settings() {
             <FileText className="h-4 w-4" />
             Briefkopf
           </TabsTrigger>
+          {canViewRates && (
+            <TabsTrigger value="rates" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Rates
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             Benachrichtigungen
@@ -353,6 +366,13 @@ export default function Settings() {
         <TabsContent value="letterhead">
           <LetterheadSettings />
         </TabsContent>
+
+        {/* Rates Tab - MGI Media only */}
+        {canViewRates && (
+          <TabsContent value="rates">
+            <CarrierRatesSettings />
+          </TabsContent>
+        )}
 
         {/* Notifications Tab */}
         <TabsContent value="notifications">

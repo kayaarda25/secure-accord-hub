@@ -351,6 +351,65 @@ export type Database = {
           },
         ]
       }
+      carrier_rates: {
+        Row: {
+          carrier_name: string
+          country: string
+          created_at: string
+          created_by: string
+          currency: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          inbound_rate: number
+          is_active: boolean
+          notes: string | null
+          organization_id: string | null
+          outbound_rate: number
+          updated_at: string
+        }
+        Insert: {
+          carrier_name: string
+          country: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          inbound_rate?: number
+          is_active?: boolean
+          notes?: string | null
+          organization_id?: string | null
+          outbound_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          carrier_name?: string
+          country?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          inbound_rate?: number
+          is_active?: boolean
+          notes?: string | null
+          organization_id?: string | null
+          outbound_rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_rates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_documents: {
         Row: {
           document_name: string
