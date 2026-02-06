@@ -65,6 +65,24 @@ const COUNTRIES = [
 
 const CURRENCIES = ["USD", "EUR", "CHF", "UGX"];
 
+const CARRIERS = [
+  "MTN",
+  "Airtel",
+  "Safaricom",
+  "Vodacom",
+  "Tigo",
+  "Orange",
+  "Africell",
+  "Ethio Telecom",
+  "Zamtel",
+  "TNM",
+  "Halotel",
+  "Smart Telecom",
+  "Lycamobile",
+  "Smile",
+  "Zantel",
+];
+
 export function CarrierRatesSettings() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -246,12 +264,18 @@ export function CarrierRatesSettings() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="carrier">Carrier / Anbieter *</Label>
-                  <Input
-                    id="carrier"
-                    value={carrierName}
-                    onChange={(e) => setCarrierName(e.target.value)}
-                    placeholder="z.B. MTN, Airtel, Safaricom"
-                  />
+                  <Select value={carrierName} onValueChange={setCarrierName}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Anbieter wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CARRIERS.map((carrier) => (
+                        <SelectItem key={carrier} value={carrier}>
+                          {carrier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="country">Land *</Label>
