@@ -4,11 +4,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Users, Mail, Phone, Building2 } from "lucide-react";
+import { Search, Users, Mail, Phone, MoreHorizontal, Edit, Shield, UserX, UserCheck, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
+import { RolesDialog } from "@/components/employees/RolesDialog";
+import { InviteEmployeeDialog } from "@/components/employees/InviteEmployeeDialog";
+
+type AppRole = "admin" | "state" | "management" | "finance" | "partner";
 
 interface Employee {
   id: string;
@@ -21,17 +29,22 @@ interface Employee {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
-  organization?: {
-    name: string;
-  } | null;
-  roles: string[];
+  roles: AppRole[];
 }
 
 export default function Employees() {
-  const { profile } = useAuth();
+  const { profile, hasRole } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Dialog states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [rolesDialogOpen, setRolesDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  const isAdmin = hasRole("admin");
 
   useEffect(() => {
     if (profile?.organization_id) {
@@ -43,7 +56,6 @@ export default function Employees() {
     if (!profile?.organization_id) return;
     
     try {
-      // Fetch profiles from the same organization
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -56,12 +68,8 @@ export default function Employees() {
           position,
           phone,
           avatar_url,
-          is_active,
-          organizations:organization_id (
-            name
-          )
+          is_active
         `)
-        .eq("is_active", true)
         .eq("organization_id", profile.organization_id)
         .order("first_name", { ascending: true });
 
@@ -75,19 +83,36 @@ export default function Employees() {
       if (rolesError) throw rolesError;
 
       // Map roles to profiles
-      const employeesWithRoles = (profiles || []).map((profile) => ({
-        ...profile,
-        organization: profile.organizations as { name: string } | null,
+      const employeesWithRoles = (profiles || []).map((p) => ({
+        ...p,
         roles: allRoles
-          ?.filter((r) => r.user_id === profile.user_id)
-          .map((r) => r.role) || [],
+          ?.filter((r) => r.user_id === p.user_id)
+          .map((r) => r.role as AppRole) || [],
       }));
 
       setEmployees(employeesWithRoles);
     } catch (error) {
       console.error("Error fetching employees:", error);
+      toast.error("Fehler beim Laden der Mitarbeiter");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleActive = async (employee: Employee) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: !employee.is_active })
+        .eq("id", employee.id);
+
+      if (error) throw error;
+
+      toast.success(employee.is_active ? "Mitarbeiter deaktiviert" : "Mitarbeiter aktiviert");
+      fetchEmployees();
+    } catch (error) {
+      console.error("Error toggling employee status:", error);
+      toast.error("Fehler beim Ändern des Status");
     }
   };
 
@@ -101,6 +126,9 @@ export default function Employees() {
       emp.position?.toLowerCase().includes(searchLower)
     );
   });
+
+  const activeCount = employees.filter((e) => e.is_active).length;
+  const inactiveCount = employees.filter((e) => !e.is_active).length;
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -121,21 +149,42 @@ export default function Employees() {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "?";
   };
 
+  const openEditDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setEditDialogOpen(true);
+  };
+
+  const openRolesDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setRolesDialogOpen(true);
+  };
+
   return (
-    <Layout title="Mitarbeiter" subtitle="Übersicht aller Mitarbeiter und ihrer Funktionen">
+    <Layout title="Mitarbeiter" subtitle="HR-Verwaltung und Mitarbeiterübersicht">
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header with stats */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Mitarbeiter</h1>
-            <p className="text-sm text-muted-foreground">
-              Übersicht aller Mitarbeiter und ihrer Funktionen
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm">
+              <Users size={18} className="text-muted-foreground" />
+              <span className="font-medium">{employees.length}</span>
+              <span className="text-muted-foreground">Gesamt</span>
+            </div>
+            <Badge variant="default">
+              {activeCount} Aktiv
+            </Badge>
+            {inactiveCount > 0 && (
+              <Badge variant="secondary">
+                {inactiveCount} Inaktiv
+              </Badge>
+            )}
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users size={18} />
-            <span>{employees.length} Mitarbeiter</span>
-          </div>
+          {isAdmin && (
+            <Button onClick={() => setInviteDialogOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Mitarbeiter einladen
+            </Button>
+          )}
         </div>
 
         {/* Search */}
@@ -158,7 +207,10 @@ export default function Employees() {
           <CardHeader>
             <CardTitle className="text-lg">Mitarbeiterliste</CardTitle>
             <CardDescription>
-              Alle aktiven Mitarbeiter mit ihren Kontaktdaten und Rollen
+              {isAdmin 
+                ? "Verwalten Sie Mitarbeiter, Rollen und Berechtigungen"
+                : "Übersicht aller Mitarbeiter in Ihrer Organisation"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -187,14 +239,15 @@ export default function Employees() {
                       <TableHead>Mitarbeiter</TableHead>
                       <TableHead>Position</TableHead>
                       <TableHead>Abteilung</TableHead>
-                      <TableHead>Organisation</TableHead>
                       <TableHead>Kontakt</TableHead>
                       <TableHead>Rollen</TableHead>
+                      <TableHead>Status</TableHead>
+                      {isAdmin && <TableHead className="w-[50px]"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredEmployees.map((employee) => (
-                      <TableRow key={employee.id}>
+                      <TableRow key={employee.id} className={!employee.is_active ? "opacity-50" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9">
@@ -206,6 +259,9 @@ export default function Employees() {
                             <div>
                               <p className="font-medium text-foreground">
                                 {employee.first_name || ""} {employee.last_name || ""}
+                                {!employee.first_name && !employee.last_name && (
+                                  <span className="text-muted-foreground italic">Kein Name</span>
+                                )}
                               </p>
                               <p className="text-xs text-muted-foreground">{employee.email}</p>
                             </div>
@@ -216,12 +272,6 @@ export default function Employees() {
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">{employee.department || "—"}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Building2 size={14} className="text-muted-foreground" />
-                            <span>{employee.organization?.name || "—"}</span>
-                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -254,6 +304,49 @@ export default function Employees() {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <Badge variant={employee.is_active ? "default" : "secondary"}>
+                            {employee.is_active ? "Aktiv" : "Inaktiv"}
+                          </Badge>
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditDialog(employee)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Bearbeiten
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openRolesDialog(employee)}>
+                                  <Shield className="mr-2 h-4 w-4" />
+                                  Rollen verwalten
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleToggleActive(employee)}
+                                  className={employee.is_active ? "text-destructive" : ""}
+                                >
+                                  {employee.is_active ? (
+                                    <>
+                                      <UserX className="mr-2 h-4 w-4" />
+                                      Deaktivieren
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="mr-2 h-4 w-4" />
+                                      Aktivieren
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -263,6 +356,27 @@ export default function Employees() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <EmployeeEditDialog
+        employee={selectedEmployee}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={fetchEmployees}
+      />
+
+      <RolesDialog
+        employee={selectedEmployee}
+        open={rolesDialogOpen}
+        onOpenChange={setRolesDialogOpen}
+        onSuccess={fetchEmployees}
+      />
+
+      <InviteEmployeeDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        onSuccess={fetchEmployees}
+      />
     </Layout>
   );
 }
