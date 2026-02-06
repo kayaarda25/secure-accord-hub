@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { INSURANCE_RATES, InsuranceRecordInput } from "@/hooks/useSocialInsurance";
 
 interface Profile {
   user_id: string;
@@ -30,13 +31,7 @@ interface Profile {
 interface AddInsuranceRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    user_id: string;
-    year: number;
-    month: number;
-    gross_salary: number;
-    notes?: string;
-  }) => void;
+  onSubmit: (data: InsuranceRecordInput) => void;
   isLoading?: boolean;
   currentYear: number;
   currentMonth: number;
@@ -59,6 +54,7 @@ export function AddInsuranceRecordDialog({
   const [year, setYear] = useState(currentYear.toString());
   const [month, setMonth] = useState(currentMonth.toString());
   const [grossSalary, setGrossSalary] = useState("");
+  const [bvgTotal, setBvgTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [employees, setEmployees] = useState<Profile[]>([]);
 
@@ -73,32 +69,59 @@ export function AddInsuranceRecordDialog({
     if (open) fetchEmployees();
   }, [open]);
 
+  // Calculate preview of automatic contributions
+  const grossValue = parseFloat(grossSalary) || 0;
+  const previewAhv = grossValue * INSURANCE_RATES.AHV_IV_EO * 2; // Total (AN + AG)
+  const previewAlv = grossValue * INSURANCE_RATES.ALV * 2;
+  const previewUvg = grossValue * (INSURANCE_RATES.UVG_NBU + INSURANCE_RATES.UVG_BU);
+  const previewKtg = grossValue * INSURANCE_RATES.KTG;
+
   const handleSubmit = () => {
-    if (!userId || !grossSalary) return;
+    if (!userId || !grossSalary || !bvgTotal) return;
 
     onSubmit({
       user_id: userId,
       year: parseInt(year),
       month: parseInt(month),
       gross_salary: parseFloat(grossSalary),
+      bvg_total: parseFloat(bvgTotal),
       notes: notes || undefined,
     });
 
     // Reset form
     setUserId("");
     setGrossSalary("");
+    setBvgTotal("");
     setNotes("");
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setUserId("");
+      setGrossSalary("");
+      setBvgTotal("");
+      setNotes("");
+    }
+    onOpenChange(open);
   };
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("de-CH", {
+      style: "currency",
+      currency: "CHF",
+    }).format(value);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Versicherungseintrag hinzufügen</DialogTitle>
           <DialogDescription>
             Erfassen Sie die Sozialversicherungsbeiträge für einen Mitarbeiter.
+            BVG wird manuell eingegeben, alle anderen Beiträge automatisch berechnet.
           </DialogDescription>
         </DialogHeader>
 
@@ -167,6 +190,48 @@ export function AddInsuranceRecordDialog({
           </div>
 
           <div className="grid gap-2">
+            <Label>BVG Total (CHF) - wird 50/50 aufgeteilt</Label>
+            <Input
+              type="number"
+              value={bvgTotal}
+              onChange={(e) => setBvgTotal(e.target.value)}
+              placeholder="z.B. 500 (Gesamtbetrag AN + AG)"
+              min="0"
+              step="10"
+            />
+            {bvgTotal && (
+              <p className="text-xs text-muted-foreground">
+                → AN: {formatCurrency(parseFloat(bvgTotal) / 2)} | AG: {formatCurrency(parseFloat(bvgTotal) / 2)}
+              </p>
+            )}
+          </div>
+
+          {/* Preview of automatic calculations */}
+          {grossValue > 0 && (
+            <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+              <p className="text-sm font-medium">Automatisch berechnete Beiträge:</p>
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                <div>
+                  <span className="font-medium">AHV/IV/EO:</span> {formatCurrency(previewAhv)}
+                  <span className="text-xs block">50% AN / 50% AG</span>
+                </div>
+                <div>
+                  <span className="font-medium">ALV:</span> {formatCurrency(previewAlv)}
+                  <span className="text-xs block">50% AN / 50% AG</span>
+                </div>
+                <div>
+                  <span className="font-medium">UVG:</span> {formatCurrency(previewUvg)}
+                  <span className="text-xs block">NBU (AN) + BU (AG)</span>
+                </div>
+                <div>
+                  <span className="font-medium">KTG:</span> {formatCurrency(previewKtg)}
+                  <span className="text-xs block">100% AG</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-2">
             <Label>Bemerkungen (optional)</Label>
             <Textarea
               value={notes}
@@ -178,12 +243,12 @@ export function AddInsuranceRecordDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Abbrechen
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!userId || !grossSalary || isLoading}
+            disabled={!userId || !grossSalary || !bvgTotal || isLoading}
           >
             {isLoading ? "Wird gespeichert..." : "Speichern"}
           </Button>
