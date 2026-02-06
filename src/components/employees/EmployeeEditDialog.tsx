@@ -49,11 +49,17 @@ const POSITIONS = [
 
 export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: EmployeeEditDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    first_name: string;
+    last_name: string;
+    department?: string;
+    position?: string;
+    phone: string;
+  }>({
     first_name: "",
     last_name: "",
-    department: "",
-    position: "",
+    department: undefined,
+    position: undefined,
     phone: "",
   });
 
@@ -62,8 +68,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
       setFormData({
         first_name: employee.first_name || "",
         last_name: employee.last_name || "",
-        department: employee.department || "",
-        position: employee.position || "",
+        department: employee.department ?? undefined,
+        position: employee.position ?? undefined,
         phone: employee.phone || "",
       });
     }
@@ -80,8 +86,8 @@ export function EmployeeEditDialog({ employee, open, onOpenChange, onSuccess }: 
         .update({
           first_name: formData.first_name || null,
           last_name: formData.last_name || null,
-          department: formData.department || null,
-          position: formData.position || null,
+          department: formData.department ?? null,
+          position: formData.position ?? null,
           phone: formData.phone || null,
         })
         .eq("id", employee.id);
