@@ -57,6 +57,24 @@ export default function Settings() {
   // Only MGI Media users with finance/admin/management roles can see Rates tab
   const canViewRates = permissions.isMgiMediaFinance;
 
+  // Language/region state (persisted)
+  const [language, setLanguage] = useState<string>(() => {
+    try {
+      return localStorage.getItem("app_language") || "de";
+    } catch {
+      return "de";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("app_language", language);
+    } catch {
+      // ignore
+    }
+    document.documentElement.lang = language;
+  }, [language]);
+
   // Profile form state
   const [firstName, setFirstName] = useState(profile?.first_name || "");
   const [lastName, setLastName] = useState(profile?.last_name || "");
@@ -518,7 +536,7 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div>
                 <Label>Sprache</Label>
-                <Select defaultValue="de">
+                <Select value={language} onValueChange={setLanguage}>
                   <SelectTrigger className="w-full mt-2">
                     <SelectValue />
                   </SelectTrigger>
