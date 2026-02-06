@@ -132,21 +132,25 @@ export function useOrganizations() {
   });
 }
 
-// Fetch users for a specific organization
+// Fetch users for a specific organization (uses security definer function to bypass RLS for sharing)
 export function useOrganizationUsers(organizationId?: string) {
   return useQuery({
     queryKey: ["organization-users", organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
 
+      // Use the security definer function to get users from any organization
       const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, email, first_name, last_name, organization_id")
-        .eq("organization_id", organizationId)
-        .eq("is_active", true);
+        .rpc("get_organization_users_for_sharing", { org_id: organizationId });
 
       if (error) throw error;
-      return data;
+      return data as Array<{
+        user_id: string;
+        email: string;
+        first_name: string | null;
+        last_name: string | null;
+        organization_id: string;
+      }>;
     },
     enabled: !!organizationId,
   });

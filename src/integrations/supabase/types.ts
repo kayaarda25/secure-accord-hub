@@ -2664,6 +2664,16 @@ export type Database = {
         Args: { _action: string; _user_id: string }
         Returns: boolean
       }
+      get_organization_users_for_sharing: {
+        Args: { org_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          last_name: string
+          organization_id: string
+          user_id: string
+        }[]
+      }
       get_user_meeting_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_org_type: {
         Args: { _user_id: string }
