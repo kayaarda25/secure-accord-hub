@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { ComplianceStatus } from "@/components/dashboard/ComplianceStatus";
 import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
-import { PartnerOverview } from "@/components/dashboard/PartnerOverview";
 import { FinanceChart } from "@/components/dashboard/FinanceChart";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,17 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMgiAggregation } from "@/hooks/useMgiAggregation";
 import {
-  Wallet,
+  FileText,
   Building2,
   Users,
   Receipt,
+  TrendingUp,
 } from "lucide-react";
 
 interface CompanyStats {
   employeeCount: number;
   pendingExpenses: number;
-  totalBudget: number;
-  usedBudget: number;
+  declarationsCount: number;
+  totalRevenue: number;
 }
 
 const Index = () => {
@@ -53,14 +52,22 @@ const Index = () => {
     try {
       const stats: Record<string, CompanyStats> = {};
 
+      // Fetch all declarations for revenue calculation
+      const { data: allDeclarations } = await supabase
+        .from("declarations")
+        .select("total_mgi_balance, total_gia_balance, status");
+
+      const totalRevenue = allDeclarations?.reduce((sum, decl) => {
+        return sum + (Number(decl.total_mgi_balance) || 0) + (Number(decl.total_gia_balance) || 0);
+      }, 0) || 0;
+
+      const declarationsCount = allDeclarations?.length || 0;
+
       for (const company of aggregatedOrgs) {
         const orgIds = getOrgIdsForStats(company.id);
         
-        // Aggregate stats from all org IDs (for MGI combined, this includes both MGI M and MGI C)
         let totalEmployees = 0;
         let totalPendingExpenses = 0;
-        let totalBudget = 0;
-        let totalUsedBudget = 0;
 
         for (const orgId of orgIds) {
           const { count: employeeCount } = await supabase
@@ -74,22 +81,15 @@ const Index = () => {
             .eq("cost_centers.organization_id", orgId)
             .eq("status", "pending");
 
-          const { data: costCenters } = await supabase
-            .from("cost_centers")
-            .select("budget_annual, budget_used")
-            .eq("organization_id", orgId);
-
           totalEmployees += employeeCount || 0;
           totalPendingExpenses += pendingExpenses || 0;
-          totalBudget += costCenters?.reduce((sum, cc) => sum + (cc.budget_annual || 0), 0) || 0;
-          totalUsedBudget += costCenters?.reduce((sum, cc) => sum + (cc.budget_used || 0), 0) || 0;
         }
 
         stats[company.id] = {
           employeeCount: totalEmployees,
           pendingExpenses: totalPendingExpenses,
-          totalBudget: totalBudget,
-          usedBudget: totalUsedBudget,
+          declarationsCount: declarationsCount,
+          totalRevenue: totalRevenue,
         };
       }
 
@@ -101,10 +101,10 @@ const Index = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency = "USD") => {
     return new Intl.NumberFormat("de-CH", {
       style: "currency",
-      currency: "CHF",
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -114,15 +114,20 @@ const Index = () => {
     const totals = {
       employees: 0,
       pendingExpenses: 0,
-      totalBudget: 0,
-      usedBudget: 0,
+      declarationsCount: 0,
+      totalRevenue: 0,
     };
+
+    // Get first company's declarations stats (they're global)
+    const firstStats = Object.values(companyStats)[0];
+    if (firstStats) {
+      totals.declarationsCount = firstStats.declarationsCount;
+      totals.totalRevenue = firstStats.totalRevenue;
+    }
 
     Object.values(companyStats).forEach((stats) => {
       totals.employees += stats.employeeCount;
       totals.pendingExpenses += stats.pendingExpenses;
-      totals.totalBudget += stats.totalBudget;
-      totals.usedBudget += stats.usedBudget;
     });
 
     return totals;
@@ -130,7 +135,7 @@ const Index = () => {
 
   const totalStats = getTotalStats();
 
-  // Filter companies for tabs - for Gateway users, show Gateway + MGI (combined)
+  // Filter companies for tabs
   const displayCompanies = aggregatedOrgs;
 
   return (
@@ -157,8 +162,8 @@ const Index = () => {
                 const stats = companyStats[company.id] || {
                   employeeCount: 0,
                   pendingExpenses: 0,
-                  totalBudget: 0,
-                  usedBudget: 0,
+                  declarationsCount: 0,
+                  totalRevenue: 0,
                 };
 
                 return (
@@ -195,17 +200,17 @@ const Index = () => {
             {/* Global KPI Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <MetricCard
-                title="Gesamtbudget"
-                value={formatCurrency(totalStats.totalBudget)}
-                changeLabel="Alle Unternehmen"
-                icon={<Wallet size={20} className="text-accent" />}
+                title="Declarations"
+                value={totalStats.declarationsCount.toString()}
+                changeLabel="Alle Perioden"
+                icon={<FileText size={20} className="text-accent" />}
                 variant="accent"
               />
               <MetricCard
-                title="Mitarbeiter gesamt"
-                value={totalStats.employees.toString()}
-                changeLabel="Aktive Benutzer"
-                icon={<Users size={20} className="text-success" />}
+                title="Gesamtumsatz"
+                value={formatCurrency(totalStats.totalRevenue)}
+                changeLabel="Aus Declarations"
+                icon={<TrendingUp size={20} className="text-success" />}
                 variant="success"
               />
               <MetricCard
@@ -227,29 +232,26 @@ const Index = () => {
             const stats = companyStats[company.id] || {
               employeeCount: 0,
               pendingExpenses: 0,
-              totalBudget: 0,
-              usedBudget: 0,
+              declarationsCount: 0,
+              totalRevenue: 0,
             };
-            const budgetPercent = stats.totalBudget > 0 
-              ? Math.round((stats.usedBudget / stats.totalBudget) * 100) 
-              : 0;
 
             return (
               <TabsContent key={company.id} value={company.id} className="mt-6">
                 {/* Company-specific KPI Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <MetricCard
-                    title="Jahresbudget"
-                    value={formatCurrency(stats.totalBudget)}
-                    changeLabel={`${budgetPercent}% verwendet`}
-                    icon={<Wallet size={20} className="text-accent" />}
+                    title="Declarations"
+                    value={stats.declarationsCount.toString()}
+                    changeLabel="Alle Perioden"
+                    icon={<FileText size={20} className="text-accent" />}
                     variant="accent"
                   />
                   <MetricCard
-                    title="Budget verwendet"
-                    value={formatCurrency(stats.usedBudget)}
-                    changeLabel="Ausgaben bis dato"
-                    icon={<Wallet size={20} className="text-success" />}
+                    title="Gesamtumsatz"
+                    value={formatCurrency(stats.totalRevenue)}
+                    changeLabel="Aus Declarations"
+                    icon={<TrendingUp size={20} className="text-success" />}
                     variant="success"
                   />
                   <MetricCard
@@ -266,14 +268,9 @@ const Index = () => {
                   />
                 </div>
 
-                {/* Finance Chart and Compliance for selected company */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                  <div className="lg:col-span-2">
-                    <FinanceChart />
-                  </div>
-                  <div>
-                    <ComplianceStatus />
-                  </div>
+                {/* Finance Chart for selected company */}
+                <div className="mb-6">
+                  <FinanceChart />
                 </div>
               </TabsContent>
             );
@@ -284,20 +281,20 @@ const Index = () => {
       {/* Non-Management View or No Companies */}
       {(!isManagement || displayCompanies.length === 0) && (
         <>
-          {/* KPI Metrics from database */}
+          {/* KPI Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <MetricCard
-              title="Gesamtbudget"
-              value={formatCurrency(totalStats.totalBudget)}
-              changeLabel="Alle Kostenstellen"
-              icon={<Wallet size={20} className="text-accent" />}
+              title="Declarations"
+              value={totalStats.declarationsCount.toString()}
+              changeLabel="Alle Perioden"
+              icon={<FileText size={20} className="text-accent" />}
               variant="accent"
             />
             <MetricCard
-              title="Mitarbeiter"
-              value={totalStats.employees.toString()}
-              changeLabel="Registrierte Benutzer"
-              icon={<Users size={20} className="text-success" />}
+              title="Gesamtumsatz"
+              value={formatCurrency(totalStats.totalRevenue)}
+              changeLabel="Aus Declarations"
+              icon={<TrendingUp size={20} className="text-success" />}
               variant="success"
             />
             <MetricCard
@@ -314,30 +311,20 @@ const Index = () => {
             />
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-2">
-              <FinanceChart />
-            </div>
-            <div>
-              <ComplianceStatus />
-            </div>
+          {/* Main Content - Finance Chart Full Width */}
+          <div className="mb-6">
+            <FinanceChart />
           </div>
         </>
       )}
 
-      {/* Secondary Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <PartnerOverview />
-        </div>
-        <div>
-          <UpcomingDeadlines />
-        </div>
+      {/* Upcoming Deadlines */}
+      <div className="mb-6">
+        <UpcomingDeadlines />
       </div>
 
       {/* Activity Feed - Full Width */}
-      <div className="mt-6">
+      <div>
         <ActivityFeed />
       </div>
     </Layout>
