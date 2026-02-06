@@ -51,8 +51,9 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
   const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState<string | undefined>(undefined);
-  const [position, setPosition] = useState<string | undefined>(undefined);
+  // Keep Select controlled for lifetime: empty string = no selection
+  const [department, setDepartment] = useState<string>("");
+  const [position, setPosition] = useState<string>("");
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
 
   const toggleRole = (role: AppRole) => {
@@ -63,8 +64,8 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
 
   const resetForm = () => {
     setEmail("");
-    setDepartment(undefined);
-    setPosition(undefined);
+    setDepartment("");
+    setPosition("");
     setSelectedRoles([]);
   };
 
@@ -86,8 +87,8 @@ export function InviteEmployeeDialog({ open, onOpenChange, onSuccess }: InviteEm
       const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
           email,
-          department: department || null,
-          position: position || null,
+          department: department ? department : null,
+          position: position ? position : null,
           organizationId: profile.organization_id,
           roles: selectedRoles,
         },
