@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { 
   FileText, 
   Download, 
@@ -19,12 +19,14 @@ import {
   ClipboardPaste,
   Share2,
   Info,
-  User,
   Clock,
+  GripVertical,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { useDocumentExplorer } from "@/hooks/useDocumentExplorer";
 import { useExplorerClipboard } from "@/hooks/useExplorerClipboard";
+import { useExplorerKeyboard } from "@/hooks/useExplorerKeyboard";
+import { useExplorerDragDrop } from "@/hooks/useExplorerDragDrop";
 import { useDocumentActivity } from "@/hooks/useDocumentActivity";
 import { FolderTree } from "@/components/explorer/FolderTree";
 import { TagManager, DocumentTags } from "@/components/explorer/TagManager";
@@ -65,6 +67,7 @@ interface RenameState {
 interface SelectedDocument {
   id: string;
   name: string;
+  file_path: string;
   file_size?: number;
   mime_type?: string;
   created_at: string;
@@ -81,6 +84,7 @@ export default function Explorer() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [renameState, setRenameState] = useState<RenameState>({
     open: false,
     type: "document",
@@ -117,6 +121,51 @@ export default function Explorer() {
     hasClipboard,
   } = useExplorerClipboard();
 
+  const {
+    draggedItem,
+    dropTargetId,
+    handleDragStart,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleDragEnd,
+  } = useExplorerDragDrop();
+
+  // Find the active doc object for keyboard shortcuts
+  const activeDoc = documents.find(d => d.id === activeDocId) || null;
+
+  const handleKeyboardCopy = useCallback(() => {
+    if (activeDoc) copyDocument(activeDoc.id, activeDoc.name, activeDoc.file_path);
+  }, [activeDoc, copyDocument]);
+
+  const handleKeyboardCut = useCallback(() => {
+    if (activeDoc) cutDocument(activeDoc.id, activeDoc.name, activeDoc.file_path);
+  }, [activeDoc, cutDocument]);
+
+  const handleKeyboardPaste = useCallback(() => {
+    pasteDocument(currentFolderId);
+  }, [pasteDocument, currentFolderId]);
+
+  const handleKeyboardDelete = useCallback(() => {
+    if (activeDoc) {
+      if (window.confirm(`"${activeDoc.name}" wirklich löschen?`)) {
+        deleteDocument.mutate({ id: activeDoc.id, filePath: activeDoc.file_path });
+        setActiveDocId(null);
+      }
+    }
+  }, [activeDoc, deleteDocument]);
+
+  useExplorerKeyboard({
+    selectedDocumentId: activeDocId,
+    selectedDocumentName: activeDoc?.name || null,
+    selectedDocumentFilePath: activeDoc?.file_path || null,
+    onCopy: handleKeyboardCopy,
+    onCut: handleKeyboardCut,
+    onPaste: handleKeyboardPaste,
+    onDelete: handleKeyboardDelete,
+    hasClipboard,
+  });
+
   // Get user's organization ID from profile
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile-org"],
@@ -132,14 +181,11 @@ export default function Explorer() {
     },
   });
 
-  // Filter folders: only show OPEX, Protokolle, and folders shared with user's org
+  // Filter folders
   const allowedFolderNames = ["opex", "protokolle"];
   const filteredFolders = folders.filter(folder => {
     const folderNameLower = folder.name.toLowerCase();
-    // Always show OPEX and Protokolle
     if (allowedFolderNames.includes(folderNameLower)) return true;
-    // Show folders created by user
-    // Show folders shared with user's organization
     const folderWithShares = folder as typeof folder & { folder_shares?: Array<{ shared_with_organization_id: string }> };
     if (folderWithShares.folder_shares && userProfile?.organization_id) {
       return folderWithShares.folder_shares.some(
@@ -195,21 +241,14 @@ export default function Explorer() {
 
   const handleTagSelect = (tagId: string) => {
     setSelectedTags(prev => 
-      prev.includes(tagId) 
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
   };
 
   const handleDownload = async (filePath: string, fileName: string, mimeType?: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from("documents")
-        .download(filePath);
-
+      const { data, error } = await supabase.storage.from("documents").download(filePath);
       if (error) throw error;
-
-      // Create blob with proper mime type
       const blob = new Blob([data], { type: mimeType || data.type });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -245,11 +284,8 @@ export default function Explorer() {
 
   const handleOpenDocumentDetails = (doc: SelectedDocument) => {
     setSelectedDocument(doc);
-    // Log view activity
-    logActivity.mutate({
-      documentId: doc.id,
-      action: "viewed",
-    });
+    setActiveDocId(doc.id);
+    logActivity.mutate({ documentId: doc.id, action: "viewed" });
   };
 
   const handleCreateFolderWithReturn = async (name: string, parentId: string | null): Promise<{ id: string } | void> => {
@@ -257,12 +293,8 @@ export default function Explorer() {
       createFolder.mutate(
         { name, parentId, silent: true },
         {
-          onSuccess: (result) => {
-            resolve({ id: result.data.id });
-          },
-          onError: () => {
-            resolve();
-          },
+          onSuccess: (result) => resolve({ id: result.data.id }),
+          onError: () => resolve(),
         }
       );
     });
@@ -276,10 +308,31 @@ export default function Explorer() {
   };
 
   const getFileIcon = (mimeType?: string) => {
-    if (!mimeType) return FileText;
-    if (mimeType.includes("pdf")) return FileText;
-    if (mimeType.includes("word") || mimeType.includes("document")) return FileText;
     return FileText;
+  };
+
+  // Drop zone props for the main content area (drop to current folder)
+  const mainDropProps = {
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    },
+    onDrop: async (e: React.DragEvent) => {
+      e.preventDefault();
+      try {
+        const raw = e.dataTransfer.getData("text/plain");
+        const item = JSON.parse(raw) as { type: string; id: string; name: string };
+        if (item.type === "document") {
+          const { error } = await supabase
+            .from("documents")
+            .update({ folder_id: currentFolderId })
+            .eq("id", item.id);
+          if (error) throw error;
+          toast.success(`"${item.name}" hierher verschoben`);
+          const { useQueryClient } = await import("@tanstack/react-query");
+        }
+      } catch {}
+    },
   };
 
   return (
@@ -287,7 +340,6 @@ export default function Explorer() {
       <div className="flex h-[calc(100vh-8rem)] gap-4">
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-4">
-          {/* Folders */}
           <Card className="flex-1 overflow-hidden">
             <CardContent className="p-3 h-full overflow-y-auto">
               <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -308,11 +360,14 @@ export default function Explorer() {
                   id,
                   currentName: name,
                 })}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                dropTargetId={dropTargetId}
               />
             </CardContent>
           </Card>
 
-          {/* Tags */}
           <Card>
             <CardContent className="p-3">
               <TagManager
@@ -330,7 +385,6 @@ export default function Explorer() {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-sm">
-              {/* Breadcrumb */}
               <button
                 onClick={() => setCurrentFolderId(null)}
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -352,15 +406,13 @@ export default function Explorer() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Paste Button */}
               {hasClipboard && (
                 <Button variant="outline" onClick={handlePaste}>
                   <ClipboardPaste size={16} className="mr-2" />
-                  Einfügen
+                  Einfügen (Ctrl+V)
                 </Button>
               )}
 
-              {/* View Mode Toggle */}
               <div className="flex items-center border rounded-md p-0.5">
                 <button
                   onClick={() => setViewMode("grid")}
@@ -382,22 +434,16 @@ export default function Explorer() {
                 </button>
               </div>
 
-              {/* Template Generator */}
-              <Button 
-                variant="outline" 
-                onClick={() => setShowTemplateGenerator(true)}
-              >
+              <Button variant="outline" onClick={() => setShowTemplateGenerator(true)}>
                 <LayoutTemplate size={16} className="mr-2" />
                 Vorlage erstellen
               </Button>
 
-              {/* Folder Upload Button */}
               <FolderUploader 
                 currentFolderId={currentFolderId}
                 onCreateFolder={handleCreateFolderWithReturn}
               />
 
-              {/* File Upload Button */}
               <FileUploaderWithSharing currentFolderId={currentFolderId} />
             </div>
           </div>
@@ -428,11 +474,18 @@ export default function Explorer() {
                           <div
                             key={folder.id}
                             className={cn(
-                              "group relative text-left transition-all duration-150 hover:scale-[1.02]",
+                              "group relative text-left transition-all duration-150",
                               viewMode === "grid"
                                 ? "p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-accent/30"
-                                : "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50"
+                                : "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50",
+                              dropTargetId === folder.id && "ring-2 ring-accent bg-accent/10 border-accent"
                             )}
+                            onDragOver={(e) => handleDragOver(e, folder.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, folder.id)}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, "folder", folder.id, folder.name)}
+                            onDragEnd={handleDragEnd}
                           >
                             <button
                               onClick={() => setCurrentFolderId(folder.id)}
@@ -448,7 +501,6 @@ export default function Explorer() {
                               </span>
                             </button>
                             
-                            {/* Folder Actions */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
@@ -486,6 +538,11 @@ export default function Explorer() {
                     <div>
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                         Dokumente ({filteredDocuments.length})
+                        {activeDocId && (
+                          <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">
+                            Ctrl+C Kopieren · Ctrl+X Ausschneiden · Ctrl+V Einfügen · Entf Löschen
+                          </span>
+                        )}
                       </h3>
                       
                       {viewMode === "grid" ? (
@@ -499,7 +556,15 @@ export default function Explorer() {
                             return (
                               <div
                                 key={doc.id}
-                                className="group p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-accent/30 transition-all duration-150"
+                                className={cn(
+                                  "group p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-accent/30 transition-all duration-150 cursor-grab active:cursor-grabbing",
+                                  activeDocId === doc.id && "ring-2 ring-accent/50 bg-accent/5"
+                                )}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, "document", doc.id, doc.name)}
+                                onDragEnd={handleDragEnd}
+                                onClick={() => setActiveDocId(doc.id)}
+                                onDoubleClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}
                               >
                                 <div className="flex items-start justify-between mb-3">
                                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
@@ -527,19 +592,11 @@ export default function Explorer() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
                                         <Copy size={14} className="mr-2" />
-                                        Kopieren
+                                        Kopieren (Ctrl+C)
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
                                         <Scissors size={14} className="mr-2" />
-                                        Ausschneiden
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem>
-                                        <Eye size={14} className="mr-2" />
-                                        Anzeigen
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem>
-                                        <Tag size={14} className="mr-2" />
-                                        Tag hinzufügen
+                                        Ausschneiden (Ctrl+X)
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem 
@@ -547,15 +604,13 @@ export default function Explorer() {
                                         onClick={() => handleDelete(doc.id, doc.file_path)}
                                       >
                                         <Trash2 size={14} className="mr-2" />
-                                        Löschen
+                                        Löschen (Entf)
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
 
-                                <h4 className="font-medium text-sm truncate mb-1">
-                                  {doc.name}
-                                </h4>
+                                <h4 className="font-medium text-sm truncate mb-1">{doc.name}</h4>
                                 <p className="text-xs text-muted-foreground mb-2">
                                   {formatFileSize(doc.file_size)} • {format(new Date(doc.created_at), "dd.MM.yyyy", { locale: de })}
                                 </p>
@@ -595,19 +650,23 @@ export default function Explorer() {
                                 key={doc.id}
                                 className={cn(
                                   "group grid grid-cols-12 gap-4 items-center px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer",
-                                  selectedDocument?.id === doc.id && "bg-muted/70"
+                                  activeDocId === doc.id && "bg-accent/10 ring-1 ring-accent/30",
+                                  selectedDocument?.id === doc.id && !activeDocId && "bg-muted/70"
                                 )}
-                                onClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}
+                                onClick={() => setActiveDocId(doc.id)}
+                                onDoubleClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, "document", doc.id, doc.name)}
+                                onDragEnd={handleDragEnd}
                               >
                                 {/* Name Column */}
                                 <div className="col-span-5 flex items-center gap-3 min-w-0">
+                                  <GripVertical size={14} className="text-muted-foreground/40 flex-shrink-0 cursor-grab" />
                                   <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                                     <FileIcon size={16} className="text-accent" />
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <h4 className="font-medium text-sm truncate">
-                                      {doc.name}
-                                    </h4>
+                                    <h4 className="font-medium text-sm truncate">{doc.name}</h4>
                                     {docTags.length > 0 && (
                                       <div className="mt-0.5">
                                         <DocumentTags
@@ -651,10 +710,7 @@ export default function Explorer() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="text-xs text-muted-foreground truncate">
-                                          {formatDistanceToNow(new Date(doc.updated_at), { 
-                                            locale: de, 
-                                            addSuffix: true 
-                                          })}
+                                          {formatDistanceToNow(new Date(doc.updated_at), { locale: de, addSuffix: true })}
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -691,10 +747,7 @@ export default function Explorer() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleDownload(doc.file_path, doc.name, doc.mime_type);
-                                      logActivity.mutate({
-                                        documentId: doc.id,
-                                        action: "downloaded",
-                                      });
+                                      logActivity.mutate({ documentId: doc.id, action: "downloaded" });
                                     }}
                                   >
                                     <Download size={14} />
@@ -726,11 +779,11 @@ export default function Explorer() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
                                         <Copy size={14} className="mr-2" />
-                                        Kopieren
+                                        Kopieren (Ctrl+C)
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
                                         <Scissors size={14} className="mr-2" />
-                                        Ausschneiden
+                                        Ausschneiden (Ctrl+X)
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
                                         <Share2 size={14} className="mr-2" />
@@ -746,7 +799,7 @@ export default function Explorer() {
                                         onClick={() => handleDelete(doc.id, doc.file_path)}
                                       >
                                         <Trash2 size={14} className="mr-2" />
-                                        Löschen
+                                        Löschen (Entf)
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -791,13 +844,11 @@ export default function Explorer() {
         )}
       </div>
 
-      {/* Template Generator Dialog */}
       <TemplateGenerator
         open={showTemplateGenerator}
         onOpenChange={setShowTemplateGenerator}
       />
 
-      {/* Rename Dialog */}
       <RenameDialog
         open={renameState.open}
         onOpenChange={(open) => setRenameState(prev => ({ ...prev, open }))}
