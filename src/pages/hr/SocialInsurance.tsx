@@ -1,23 +1,67 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { HeartHandshake, Shield, FileCheck, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { HeartHandshake, Shield, FileCheck, Plus } from "lucide-react";
+import { useSocialInsurance } from "@/hooks/useSocialInsurance";
+import { SocialInsuranceTable } from "@/components/hr/SocialInsuranceTable";
+import { AddInsuranceRecordDialog } from "@/components/hr/AddInsuranceRecordDialog";
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("de-CH", {
+    style: "currency",
+    currency: "CHF",
+  }).format(value);
+};
 
 export default function SocialInsurance() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const {
+    records,
+    isLoading,
+    canManage,
+    currentYear,
+    currentMonth,
+    monthlyTotals,
+    upsertRecord,
+    deleteRecord,
+  } = useSocialInsurance();
+
+  const handleAddRecord = (data: {
+    user_id: string;
+    year: number;
+    month: number;
+    gross_salary: number;
+    notes?: string;
+  }) => {
+    upsertRecord.mutate(data, {
+      onSuccess: () => setDialogOpen(false),
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Sozialversicherungen</h1>
-        <p className="text-muted-foreground">AHV, BVG, UVG und weitere Sozialversicherungsbeiträge</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Sozialversicherungen</h1>
+          <p className="text-muted-foreground">AHV, BVG, UVG und weitere Sozialversicherungsbeiträge</p>
+        </div>
+        {canManage && (
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Eintrag hinzufügen
+          </Button>
+        )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">AHV/IV/EO</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
-            <p className="text-xs text-muted-foreground">Monatliche Beiträge</p>
+            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.ahv)}</div>
+            <p className="text-xs text-muted-foreground">Monatliche Beiträge (AN + AG)</p>
           </CardContent>
         </Card>
         <Card>
@@ -26,8 +70,8 @@ export default function SocialInsurance() {
             <HeartHandshake className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
-            <p className="text-xs text-muted-foreground">Pensionskassenbeiträge</p>
+            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.bvg)}</div>
+            <p className="text-xs text-muted-foreground">Pensionskassenbeiträge (AN + AG)</p>
           </CardContent>
         </Card>
         <Card>
@@ -36,18 +80,8 @@ export default function SocialInsurance() {
             <FileCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.uvg)}</div>
             <p className="text-xs text-muted-foreground">Unfallversicherung</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Meldungen</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Offene Meldungen</p>
           </CardContent>
         </Card>
       </div>
@@ -56,18 +90,30 @@ export default function SocialInsurance() {
         <CardHeader>
           <CardTitle>Versicherungsübersicht</CardTitle>
           <CardDescription>
-            Dieses Modul ist in Entwicklung. Hier werden Sie Sozialversicherungsbeiträge verwalten und Meldungen erstellen können.
+            Sozialversicherungsbeiträge nach Mitarbeiter und Periode
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-48 border-2 border-dashed border-muted rounded-lg">
-            <div className="text-center text-muted-foreground">
-              <HeartHandshake className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Versicherungsübersichten und Abrechnungen werden hier angezeigt</p>
-            </div>
-          </div>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Laden...</div>
+          ) : (
+            <SocialInsuranceTable
+              records={records}
+              canManage={canManage}
+              onDelete={(id) => deleteRecord.mutate(id)}
+            />
+          )}
         </CardContent>
       </Card>
+
+      <AddInsuranceRecordDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSubmit={handleAddRecord}
+        isLoading={upsertRecord.isPending}
+        currentYear={currentYear}
+        currentMonth={currentMonth}
+      />
     </div>
   );
 }

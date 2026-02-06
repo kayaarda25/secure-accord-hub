@@ -1,12 +1,49 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Palmtree, Calendar, Clock, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Palmtree, Calendar, Clock, CheckCircle, Plus } from "lucide-react";
+import { useVacations } from "@/hooks/useVacations";
+import { VacationRequestDialog } from "@/components/hr/VacationRequestDialog";
+import { VacationRequestsTable } from "@/components/hr/VacationRequestsTable";
 
 export default function Vacations() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const {
+    requests,
+    requestsLoading,
+    remainingDays,
+    pendingCount,
+    approvedThisMonth,
+    currentAbsences,
+    isManager,
+    createRequest,
+    approveRequest,
+    rejectRequest,
+    cancelRequest,
+  } = useVacations();
+
+  const handleCreateRequest = (data: {
+    start_date: string;
+    end_date: string;
+    days_count: number;
+    reason?: string;
+  }) => {
+    createRequest.mutate(data, {
+      onSuccess: () => setDialogOpen(false),
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Ferienmanagement</h1>
-        <p className="text-muted-foreground">Verwalten Sie Ferienanträge und Abwesenheiten</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Ferienmanagement</h1>
+          <p className="text-muted-foreground">Verwalten Sie Ferienanträge und Abwesenheiten</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Antrag stellen
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -16,7 +53,7 @@ export default function Vacations() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{pendingCount}</div>
             <p className="text-xs text-muted-foreground">Warten auf Genehmigung</p>
           </CardContent>
         </Card>
@@ -26,7 +63,7 @@ export default function Vacations() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{approvedThisMonth}</div>
             <p className="text-xs text-muted-foreground">Diesen Monat</p>
           </CardContent>
         </Card>
@@ -36,8 +73,10 @@ export default function Vacations() {
             <Palmtree className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
-            <p className="text-xs text-muted-foreground">Durchschnitt pro Mitarbeiter</p>
+            <div className="text-2xl font-bold">
+              {remainingDays !== null ? remainingDays : "—"}
+            </div>
+            <p className="text-xs text-muted-foreground">Ihr Ferienguthaben</p>
           </CardContent>
         </Card>
         <Card>
@@ -46,7 +85,7 @@ export default function Vacations() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{currentAbsences}</div>
             <p className="text-xs text-muted-foreground">Heute abwesend</p>
           </CardContent>
         </Card>
@@ -54,20 +93,34 @@ export default function Vacations() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ferienübersicht</CardTitle>
+          <CardTitle>Ferienanträge</CardTitle>
           <CardDescription>
-            Dieses Modul ist in Entwicklung. Hier werden Sie Ferienanträge erstellen, genehmigen und verwalten können.
+            {isManager
+              ? "Übersicht aller Ferienanträge"
+              : "Ihre eingereichten Ferienanträge"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-48 border-2 border-dashed border-muted rounded-lg">
-            <div className="text-center text-muted-foreground">
-              <Palmtree className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Ferienkalender und Antragsformulare werden hier angezeigt</p>
-            </div>
-          </div>
+          {requestsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Laden...</div>
+          ) : (
+            <VacationRequestsTable
+              requests={requests}
+              isManager={isManager}
+              onApprove={(id) => approveRequest.mutate(id)}
+              onReject={(id, reason) => rejectRequest.mutate({ requestId: id, reason })}
+              onCancel={(id) => cancelRequest.mutate(id)}
+            />
+          )}
         </CardContent>
       </Card>
+
+      <VacationRequestDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSubmit={handleCreateRequest}
+        isLoading={createRequest.isPending}
+      />
     </div>
   );
 }
