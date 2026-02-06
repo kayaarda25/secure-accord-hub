@@ -331,6 +331,162 @@ export default function Declarations() {
   const infosiShare = marginToSplit * marginSplitInfosiPercent;
   const mgiShare = marginToSplit * marginSplitMgiPercent;
 
+  // Get or create Declarations folder in Explorer
+  const getOrCreateDeclarationsFolder = async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    const { data: existingFolder } = await supabase
+      .from("document_folders")
+      .select("id")
+      .eq("name", "Declarations")
+      .maybeSingle();
+    
+    if (existingFolder) return existingFolder.id;
+    
+    const { data: newFolder, error } = await supabase
+      .from("document_folders")
+      .insert({
+        name: "Declarations",
+        created_by: user.id,
+        color: "#1a1a2e",
+        icon: "file-text",
+      })
+      .select("id")
+      .single();
+    
+    if (error) {
+      console.error("Error creating Declarations folder:", error);
+      return null;
+    }
+    return newFolder.id;
+  };
+
+  // Save Declaration document to Explorer as DOCX
+  const saveDeclarationToExplorer = async (declarationData: any, declarationNumber: string) => {
+    if (!user) return;
+
+    try {
+      const { Document, Packer, Paragraph, Table, TableRow: DocTableRow, TableCell: DocTableCell, TextRun, WidthType, AlignmentType, HeadingLevel } = await import("docx");
+
+      const periodDisplay = formData.periodStart && formData.periodEnd
+        ? `${formatDate(formData.periodStart)} - ${formatDate(formData.periodEnd)}`
+        : "N/A";
+      const fileName = `Declaration_${formData.declarationType}_${formData.country}_${formData.periodStart}_${formData.periodEnd}.docx`;
+
+      // Build summary rows
+      const summaryItems = [
+        ["Country", formData.country],
+        ["Type", formData.declarationType],
+        ["Period", periodDisplay],
+        ["MGI Balance", `${formatNumber(totalMgiBalance)} USD`],
+        ["GIA Balance", `${formatNumber(totalGiaBalance)} USD`],
+        ["Margin Held", `${formatNumber(marginHeld)} USD`],
+        ["GRX Fiscalization", `${formatNumber(parseNumber(formData.grxFiscalization))} USD`],
+        ["Network Management", `${formatNumber(parseNumber(formData.networkManagementSystem))} USD`],
+        ["INFOSI Share (${formData.marginSplitInfosi}%)", `${formatNumber(infosiShare)} USD`],
+        ["MGI Share (${formData.marginSplitMgi}%)", `${formatNumber(mgiShare)} USD`],
+      ];
+
+      const tableRows = summaryItems.map(([label, value]) =>
+        new DocTableRow({
+          children: [
+            new DocTableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
+              width: { size: 50, type: WidthType.PERCENTAGE },
+            }),
+            new DocTableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: value })], alignment: AlignmentType.RIGHT })],
+              width: { size: 50, type: WidthType.PERCENTAGE },
+            }),
+          ],
+        })
+      );
+
+      const doc = new Document({
+        sections: [{
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: `Declaration ${formData.declarationType}`, bold: true, size: 48 })],
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: `${formData.country} — ${periodDisplay}`, size: 28, color: "666666" })],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 },
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: `Nr: ${declarationNumber}`, bold: true })],
+              spacing: { after: 300 },
+            }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new DocTableRow({
+                  children: [
+                    new DocTableCell({
+                      children: [new Paragraph({ children: [new TextRun({ text: "Feld", bold: true, color: "FFFFFF" })] })],
+                      shading: { fill: "1A1A2E" },
+                    }),
+                    new DocTableCell({
+                      children: [new Paragraph({ children: [new TextRun({ text: "Wert", bold: true, color: "FFFFFF" })], alignment: AlignmentType.RIGHT })],
+                      shading: { fill: "1A1A2E" },
+                    }),
+                  ],
+                }),
+                ...tableRows,
+              ],
+            }),
+            ...(formData.notes ? [
+              new Paragraph({
+                children: [new TextRun({ text: "Notizen: ", bold: true }), new TextRun({ text: formData.notes })],
+                spacing: { before: 300 },
+              }),
+            ] : []),
+            new Paragraph({
+              children: [new TextRun({ text: `Automatisch generiert am ${new Date().toLocaleString("de-DE")}`, size: 20, color: "999999" })],
+              spacing: { before: 400 },
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const filePath = `${user.id}/declarations/${Date.now()}_${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob, { contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+
+      if (uploadError) {
+        console.error("Error uploading declaration document:", uploadError);
+        return;
+      }
+
+      const folderId = await getOrCreateDeclarationsFolder();
+
+      const { error: docError } = await supabase
+        .from("documents")
+        .insert({
+          name: `Declaration ${formData.declarationType} ${formData.country} ${periodDisplay}`,
+          type: "report",
+          file_path: filePath,
+          file_size: blob.size,
+          mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          uploaded_by: user.id,
+          folder_id: folderId,
+          description: `Declaration ${formData.declarationType} für ${formData.country}. Zeitraum: ${periodDisplay}. Margin: ${formatNumber(marginHeld)} USD`,
+        });
+
+      if (docError) {
+        console.error("Error creating declaration document entry:", docError);
+      }
+    } catch (error) {
+      console.error("Error saving declaration to explorer:", error);
+    }
+  };
+
   const generatePDF = () => {
     const periodDisplay = formData.periodStart && formData.periodEnd 
       ? `${formatDate(formData.periodStart)} - ${formatDate(formData.periodEnd)}`
@@ -760,6 +916,9 @@ export default function Declarations() {
 
       await logAction("CREATE", "declarations", data.id);
       
+      // Save to Explorer
+      await saveDeclarationToExplorer(data, data.declaration_number || "");
+
       // Generate PDF
       generatePDF();
       
