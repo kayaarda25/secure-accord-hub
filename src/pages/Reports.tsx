@@ -26,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -36,6 +42,7 @@ import {
   Plus,
   Clock,
   Calendar,
+  CalendarIcon,
   Mail,
   Trash2,
   Play,
@@ -48,6 +55,7 @@ import {
   AlertCircle,
   Globe,
   PieChart,
+  Filter,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +64,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { QuarterlyReport } from "@/components/reports/QuarterlyReport";
 import { RevenueByRegion } from "@/components/reports/RevenueByRegion";
+import { cn } from "@/lib/utils";
 
 interface ScheduledReport {
   id: string;
@@ -140,6 +149,12 @@ export default function Reports() {
   const [opexMonthlyEntries, setOpexMonthlyEntries] = useState<OpexMonthlyEntry[]>([]);
   const [isLoadingOpex, setIsLoadingOpex] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<OpexMonthlyEntry | null>(null);
+  
+  // Date filter state
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState<Date>(new Date(currentYear, 0, 1)); // 01.01.current year
+  const [dateTo, setDateTo] = useState<Date>(new Date(currentYear, 11, 31)); // 31.12.current year
+  
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -151,7 +166,7 @@ export default function Reports() {
   useEffect(() => {
     fetchScheduledReports();
     fetchOpexData();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const fetchOpexData = async () => {
     setIsLoadingOpex(true);
@@ -162,7 +177,10 @@ export default function Reports() {
         .select("id, name, org_type")
         .in("org_type", ["mgi_media", "mgi_communications", "gateway"]);
 
-      // Fetch all OPEX expenses with cost center info
+      // Fetch all OPEX expenses with cost center info (filtered by date range)
+      const fromDate = format(dateFrom, "yyyy-MM-dd");
+      const toDate = format(dateTo, "yyyy-MM-dd");
+      
       const { data: expenses } = await supabase
         .from("opex_expenses")
         .select(`
@@ -177,6 +195,8 @@ export default function Reports() {
           submitted_by,
           cost_center_id
         `)
+        .gte("expense_date", fromDate)
+        .lte("expense_date", toDate)
         .order("expense_date", { ascending: false });
 
       // Fetch cost centers with organization info
@@ -537,6 +557,89 @@ export default function Reports() {
 
         {/* OPEX Overview Tab */}
         <TabsContent value="opex-overview" className="space-y-6">
+          {/* Date Range Filter */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Zeitraum:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[160px] justify-start text-left font-normal",
+                          !dateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "dd.MM.yyyy") : "Von Datum"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={(date) => date && setDateFrom(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground">bis</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[160px] justify-start text-left font-normal",
+                          !dateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "dd.MM.yyyy") : "Bis Datum"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={(date) => date && setDateTo(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDateFrom(new Date(currentYear, 0, 1));
+                      setDateTo(new Date(currentYear, 11, 31));
+                    }}
+                  >
+                    Aktuelles Jahr
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDateFrom(new Date(currentYear - 1, 0, 1));
+                      setDateTo(new Date(currentYear - 1, 11, 31));
+                    }}
+                  >
+                    Letztes Jahr
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {isLoadingOpex ? (
             <div className="text-center py-12 text-muted-foreground">
               <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
