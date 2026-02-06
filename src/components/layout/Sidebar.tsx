@@ -3,7 +3,7 @@ import mgiLogo from "@/assets/mgi-media-logo.jfif";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
-import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -14,7 +14,7 @@ export function Sidebar({
   onMobileClose
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [openGroups, setOpenGroups] = useState<string[]>(["finances", "documents", "collaboration"]);
+  const [openGroups, setOpenGroups] = useState<string[]>(["finances", "documents", "collaboration", "hr"]);
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -153,7 +153,7 @@ export function Sidebar({
 
         {/* Collaboration Group */}
         {!collapsed ? <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
-            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks", "/employees"]) ? "text-primary" : ""}`}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <MessageSquare size={18} />
                 <span>Collaboration</span>
@@ -173,13 +173,40 @@ export function Sidebar({
                 <CheckSquare size={16} className={isActive("/tasks") ? "text-primary" : ""} />
                 <span>Tasks</span>
               </NavLink>
+            </CollapsibleContent>
+          </Collapsible> : <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
+            <MessageSquare size={18} className={isActive("/communication") ? "text-primary" : ""} />
+          </NavLink>}
+
+        {/* HR Group */}
+        {!collapsed ? <Collapsible open={openGroups.includes("hr")} onOpenChange={() => toggleGroup("hr")}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/employees", "/hr/vacations", "/hr/payroll", "/hr/social-insurance"]) ? "text-primary" : ""}`}>
+              <div className="flex items-center gap-3">
+                <UserCog size={18} />
+                <span>HR</span>
+              </div>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.includes("hr") ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
               <NavLink to="/employees" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/employees") ? "nav-link-active" : ""}`}>
                 <Users size={16} className={isActive("/employees") ? "text-primary" : ""} />
                 <span>Mitarbeiter</span>
               </NavLink>
+              <NavLink to="/hr/vacations" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/vacations") ? "nav-link-active" : ""}`}>
+                <Palmtree size={16} className={isActive("/hr/vacations") ? "text-primary" : ""} />
+                <span>Ferienmanagement</span>
+              </NavLink>
+              <NavLink to="/hr/payroll" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/payroll") ? "nav-link-active" : ""}`}>
+                <BadgeEuro size={16} className={isActive("/hr/payroll") ? "text-primary" : ""} />
+                <span>Löhne</span>
+              </NavLink>
+              <NavLink to="/hr/social-insurance" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/social-insurance") ? "nav-link-active" : ""}`}>
+                <HeartHandshake size={16} className={isActive("/hr/social-insurance") ? "text-primary" : ""} />
+                <span>Sozialversicherungen</span>
+              </NavLink>
             </CollapsibleContent>
-          </Collapsible> : <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
-            <MessageSquare size={18} className={isActive("/communication") ? "text-primary" : ""} />
+          </Collapsible> : <NavLink to="/employees" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/employees") ? "nav-link-active" : ""}`} title="HR">
+            <UserCog size={18} className={isActive("/employees") ? "text-primary" : ""} />
           </NavLink>}
 
         {/* Administration Section */}

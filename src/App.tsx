@@ -28,6 +28,9 @@ import Security from "./pages/Security";
 import Settings from "./pages/Settings";
 import Protocols from "./pages/Protocols";
 import Employees from "./pages/Employees";
+import Vacations from "./pages/hr/Vacations";
+import Payroll from "./pages/hr/Payroll";
+import SocialInsurance from "./pages/hr/SocialInsurance";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +145,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Employees />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hr/vacations"
+              element={
+                <ProtectedRoute>
+                  <Vacations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hr/payroll"
+              element={
+                <ProtectedRoute>
+                  <Payroll />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hr/social-insurance"
+              element={
+                <ProtectedRoute>
+                  <SocialInsurance />
                 </ProtectedRoute>
               }
             />
