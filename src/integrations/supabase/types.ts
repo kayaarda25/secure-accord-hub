@@ -2154,6 +2154,69 @@ export type Database = {
         }
         Relationships: []
       }
+      social_insurance_records: {
+        Row: {
+          ahv_iv_eo_employee: number
+          ahv_iv_eo_employer: number
+          alv_employee: number
+          alv_employer: number
+          bvg_employee: number
+          bvg_employer: number
+          created_at: string
+          created_by: string
+          gross_salary: number
+          id: string
+          ktg: number
+          month: number
+          notes: string | null
+          updated_at: string
+          user_id: string
+          uvg_bu: number
+          uvg_nbu: number
+          year: number
+        }
+        Insert: {
+          ahv_iv_eo_employee?: number
+          ahv_iv_eo_employer?: number
+          alv_employee?: number
+          alv_employer?: number
+          bvg_employee?: number
+          bvg_employer?: number
+          created_at?: string
+          created_by: string
+          gross_salary?: number
+          id?: string
+          ktg?: number
+          month: number
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+          uvg_bu?: number
+          uvg_nbu?: number
+          year: number
+        }
+        Update: {
+          ahv_iv_eo_employee?: number
+          ahv_iv_eo_employer?: number
+          alv_employee?: number
+          alv_employer?: number
+          bvg_employee?: number
+          bvg_employer?: number
+          created_at?: string
+          created_by?: string
+          gross_salary?: number
+          id?: string
+          ktg?: number
+          month?: number
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+          uvg_bu?: number
+          uvg_nbu?: number
+          year?: number
+        }
+        Relationships: []
+      }
       task_participants: {
         Row: {
           id: string
@@ -2437,6 +2500,90 @@ export type Database = {
           is_current?: boolean | null
           last_active_at?: string | null
           user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vacation_entitlements: {
+        Row: {
+          carried_over: number
+          created_at: string
+          id: string
+          total_days: number
+          updated_at: string
+          used_days: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          carried_over?: number
+          created_at?: string
+          id?: string
+          total_days?: number
+          updated_at?: string
+          used_days?: number
+          user_id: string
+          year: number
+        }
+        Update: {
+          carried_over?: number
+          created_at?: string
+          id?: string
+          total_days?: number
+          updated_at?: string
+          used_days?: number
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      vacation_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          days_count: number
+          end_date: string
+          id: string
+          reason: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days_count: number
+          end_date: string
+          id?: string
+          reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days_count?: number
+          end_date?: string
+          id?: string
+          reason?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
