@@ -121,23 +121,61 @@ export function useDocumentExplorer() {
 
   // Create folder mutation
   const createFolder = useMutation({
-    mutationFn: async ({ name, parentId, color, silent }: { name: string; parentId?: string | null; color?: string; silent?: boolean }) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ 
+      name, 
+      parentId, 
+      color, 
+      silent,
+      shareWithOrganizations = [],
+      shareWithUsers = [],
+    }: { 
+      name: string; 
+      parentId?: string | null; 
+      color?: string; 
+      silent?: boolean;
+      shareWithOrganizations?: string[];
+      shareWithUsers?: string[];
+    }) => {
+      // Create the folder
+      const { data: folder, error } = await supabase
         .from("document_folders")
         .insert({
           name,
           parent_id: parentId || null,
           color: color || "#c97c5d",
           created_by: user!.id,
+          is_shared: shareWithOrganizations.length > 0,
         })
         .select()
         .single();
 
       if (error) throw error;
-      return { data, silent };
+
+      // Create folder shares for organizations
+      if (shareWithOrganizations.length > 0) {
+        const shares = shareWithOrganizations.map(orgId => ({
+          folder_id: folder.id,
+          shared_with_organization_id: orgId,
+          shared_by: user!.id,
+        }));
+
+        const { error: shareError } = await supabase
+          .from("folder_shares")
+          .insert(shares);
+
+        if (shareError) {
+          console.error("Error creating folder shares:", shareError);
+        }
+      }
+
+      // Note: User-level sharing would require a new table (folder_user_shares)
+      // For now, we share with organizations which includes all their members
+
+      return { data: folder, silent };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["document-folders"] });
+      queryClient.invalidateQueries({ queryKey: ["folder-shares"] });
       if (!result.silent) {
         toast.success("Ordner erstellt");
       }

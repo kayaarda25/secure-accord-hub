@@ -298,8 +298,8 @@ export default function Explorer() {
                 folders={filteredFolders}
                 currentFolderId={currentFolderId}
                 onFolderSelect={setCurrentFolderId}
-                onCreateFolder={(name, parentId, color) => 
-                  createFolder.mutate({ name, parentId, color })
+                onCreateFolder={(name, parentId, color, shareWithOrganizations, shareWithUsers) => 
+                  createFolder.mutate({ name, parentId, color, shareWithOrganizations, shareWithUsers })
                 }
                 onDeleteFolder={(id) => deleteFolder.mutate(id)}
                 onRenameFolder={(id, name) => setRenameState({

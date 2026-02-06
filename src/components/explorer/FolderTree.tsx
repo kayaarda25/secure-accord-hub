@@ -17,22 +17,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { CreateFolderDialog } from "./CreateFolderDialog";
 
 interface FolderTreeProps {
   folders: DocumentFolder[];
   currentFolderId: string | null;
   onFolderSelect: (folderId: string | null) => void;
-  onCreateFolder: (name: string, parentId: string | null, color?: string) => void;
+  onCreateFolder: (
+    name: string, 
+    parentId: string | null, 
+    color?: string,
+    shareWithOrganizations?: string[],
+    shareWithUsers?: string[]
+  ) => void;
   onDeleteFolder: (folderId: string) => void;
   onRenameFolder?: (folderId: string, name: string) => void;
 }
@@ -43,19 +41,16 @@ interface FolderNodeProps {
   level: number;
   currentFolderId: string | null;
   onFolderSelect: (folderId: string | null) => void;
-  onCreateFolder: (name: string, parentId: string | null, color?: string) => void;
+  onCreateFolder: (
+    name: string, 
+    parentId: string | null, 
+    color?: string,
+    shareWithOrganizations?: string[],
+    shareWithUsers?: string[]
+  ) => void;
   onDeleteFolder: (folderId: string) => void;
   onRenameFolder?: (folderId: string, name: string) => void;
 }
-
-const FOLDER_COLORS = [
-  "#c97c5d", // copper
-  "#5d9cc9", // blue
-  "#5dc985", // green
-  "#c95d9c", // pink
-  "#9c5dc9", // purple
-  "#c9b85d", // gold
-];
 
 function FolderNode({ 
   folder, 
@@ -69,20 +64,10 @@ function FolderNode({
 }: FolderNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
 
   const children = folders.filter(f => f.parent_id === folder.id);
   const hasChildren = children.length > 0;
   const isActive = currentFolderId === folder.id;
-
-  const handleCreateSubfolder = () => {
-    if (newFolderName.trim()) {
-      onCreateFolder(newFolderName.trim(), folder.id, newFolderColor);
-      setNewFolderName("");
-      setShowNewFolderDialog(false);
-    }
-  };
 
   return (
     <div>
@@ -171,47 +156,13 @@ function FolderNode({
         </div>
       )}
 
-      <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Neuer Unterordner in "{folder.name}"</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Ordnername</Label>
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Ordnername eingeben..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Farbe</Label>
-              <div className="flex gap-2">
-                {FOLDER_COLORS.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setNewFolderColor(color)}
-                    className={cn(
-                      "w-8 h-8 rounded-full transition-transform",
-                      newFolderColor === color && "ring-2 ring-offset-2 ring-accent scale-110"
-                    )}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleCreateSubfolder} disabled={!newFolderName.trim()}>
-              Erstellen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateFolderDialog
+        open={showNewFolderDialog}
+        onOpenChange={setShowNewFolderDialog}
+        onCreateFolder={onCreateFolder}
+        parentId={folder.id}
+        parentName={folder.name}
+      />
     </div>
   );
 }
@@ -225,18 +176,8 @@ export function FolderTree({
   onRenameFolder,
 }: FolderTreeProps) {
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
 
   const rootFolders = folders.filter(f => !f.parent_id);
-
-  const handleCreateRootFolder = () => {
-    if (newFolderName.trim()) {
-      onCreateFolder(newFolderName.trim(), null, newFolderColor);
-      setNewFolderName("");
-      setShowNewFolderDialog(false);
-    }
-  };
 
   return (
     <div className="space-y-1">
@@ -282,47 +223,11 @@ export function FolderTree({
         Neuer Ordner
       </Button>
 
-      <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Neuer Ordner</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Ordnername</Label>
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Ordnername eingeben..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Farbe</Label>
-              <div className="flex gap-2">
-                {FOLDER_COLORS.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setNewFolderColor(color)}
-                    className={cn(
-                      "w-8 h-8 rounded-full transition-transform",
-                      newFolderColor === color && "ring-2 ring-offset-2 ring-accent scale-110"
-                    )}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleCreateRootFolder} disabled={!newFolderName.trim()}>
-              Erstellen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateFolderDialog
+        open={showNewFolderDialog}
+        onOpenChange={setShowNewFolderDialog}
+        onCreateFolder={onCreateFolder}
+      />
     </div>
   );
 }
