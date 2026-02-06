@@ -123,7 +123,6 @@ const reportTypes = [
   { value: "opex", label: "OPEX-Übersicht", icon: FileText },
   { value: "declarations", label: "Deklarationen", icon: FileText },
   { value: "budget", label: "Budget-Analyse", icon: BarChart },
-  { value: "compliance", label: "Compliance-Status", icon: FileText },
   { value: "financial_summary", label: "Finanzzusammenfassung", icon: BarChart },
 ];
 
@@ -150,10 +149,15 @@ export default function Reports() {
   const [isLoadingOpex, setIsLoadingOpex] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<OpexMonthlyEntry | null>(null);
   
-  // Date filter state
+  // Date filter state for OPEX
   const currentYear = new Date().getFullYear();
   const [dateFrom, setDateFrom] = useState<Date>(new Date(currentYear, 0, 1)); // 01.01.current year
   const [dateTo, setDateTo] = useState<Date>(new Date(currentYear, 11, 31)); // 31.12.current year
+  
+  // Date filter state for Report Generation
+  const [reportDateFrom, setReportDateFrom] = useState<Date>(new Date(currentYear, 0, 1));
+  const [reportDateTo, setReportDateTo] = useState<Date>(new Date(currentYear, 11, 31));
+  const [activeReportPeriod, setActiveReportPeriod] = useState<string>("year");
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1062,20 +1066,143 @@ export default function Reports() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 items-center">
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">Heute</Button>
-                  <Button variant="outline" size="sm">Diese Woche</Button>
-                  <Button variant="outline" size="sm">Dieser Monat</Button>
-                  <Button variant="outline" size="sm">Dieses Quartal</Button>
-                  <Button variant="outline" size="sm">Dieses Jahr</Button>
+                  <Button 
+                    variant={activeReportPeriod === "today" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      setReportDateFrom(today);
+                      setReportDateTo(today);
+                      setActiveReportPeriod("today");
+                    }}
+                  >
+                    Heute
+                  </Button>
+                  <Button 
+                    variant={activeReportPeriod === "week" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const startOfWeek = new Date(today);
+                      startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+                      const endOfWeek = new Date(startOfWeek);
+                      endOfWeek.setDate(startOfWeek.getDate() + 6);
+                      setReportDateFrom(startOfWeek);
+                      setReportDateTo(endOfWeek);
+                      setActiveReportPeriod("week");
+                    }}
+                  >
+                    Diese Woche
+                  </Button>
+                  <Button 
+                    variant={activeReportPeriod === "month" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                      setReportDateFrom(startOfMonth);
+                      setReportDateTo(endOfMonth);
+                      setActiveReportPeriod("month");
+                    }}
+                  >
+                    Dieser Monat
+                  </Button>
+                  <Button 
+                    variant={activeReportPeriod === "quarter" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const currentQuarter = Math.floor(today.getMonth() / 3);
+                      const startOfQuarter = new Date(today.getFullYear(), currentQuarter * 3, 1);
+                      const endOfQuarter = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0);
+                      setReportDateFrom(startOfQuarter);
+                      setReportDateTo(endOfQuarter);
+                      setActiveReportPeriod("quarter");
+                    }}
+                  >
+                    Dieses Quartal
+                  </Button>
+                  <Button 
+                    variant={activeReportPeriod === "year" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      setReportDateFrom(new Date(today.getFullYear(), 0, 1));
+                      setReportDateTo(new Date(today.getFullYear(), 11, 31));
+                      setActiveReportPeriod("year");
+                    }}
+                  >
+                    Dieses Jahr
+                  </Button>
                 </div>
                 <div className="flex gap-2 items-center ml-auto">
-                  <Label>Von:</Label>
-                  <Input type="date" className="w-40" />
-                  <Label>Bis:</Label>
-                  <Input type="date" className="w-40" />
+                  <Label className="text-muted-foreground">Von:</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[140px] justify-start text-left font-normal",
+                          !reportDateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reportDateFrom ? format(reportDateFrom, "dd.MM.yyyy") : "tt.mm.jjjj"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={reportDateFrom}
+                        onSelect={(date) => {
+                          if (date) {
+                            setReportDateFrom(date);
+                            setActiveReportPeriod("custom");
+                          }
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Label className="text-muted-foreground">Bis:</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[140px] justify-start text-left font-normal",
+                          !reportDateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reportDateTo ? format(reportDateTo, "dd.MM.yyyy") : "tt.mm.jjjj"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={reportDateTo}
+                        onSelect={(date) => {
+                          if (date) {
+                            setReportDateTo(date);
+                            setActiveReportPeriod("custom");
+                          }
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
+              </div>
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Ausgewählter Zeitraum: <span className="font-medium text-foreground">{format(reportDateFrom, "dd.MM.yyyy")} – {format(reportDateTo, "dd.MM.yyyy")}</span>
+                </p>
               </div>
             </CardContent>
           </Card>
