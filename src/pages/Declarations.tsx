@@ -189,6 +189,32 @@ export default function Declarations() {
       ? `${formatDate(formData.periodStart)} - ${formatDate(formData.periodEnd)}`
       : "Not specified";
 
+    // Calculate balances per provider for MGI
+    const mgiBalances: Record<string, number> = {};
+    TELECOM_PROVIDERS.forEach(provider => {
+      const rev = parseNumber(formData.mgiIncomingRevenue[provider]?.usd || "0");
+      const cst = parseNumber(formData.mgiOutgoingCost[provider]?.usd || "0");
+      mgiBalances[provider] = rev - cst;
+    });
+
+    // Calculate balances per provider for GIA
+    const giaBalances: Record<string, number> = {};
+    TELECOM_PROVIDERS.forEach(provider => {
+      const rev = parseNumber(formData.giaOutgoingRevenue[provider]?.usd || "0");
+      const cst = parseNumber(formData.giaIncomingCost[provider]?.usd || "0");
+      giaBalances[provider] = rev - cst;
+    });
+
+    const opexMgi = parseNumber(formData.opexMgi);
+    const opexGia = parseNumber(formData.opexGia);
+    const grxFiscalization = parseNumber(formData.grxFiscalization);
+    const networkManagement = parseNumber(formData.networkManagementSystem);
+    const marginSplitInfosiPercent = parseNumber(formData.marginSplitInfosi);
+    const marginSplitMgiPercent = parseNumber(formData.marginSplitMgi);
+
+    const mgiOutgoingWithOpex = totals.mgiOutgoingTotals.usd + opexMgi;
+    const giaIncomingWithOpex = totals.giaIncomingTotals.usd + opexGia;
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -196,255 +222,318 @@ export default function Declarations() {
         <meta charset="utf-8">
         <title>Declaration ${formData.declarationType} - ${formData.country}</title>
         <style>
-          @page { margin: 20mm; size: A4; }
+          @page { margin: 15mm; size: A4; }
+          * { box-sizing: border-box; }
           body { 
-            font-family: Arial, sans-serif; 
-            font-size: 10px; 
-            color: #333; 
+            font-family: Calibri, Arial, sans-serif; 
+            font-size: 9pt; 
+            color: #000; 
             padding: 0;
             margin: 0;
+            line-height: 1.3;
           }
+          
+          /* Header */
           .header { 
             display: flex; 
             justify-content: space-between; 
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            border-bottom: 0;
           }
-          .header-left h1 { 
-            font-size: 18px; 
-            margin: 0 0 5px 0;
-            color: #1a1a2e;
-          }
-          .header-left h2 { 
-            font-size: 14px; 
-            margin: 0 0 5px 0;
-            color: #1a1a2e;
+          .header-left { }
+          .header-left .country { 
+            font-size: 14pt; 
             font-weight: bold;
+            color: #000;
+            margin-bottom: 2px;
           }
-          .header-left p { 
-            font-size: 11px; 
-            margin: 0;
-            color: #666;
+          .header-left .title { 
+            font-size: 14pt; 
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 2px;
+          }
+          .header-left .period { 
+            font-size: 14pt; 
+            font-weight: bold;
+            color: #000;
           }
           .logo { 
             text-align: right;
           }
+          .logo img {
+            height: 40px;
+          }
           .logo-text {
-            font-size: 28px;
+            font-size: 24pt;
             font-weight: bold;
             color: #c9a227;
+            font-style: italic;
           }
           
+          /* Section titles */
           .section-title {
             font-weight: bold;
-            font-size: 11px;
-            margin: 15px 0 5px 0;
+            font-size: 10pt;
+            margin: 12px 0 8px 0;
+            color: #000;
           }
           
+          /* Tables */
           table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 5px 0 15px 0;
-            font-size: 9px;
+            margin: 0 0 2px 0;
+            font-size: 9pt;
           }
           
-          .data-table {
-            border: 1px solid #7ba3c9;
-          }
-          .data-table th { 
-            background: #7ba3c9; 
-            color: white; 
-            padding: 6px 8px; 
-            text-align: left;
+          /* Blue header tables */
+          .blue-header {
+            background: #5b9bd5;
+            color: #fff;
             font-weight: bold;
-            font-size: 9px;
           }
-          .data-table th.right { text-align: right; }
-          .data-table td { 
-            padding: 4px 8px; 
-            border-bottom: 1px solid #ddd;
-            background: white;
+          .blue-header td, .blue-header th {
+            padding: 4px 8px;
+            border: 1px solid #5b9bd5;
           }
-          .data-table td.right { text-align: right; }
-          .data-table tr:nth-child(even) td { background: #f5f8fb; }
+          .blue-header .right { text-align: right; }
           
-          .summary-table {
-            border: 1px solid #1a1a2e;
+          /* Data rows */
+          .data-row td {
+            padding: 3px 8px;
+            border: 1px solid #d9d9d9;
+            background: #fff;
+          }
+          .data-row:nth-child(even) td {
+            background: #f2f2f2;
+          }
+          .data-row .right { text-align: right; }
+          
+          /* Dark blue header for balance sections */
+          .dark-header {
+            background: #1f4e79;
+            color: #fff;
+            font-weight: bold;
+          }
+          .dark-header td, .dark-header th {
+            padding: 4px 8px;
+            border: 1px solid #1f4e79;
+          }
+          .dark-header .right { text-align: right; }
+          
+          /* Light blue background for balance data */
+          .balance-row td {
+            padding: 3px 8px;
+            border: 1px solid #bdd7ee;
+            background: #deeaf6;
+          }
+          .balance-row .right { text-align: right; }
+          .balance-row .negative { color: #c00000; }
+          
+          /* Margin section */
+          .margin-section {
             margin-top: 20px;
           }
-          .summary-table th { 
-            background: #1a1a2e; 
-            color: white; 
-            padding: 6px 8px; 
-            text-align: left;
+          .margin-header {
+            background: #1f4e79;
+            color: #fff;
+            font-weight: bold;
           }
-          .summary-table th.right { text-align: right; }
-          .summary-table td { 
-            padding: 4px 8px; 
-            border-bottom: 1px solid #ddd;
+          .margin-header td {
+            padding: 4px 8px;
+            border: 1px solid #1f4e79;
           }
-          .summary-table td.right { text-align: right; font-weight: bold; }
+          .margin-row td {
+            padding: 3px 8px;
+            border: 1px solid #d9d9d9;
+            background: #fff;
+          }
+          .margin-row .right { text-align: right; font-weight: bold; }
+          
+          /* Split section */
+          .split-header {
+            background: #1f4e79;
+            color: #fff;
+            font-weight: bold;
+          }
+          .split-header td {
+            padding: 4px 8px;
+            border: 1px solid #1f4e79;
+          }
+          .split-row td {
+            padding: 3px 8px;
+            border: 1px solid #d9d9d9;
+            background: #deeaf6;
+          }
+          .split-row .right { text-align: right; font-weight: bold; }
           
           .bold { font-weight: bold; }
-          .negative { color: #c00; }
+          .negative { color: #c00000; }
+          .small-gap { height: 8px; }
           
           .footer { 
-            margin-top: 30px; 
+            margin-top: 20px; 
             text-align: center; 
             color: #666; 
-            font-size: 9px;
-            border-top: 1px solid #ddd;
-            padding-top: 10px;
+            font-size: 8pt;
           }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="header-left">
-            <h1>${formData.country}</h1>
-            <h2>Declaration ${formData.declarationType}</h2>
-            <p>${periodDisplay}</p>
+            <div class="country">${formData.country}</div>
+            <div class="title">Declaration ${formData.declarationType}</div>
+            <div class="period">${periodDisplay}</div>
           </div>
           <div class="logo">
-            <div class="logo-text">mgi"</div>
+            <span class="logo-text">mgi"</span>
           </div>
         </div>
 
-        <div class="section-title">Traffic and Monies held by MGI</div>
+        <div class="section-title">Traffic</div>
+        <div class="section-title" style="margin-top:0;">Traffic and Monies held by MGI</div>
         
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Revenue from international incoming traffic</th>
-              <th class="right">${formatNumber(totals.mgiIncomingTotals.minutes)}</th>
-              <th class="right">${formatNumber(totals.mgiIncomingTotals.usd)}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${TELECOM_PROVIDERS.map(provider => {
-              const data = formData.mgiIncomingRevenue[provider];
-              const minutes = parseNumber(data?.minutes || "0");
-              const usd = parseNumber(data?.usd || "0");
-              if (minutes === 0 && usd === 0) return '';
-              return `<tr><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
-            }).join('')}
-          </tbody>
+        <!-- MGI Incoming Revenue Table -->
+        <table>
+          <tr class="blue-header">
+            <td>Revenue from international incoming traffic</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.mgiIncomingTotals.minutes)}</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.mgiIncomingTotals.usd)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const data = formData.mgiIncomingRevenue[provider];
+            const minutes = parseNumber(data?.minutes || "0");
+            const usd = parseNumber(data?.usd || "0");
+            return `<tr class="data-row"><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
+          }).join('')}
         </table>
 
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Cost for international outgoing traffic PLUS OPEX</th>
-              <th class="right">${formatNumber(totals.mgiOutgoingTotals.minutes)}</th>
-              <th class="right">${formatNumber(totals.mgiOutgoingTotals.usd + parseNumber(formData.opexMgi))}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${TELECOM_PROVIDERS.map(provider => {
-              const data = formData.mgiOutgoingCost[provider];
-              const minutes = parseNumber(data?.minutes || "0");
-              const usd = parseNumber(data?.usd || "0");
-              if (minutes === 0 && usd === 0) return '';
-              return `<tr><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
-            }).join('')}
-            ${parseNumber(formData.opexMgi) > 0 ? `<tr><td>OPEX mgi</td><td></td><td class="right">${formatNumber(parseNumber(formData.opexMgi))}</td></tr>` : ''}
-          </tbody>
+        <!-- MGI Outgoing Cost Table -->
+        <table>
+          <tr class="blue-header">
+            <td>Cost for international outgoing traffic PLUS OPEX</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.mgiOutgoingTotals.minutes)}</td>
+            <td class="right" style="width:80px;">${formatNumber(mgiOutgoingWithOpex)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const data = formData.mgiOutgoingCost[provider];
+            const minutes = parseNumber(data?.minutes || "0");
+            const usd = parseNumber(data?.usd || "0");
+            return `<tr class="data-row"><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
+          }).join('')}
+          <tr class="data-row"><td>OPEX mgi</td><td></td><td class="right">${formatNumber(opexMgi)}</td></tr>
         </table>
 
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Balance of revenue in MGI</th>
-              <th></th>
-              <th class="right ${totals.totalMgiBalance < 0 ? 'negative' : ''}">${formatNumber(totals.totalMgiBalance)}</th>
-            </tr>
-          </thead>
+        <!-- MGI Balance Table -->
+        <table>
+          <tr class="dark-header">
+            <td>Balance of revenue in MGI</td>
+            <td style="width:80px;"></td>
+            <td class="right" style="width:80px;">${totals.totalMgiBalance < 0 ? '<span class="negative">' + formatNumber(totals.totalMgiBalance) + '</span>' : formatNumber(totals.totalMgiBalance)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const balance = mgiBalances[provider] || 0;
+            return `<tr class="balance-row"><td>${provider}</td><td></td><td class="right${balance < 0 ? ' negative' : ''}">${formatNumber(balance)}</td></tr>`;
+          }).join('')}
+          <tr class="balance-row"><td>OPEX mgi</td><td></td><td class="right negative">-${formatNumber(opexMgi)}</td></tr>
         </table>
 
+        <div class="small-gap"></div>
         <div class="section-title">Traffic and Monies held by GIA</div>
         
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Revenue from international outgoing traffic</th>
-              <th class="right">${formatNumber(totals.giaOutgoingTotals.minutes)}</th>
-              <th class="right">${formatNumber(totals.giaOutgoingTotals.usd)}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${TELECOM_PROVIDERS.map(provider => {
-              const data = formData.giaOutgoingRevenue[provider];
-              const minutes = parseNumber(data?.minutes || "0");
-              const usd = parseNumber(data?.usd || "0");
-              if (minutes === 0 && usd === 0) return '';
-              return `<tr><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
-            }).join('')}
-          </tbody>
+        <!-- GIA Outgoing Revenue Table -->
+        <table>
+          <tr class="blue-header">
+            <td>Revenue from international outgoing traffic</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.giaOutgoingTotals.minutes)}</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.giaOutgoingTotals.usd)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const data = formData.giaOutgoingRevenue[provider];
+            const minutes = parseNumber(data?.minutes || "0");
+            const usd = parseNumber(data?.usd || "0");
+            return `<tr class="data-row"><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
+          }).join('')}
         </table>
 
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Cost for international incoming traffic</th>
-              <th class="right">${formatNumber(totals.giaIncomingTotals.minutes)}</th>
-              <th class="right">${formatNumber(totals.giaIncomingTotals.usd + parseNumber(formData.opexGia))}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${TELECOM_PROVIDERS.map(provider => {
-              const data = formData.giaIncomingCost[provider];
-              const minutes = parseNumber(data?.minutes || "0");
-              const usd = parseNumber(data?.usd || "0");
-              if (minutes === 0 && usd === 0) return '';
-              return `<tr><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
-            }).join('')}
-            ${parseNumber(formData.opexGia) > 0 ? `<tr><td>Opex GIA</td><td></td><td class="right">${formatNumber(parseNumber(formData.opexGia))}</td></tr>` : ''}
-          </tbody>
+        <!-- GIA Incoming Cost Table -->
+        <table>
+          <tr class="blue-header">
+            <td>Cost for international incoming traffic</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.giaIncomingTotals.minutes)}</td>
+            <td class="right" style="width:80px;">${formatNumber(giaIncomingWithOpex)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const data = formData.giaIncomingCost[provider];
+            const minutes = parseNumber(data?.minutes || "0");
+            const usd = parseNumber(data?.usd || "0");
+            return `<tr class="data-row"><td>${provider}</td><td class="right">${formatNumber(minutes)}</td><td class="right">${formatNumber(usd)}</td></tr>`;
+          }).join('')}
+          <tr class="data-row"><td>Opex GIA</td><td></td><td class="right">${formatNumber(opexGia)}</td></tr>
         </table>
 
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Balance of revenue in GIA</th>
-              <th></th>
-              <th class="right ${totals.totalGiaBalance < 0 ? 'negative' : ''}">${formatNumber(totals.totalGiaBalance)}</th>
-            </tr>
-          </thead>
+        <!-- GIA Balance Table -->
+        <table>
+          <tr class="dark-header">
+            <td>Balance of revenue in GIA</td>
+            <td style="width:80px;"></td>
+            <td class="right" style="width:80px;">${totals.totalGiaBalance < 0 ? '<span class="negative">' + formatNumber(totals.totalGiaBalance) + '</span>' : formatNumber(totals.totalGiaBalance)}</td>
+          </tr>
+          ${TELECOM_PROVIDERS.map(provider => {
+            const balance = giaBalances[provider] || 0;
+            return `<tr class="balance-row"><td>${provider}</td><td></td><td class="right${balance < 0 ? ' negative' : ''}">${formatNumber(balance)}</td></tr>`;
+          }).join('')}
+          <tr class="balance-row"><td>Opex GIA</td><td></td><td class="right negative">-${formatNumber(opexGia)}</td></tr>
         </table>
 
-        <table class="summary-table" style="margin-top: 30px;">
-          <thead>
-            <tr>
-              <th colspan="2">Margin Summary</th>
-              <th class="right">USD</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
+        <!-- Margin Section -->
+        <div class="margin-section">
+          <table>
+            <tr class="margin-header">
               <td colspan="2">Margin held in both MGI & GIA</td>
-              <td class="right bold">${formatNumber(totals.marginHeld)}</td>
+              <td class="right" style="width:80px;">${formatNumber(totals.marginHeld)}</td>
             </tr>
-            <tr>
+            <tr class="margin-row">
+              <td colspan="2">Total Revenue MGI & GIA</td>
+              <td class="right">${formatNumber(totals.mgiIncomingTotals.usd + totals.giaOutgoingTotals.usd)}</td>
+            </tr>
+            <tr class="margin-row">
+              <td colspan="2">Total cost for termination MGI & GIA</td>
+              <td class="right">${formatNumber(totals.mgiOutgoingTotals.usd + opexMgi + totals.giaIncomingTotals.usd + opexGia)}</td>
+            </tr>
+            <tr class="margin-row">
               <td colspan="2">GRX Fiscalization</td>
-              <td class="right">${formatNumber(parseNumber(formData.grxFiscalization))}</td>
+              <td class="right">${formatNumber(grxFiscalization)}</td>
             </tr>
-            <tr>
+            <tr class="margin-row">
               <td colspan="2">Network Management System</td>
-              <td class="right">${formatNumber(parseNumber(formData.networkManagementSystem))}</td>
+              <td class="right">${formatNumber(networkManagement)}</td>
             </tr>
-            <tr>
-              <td colspan="2">INFOSI Share (${formData.marginSplitInfosi}%)</td>
-              <td class="right">${formatNumber(totals.infosiShare)}</td>
-            </tr>
-            <tr>
-              <td colspan="2">MGI Share (${formData.marginSplitMgi}%)</td>
-              <td class="right">${formatNumber(totals.mgiShare)}</td>
-            </tr>
-          </tbody>
+          </table>
+        </div>
+
+        <!-- Margin Split Section -->
+        <table style="margin-top:10px;">
+          <tr class="split-header">
+            <td colspan="3">Margin Split</td>
+          </tr>
+          <tr class="split-row">
+            <td>INFOSI</td>
+            <td class="right" style="width:50px;">${marginSplitInfosiPercent}%</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.infosiShare)}</td>
+          </tr>
+          <tr class="split-row">
+            <td>mgi</td>
+            <td class="right" style="width:50px;">${marginSplitMgiPercent}%</td>
+            <td class="right" style="width:80px;">${formatNumber(totals.mgiShare)}</td>
+          </tr>
         </table>
 
         <div class="footer">
-          <p>Generated on ${new Date().toLocaleDateString("en-GB")} | MGI Hub Declaration System</p>
+          Generated on ${new Date().toLocaleDateString("en-GB")} | MGI Hub Declaration System
         </div>
       </body>
       </html>
