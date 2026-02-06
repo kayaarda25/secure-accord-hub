@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HeartHandshake, Shield, FileCheck, Plus } from "lucide-react";
@@ -39,81 +40,83 @@ export default function SocialInsurance() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Sozialversicherungen</h1>
-          <p className="text-muted-foreground">AHV, BVG, UVG und weitere Sozialversicherungsbeiträge</p>
-        </div>
-        {canManage && (
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Eintrag hinzufügen
-          </Button>
-        )}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AHV/IV/EO</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.ahv)}</div>
-            <p className="text-xs text-muted-foreground">Monatliche Beiträge (AN + AG)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">BVG</CardTitle>
-            <HeartHandshake className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.bvg)}</div>
-            <p className="text-xs text-muted-foreground">Pensionskassenbeiträge (AN + AG)</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">UVG</CardTitle>
-            <FileCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.uvg)}</div>
-            <p className="text-xs text-muted-foreground">Unfallversicherung</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Versicherungsübersicht</CardTitle>
-          <CardDescription>
-            Sozialversicherungsbeiträge nach Mitarbeiter und Periode
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Laden...</div>
-          ) : (
-            <SocialInsuranceTable
-              records={records}
-              canManage={canManage}
-              onDelete={(id) => deleteRecord.mutate(id)}
-            />
+    <Layout title="Sozialversicherungen" subtitle="AHV, BVG, UVG und weitere Sozialversicherungsbeiträge">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Sozialversicherungen</h1>
+            <p className="text-muted-foreground">AHV, BVG, UVG und weitere Sozialversicherungsbeiträge</p>
+          </div>
+          {canManage && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Eintrag hinzufügen
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      <AddInsuranceRecordDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSubmit={handleAddRecord}
-        isLoading={upsertRecord.isPending}
-        currentYear={currentYear}
-        currentMonth={currentMonth}
-      />
-    </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">AHV/IV/EO</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.ahv)}</div>
+              <p className="text-xs text-muted-foreground">Monatliche Beiträge (AN + AG)</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">BVG</CardTitle>
+              <HeartHandshake className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.bvg)}</div>
+              <p className="text-xs text-muted-foreground">Pensionskassenbeiträge (AN + AG)</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">UVG</CardTitle>
+              <FileCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(monthlyTotals.uvg)}</div>
+              <p className="text-xs text-muted-foreground">Unfallversicherung</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Versicherungsübersicht</CardTitle>
+            <CardDescription>
+              Sozialversicherungsbeiträge nach Mitarbeiter und Periode
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Laden...</div>
+            ) : (
+              <SocialInsuranceTable
+                records={records}
+                canManage={canManage}
+                onDelete={(id) => deleteRecord.mutate(id)}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <AddInsuranceRecordDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSubmit={handleAddRecord}
+          isLoading={upsertRecord.isPending}
+          currentYear={currentYear}
+          currentMonth={currentMonth}
+        />
+      </div>
+    </Layout>
   );
 }
