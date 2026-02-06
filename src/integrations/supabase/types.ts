@@ -2805,6 +2805,10 @@ export type Database = {
         Returns: boolean
       }
       is_mgi_organization: { Args: { _org_id: string }; Returns: boolean }
+      is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_task_creator: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
