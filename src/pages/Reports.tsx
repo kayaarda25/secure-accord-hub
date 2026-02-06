@@ -662,17 +662,42 @@ export default function Reports() {
 
   const downloadExcel = (data: Record<string, unknown>[], columns: { key: string; label: string }[], filename: string, title: string) => {
     const escapeXml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const headers = columns.map(col => `<th>${escapeXml(col.label)}</th>`).join("");
-    const rows = data.map(row =>
-      "<tr>" + columns.map(col => `<td>${escapeXml(String(row[col.key] ?? ""))}</td>`).join("") + "</tr>"
+    
+    // Build header row with Cell elements
+    const headerCells = columns.map(col => 
+      `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(col.label)}</Data></Cell>`
     ).join("");
+    
+    // Build data rows
+    const dataRows = data.map(row =>
+      "<Row>" + columns.map(col => {
+        const value = row[col.key];
+        const cellValue = value !== null && value !== undefined ? String(value) : "";
+        // Determine if the value is a number
+        const isNumber = !isNaN(Number(cellValue)) && cellValue.trim() !== "";
+        const dataType = isNumber ? "Number" : "String";
+        return `<Cell><Data ss:Type="${dataType}">${escapeXml(cellValue)}</Data></Cell>`;
+      }).join("") + "</Row>"
+    ).join("\n      ");
     
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#C9A227" ss:Pattern="Solid"/></Style></Styles>
-  <Worksheet ss:Name="${escapeXml(title)}">
-    <Table><Row ss:StyleID="Header">${headers}</Row>${rows}</Table>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" 
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Font ss:FontName="Arial" ss:Size="10"/>
+    </Style>
+    <Style ss:ID="Header">
+      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#1a1a2e" ss:Pattern="Solid"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="${escapeXml(title.substring(0, 31))}">
+    <Table>
+      <Row ss:StyleID="Header">${headerCells}</Row>
+      ${dataRows}
+    </Table>
   </Worksheet>
 </Workbook>`;
     
