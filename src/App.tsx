@@ -27,6 +27,7 @@ import Reports from "./pages/Reports";
 import Security from "./pages/Security";
 import Settings from "./pages/Settings";
 import Protocols from "./pages/Protocols";
+import Employees from "./pages/Employees";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +134,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Tasks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/employees"
+              element={
+                <ProtectedRoute>
+                  <Employees />
                 </ProtectedRoute>
               }
             />

@@ -153,7 +153,7 @@ export function Sidebar({
 
         {/* Collaboration Group */}
         {!collapsed ? <Collapsible open={openGroups.includes("collaboration")} onOpenChange={() => toggleGroup("collaboration")}>
-            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks"]) ? "text-primary" : ""}`}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/communication", "/calendar", "/tasks", "/employees"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <MessageSquare size={18} />
                 <span>Collaboration</span>
@@ -172,6 +172,10 @@ export function Sidebar({
               <NavLink to="/tasks" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/tasks") ? "nav-link-active" : ""}`}>
                 <CheckSquare size={16} className={isActive("/tasks") ? "text-primary" : ""} />
                 <span>Tasks</span>
+              </NavLink>
+              <NavLink to="/employees" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/employees") ? "nav-link-active" : ""}`}>
+                <Users size={16} className={isActive("/employees") ? "text-primary" : ""} />
+                <span>Mitarbeiter</span>
               </NavLink>
             </CollapsibleContent>
           </Collapsible> : <NavLink to="/communication" onClick={handleNavClick} className={`nav-link justify-center px-2 ${isActive("/communication") ? "nav-link-active" : ""}`} title="Collaboration">
