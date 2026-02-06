@@ -30,14 +30,24 @@ interface SocialInsuranceRecord {
 }
 
 // Swiss social insurance rates (2024)
+// All rates are split 50% employee / 50% employer unless noted
 export const INSURANCE_RATES = {
-  AHV_IV_EO: 0.053, // 5.3% each (employee + employer)
-  ALV: 0.011, // 1.1% each up to threshold
-  BVG_DEFAULT: 0.07, // varies by age, simplified
-  UVG_NBU: 0.0, // paid by employee, varies
-  UVG_BU: 0.0, // paid by employer, varies
-  KTG: 0.0, // optional, varies
+  AHV_IV_EO: 0.053, // 5.3% each (employee + employer) - 50/50
+  ALV: 0.011, // 1.1% each up to threshold - 50/50
+  UVG_NBU: 0.012, // ~1.2% NBU (paid by employee)
+  UVG_BU: 0.001, // ~0.1% BU (paid by employer)
+  KTG: 0.01, // ~1% KTG (100% paid by employer)
 };
+
+export interface InsuranceRecordInput {
+  user_id: string;
+  year: number;
+  month: number;
+  gross_salary: number;
+  bvg_total: number; // Manual BVG entry (total, will be split 50/50)
+  ktg?: number; // Optional manual KTG override
+  notes?: string;
+}
 
 export function useSocialInsurance() {
   const { user, hasAnyRole } = useAuth();
@@ -80,32 +90,41 @@ export function useSocialInsurance() {
 
   // Create/Update record
   const upsertRecord = useMutation({
-    mutationFn: async (data: {
-      user_id: string;
-      year: number;
-      month: number;
-      gross_salary: number;
-      notes?: string;
-    }) => {
-      // Calculate contributions based on gross salary
-      const ahvRate = INSURANCE_RATES.AHV_IV_EO;
-      const alvRate = INSURANCE_RATES.ALV;
-      const bvgRate = INSURANCE_RATES.BVG_DEFAULT;
+    mutationFn: async (data: InsuranceRecordInput) => {
+      const grossSalary = data.gross_salary;
+
+      // AHV/IV/EO: 50% employee, 50% employer
+      const ahvAmount = grossSalary * INSURANCE_RATES.AHV_IV_EO;
+
+      // ALV: 50% employee, 50% employer
+      const alvAmount = grossSalary * INSURANCE_RATES.ALV;
+
+      // BVG: Manual entry, split 50/50
+      const bvgEach = data.bvg_total / 2;
+
+      // UVG NBU: Paid by employee (non-occupational accident)
+      const uvgNbu = grossSalary * INSURANCE_RATES.UVG_NBU;
+
+      // UVG BU: Paid by employer (occupational accident)
+      const uvgBu = grossSalary * INSURANCE_RATES.UVG_BU;
+
+      // KTG: 100% paid by employer
+      const ktgAmount = data.ktg ?? grossSalary * INSURANCE_RATES.KTG;
 
       const record = {
         user_id: data.user_id,
         year: data.year,
         month: data.month,
-        gross_salary: data.gross_salary,
-        ahv_iv_eo_employee: data.gross_salary * ahvRate,
-        ahv_iv_eo_employer: data.gross_salary * ahvRate,
-        alv_employee: data.gross_salary * alvRate,
-        alv_employer: data.gross_salary * alvRate,
-        bvg_employee: data.gross_salary * bvgRate,
-        bvg_employer: data.gross_salary * bvgRate,
-        uvg_nbu: 0,
-        uvg_bu: 0,
-        ktg: 0,
+        gross_salary: grossSalary,
+        ahv_iv_eo_employee: ahvAmount, // 50%
+        ahv_iv_eo_employer: ahvAmount, // 50%
+        alv_employee: alvAmount, // 50%
+        alv_employer: alvAmount, // 50%
+        bvg_employee: bvgEach, // 50%
+        bvg_employer: bvgEach, // 50%
+        uvg_nbu: uvgNbu, // Employee
+        uvg_bu: uvgBu, // Employer
+        ktg: ktgAmount, // 100% Employer
         notes: data.notes || null,
         created_by: user!.id,
       };
@@ -159,6 +178,14 @@ export function useSocialInsurance() {
     ),
     uvg: currentMonthRecords.reduce(
       (sum, r) => sum + Number(r.uvg_nbu) + Number(r.uvg_bu),
+      0
+    ),
+    ktg: currentMonthRecords.reduce(
+      (sum, r) => sum + Number(r.ktg),
+      0
+    ),
+    alv: currentMonthRecords.reduce(
+      (sum, r) => sum + Number(r.alv_employee) + Number(r.alv_employer),
       0
     ),
   };

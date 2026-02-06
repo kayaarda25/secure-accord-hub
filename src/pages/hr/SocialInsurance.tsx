@@ -32,6 +32,7 @@ export default function SocialInsurance() {
     year: number;
     month: number;
     gross_salary: number;
+    bvg_total: number;
     notes?: string;
   }) => {
     upsertRecord.mutate(data, {
