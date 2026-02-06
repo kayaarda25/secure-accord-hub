@@ -2076,6 +2076,80 @@ export type Database = {
           },
         ]
       }
+      project_members: {
+        Row: {
+          added_at: string
+          id: string
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          project_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          project_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          priority: string
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          priority?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          priority?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scheduled_meetings: {
         Row: {
           created_at: string
@@ -2322,6 +2396,7 @@ export type Database = {
           is_recurring: boolean | null
           parent_task_id: string | null
           priority: string
+          project_id: string | null
           recurrence_end_date: string | null
           recurrence_type: string | null
           status: string
@@ -2338,6 +2413,7 @@ export type Database = {
           is_recurring?: boolean | null
           parent_task_id?: string | null
           priority?: string
+          project_id?: string | null
           recurrence_end_date?: string | null
           recurrence_type?: string | null
           status?: string
@@ -2354,6 +2430,7 @@ export type Database = {
           is_recurring?: boolean | null
           parent_task_id?: string | null
           priority?: string
+          project_id?: string | null
           recurrence_end_date?: string | null
           recurrence_type?: string | null
           status?: string
@@ -2366,6 +2443,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
