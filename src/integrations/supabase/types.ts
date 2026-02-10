@@ -2153,6 +2153,45 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_addresses: {
+        Row: {
+          country: string | null
+          created_at: string
+          full_address: string
+          id: string
+          label: string
+          name: string
+          street: string | null
+          updated_at: string
+          user_id: string
+          zip_city: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          full_address: string
+          id?: string
+          label: string
+          name: string
+          street?: string | null
+          updated_at?: string
+          user_id: string
+          zip_city?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          full_address?: string
+          id?: string
+          label?: string
+          name?: string
+          street?: string | null
+          updated_at?: string
+          user_id?: string
+          zip_city?: string | null
+        }
+        Relationships: []
+      }
       scheduled_meetings: {
         Row: {
           created_at: string

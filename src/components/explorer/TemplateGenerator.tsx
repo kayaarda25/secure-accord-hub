@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Download, FileType } from "lucide-react";
+import { FileText, Download, FileType, BookUser, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,14 +68,74 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
   const [activeTab, setActiveTab] = useState("contract");
   const [letterheadPresets, setLetterheadPresets] = useState<LetterheadPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [savedAddresses, setSavedAddresses] = useState<Array<{ id: string; label: string; full_address: string }>>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
+  const [saveAddressLabel, setSaveAddressLabel] = useState("");
+  const [showSaveAddress, setShowSaveAddress] = useState(false);
   const { user } = useAuth();
 
   // Load letterhead presets when dialog opens
   useEffect(() => {
     if (open && user) {
       loadLetterheadPresets();
+      loadSavedAddresses();
     }
   }, [open, user]);
+
+  const loadSavedAddresses = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("saved_addresses")
+      .select("id, label, full_address")
+      .eq("user_id", user.id)
+      .order("label");
+    if (data) setSavedAddresses(data);
+  };
+
+  const handleSaveAddress = async (addressText: string) => {
+    if (!user || !saveAddressLabel.trim() || !addressText.trim()) {
+      toast.error("Bitte Label und Adresse eingeben");
+      return;
+    }
+    const { error } = await supabase.from("saved_addresses").insert({
+      user_id: user.id,
+      label: saveAddressLabel.trim(),
+      name: addressText.split("\n")[0] || saveAddressLabel.trim(),
+      full_address: addressText.trim(),
+    });
+    if (error) {
+      toast.error("Fehler beim Speichern der Adresse");
+    } else {
+      toast.success("Adresse gespeichert");
+      setSaveAddressLabel("");
+      setShowSaveAddress(false);
+      loadSavedAddresses();
+    }
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    const { error } = await supabase.from("saved_addresses").delete().eq("id", id);
+    if (error) {
+      toast.error("Fehler beim Löschen");
+    } else {
+      toast.success("Adresse gelöscht");
+      setSelectedAddressId("new");
+      loadSavedAddresses();
+    }
+  };
+
+  const handleSelectAddress = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    if (addressId === "new") return;
+    const addr = savedAddresses.find(a => a.id === addressId);
+    if (addr) {
+      if (activeTab === "empty") {
+        setEmptyDocData(prev => ({ ...prev, recipient: addr.full_address }));
+      } else if (activeTab === "payment") {
+        setPaymentData(prev => ({ ...prev, recipient: addr.full_address }));
+      }
+    }
+  };
 
   const loadLetterheadPresets = async () => {
     if (!user) return;
@@ -559,15 +619,89 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             <TabsContent value="empty" className="m-0 space-y-4">
               {/* Empty Document - Title, Recipient & Content */}
               <div className="space-y-4">
-                {/* Recipient Address */}
+                {/* Recipient Address with saved addresses */}
                 <div className="space-y-2">
-                  <Label>Empfänger-Adresse</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Empfänger-Adresse</Label>
+                    <div className="flex items-center gap-2">
+                      {savedAddresses.length > 0 && (
+                        <Select value={selectedAddressId} onValueChange={handleSelectAddress}>
+                          <SelectTrigger className="w-[200px] h-8 text-xs">
+                            <BookUser size={14} className="mr-1" />
+                            <SelectValue placeholder="Gespeicherte Adresse" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">Neue Adresse</SelectItem>
+                            {savedAddresses.map((addr) => (
+                              <SelectItem key={addr.id} value={addr.id}>
+                                {addr.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {selectedAddressId !== "new" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDeleteAddress(selectedAddressId)}
+                          title="Adresse löschen"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   <Textarea
                     value={emptyDocData.recipient || ""}
-                    onChange={(e) => setEmptyDocData(prev => ({ ...prev, recipient: e.target.value }))}
+                    onChange={(e) => {
+                      setEmptyDocData(prev => ({ ...prev, recipient: e.target.value }));
+                      setSelectedAddressId("new");
+                    }}
                     placeholder="Name&#10;Strasse und Hausnummer&#10;PLZ Ort&#10;Land"
                     className="min-h-[100px] font-normal"
                   />
+                  {/* Save address option */}
+                  {emptyDocData.recipient && selectedAddressId === "new" && (
+                    <>
+                      {!showSaveAddress ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setShowSaveAddress(true)}
+                        >
+                          <Save size={14} className="mr-1" />
+                          Adresse speichern
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            value={saveAddressLabel}
+                            onChange={(e) => setSaveAddressLabel(e.target.value)}
+                            placeholder="Bezeichnung (z.B. Firma XY)"
+                            className="h-8 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleSaveAddress(emptyDocData.recipient || "")}
+                          >
+                            Speichern
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => { setShowSaveAddress(false); setSaveAddressLabel(""); }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Title */}
