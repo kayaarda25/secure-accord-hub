@@ -13,6 +13,7 @@ import {
   Eye,
   Tag,
   Trash2,
+  RotateCcw,
   Pencil,
   Copy,
   Scissors,
@@ -56,6 +57,7 @@ import { de } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 
 type ViewMode = "grid" | "list";
+type ExplorerView = "files" | "trash";
 
 interface RenameState {
   open: boolean;
@@ -81,6 +83,7 @@ interface SelectedDocument {
 
 export default function Explorer() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [explorerView, setExplorerView] = useState<ExplorerView>("files");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTemplateGenerator, setShowTemplateGenerator] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
@@ -99,14 +102,19 @@ export default function Explorer() {
     folders,
     tags,
     documents,
+    trashedDocuments,
     currentFolderId,
     setCurrentFolderId,
     isLoading,
+    trashLoading,
     createFolder,
     deleteFolder,
     renameFolder,
     renameDocument,
     deleteDocument,
+    restoreDocument,
+    permanentlyDeleteDocument,
+    emptyTrash,
     createTag,
     assignTag,
     getBreadcrumbPath,
@@ -378,80 +386,220 @@ export default function Explorer() {
               />
             </CardContent>
           </Card>
+
+          {/* Papierkorb Button */}
+          <Button
+            variant={explorerView === "trash" ? "secondary" : "ghost"}
+            className="w-full justify-start gap-2 text-sm"
+            onClick={() => {
+              setExplorerView(explorerView === "trash" ? "files" : "trash");
+              if (explorerView !== "trash") setCurrentFolderId(null);
+            }}
+          >
+            <Trash2 size={16} />
+            Papierkorb
+            {trashedDocuments.length > 0 && (
+              <span className="ml-auto text-xs bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">
+                {trashedDocuments.length}
+              </span>
+            )}
+          </Button>
         </div>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-sm">
-              <button
-                onClick={() => setCurrentFolderId(null)}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Home size={14} />
-                <span>Explorer</span>
-              </button>
-              {breadcrumbPath.map((folder) => (
-                <div key={folder.id} className="flex items-center gap-2">
-                  <ChevronRight size={14} className="text-muted-foreground" />
+            {explorerView === "trash" ? (
+              <>
+                <div className="flex items-center gap-2 text-sm">
                   <button
-                    onClick={() => setCurrentFolderId(folder.id)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setExplorerView("files")}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {folder.name}
+                    <Home size={14} />
+                    <span>Explorer</span>
                   </button>
+                  <ChevronRight size={14} className="text-muted-foreground" />
+                  <span className="flex items-center gap-1.5 text-foreground font-medium">
+                    <Trash2 size={14} />
+                    Papierkorb
+                  </span>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {hasClipboard && (
-                <Button variant="outline" onClick={handlePaste}>
-                  <ClipboardPaste size={16} className="mr-2" />
-                  Einfügen (Ctrl+V)
-                </Button>
-              )}
-
-              <div className="flex items-center border rounded-md p-0.5">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={cn(
-                    "p-1.5 rounded transition-colors",
-                    viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground"
+                <div className="flex items-center gap-2">
+                  {trashedDocuments.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm("Papierkorb endgültig leeren? Alle Dokumente werden unwiderruflich gelöscht.")) {
+                          emptyTrash.mutate();
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} className="mr-2" />
+                      Papierkorb leeren
+                    </Button>
                   )}
-                >
-                  <Grid3X3 size={16} />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={cn(
-                    "p-1.5 rounded transition-colors",
-                    viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground"
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <button
+                    onClick={() => setCurrentFolderId(null)}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Home size={14} />
+                    <span>Explorer</span>
+                  </button>
+                  {breadcrumbPath.map((folder) => (
+                    <div key={folder.id} className="flex items-center gap-2">
+                      <ChevronRight size={14} className="text-muted-foreground" />
+                      <button
+                        onClick={() => setCurrentFolderId(folder.id)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {folder.name}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {hasClipboard && (
+                    <Button variant="outline" onClick={handlePaste}>
+                      <ClipboardPaste size={16} className="mr-2" />
+                      Einfügen (Ctrl+V)
+                    </Button>
                   )}
-                >
-                  <List size={16} />
-                </button>
-              </div>
 
-              <Button variant="outline" onClick={() => setShowTemplateGenerator(true)}>
-                <LayoutTemplate size={16} className="mr-2" />
-                Vorlage erstellen
-              </Button>
+                  <div className="flex items-center border rounded-md p-0.5">
+                    <button
+                      onClick={() => setViewMode("grid")}
+                      className={cn(
+                        "p-1.5 rounded transition-colors",
+                        viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      <Grid3X3 size={16} />
+                    </button>
+                    <button
+                      onClick={() => setViewMode("list")}
+                      className={cn(
+                        "p-1.5 rounded transition-colors",
+                        viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      <List size={16} />
+                    </button>
+                  </div>
 
-              <FolderUploader 
-                currentFolderId={currentFolderId}
-                onCreateFolder={handleCreateFolderWithReturn}
-              />
+                  <Button variant="outline" onClick={() => setShowTemplateGenerator(true)}>
+                    <LayoutTemplate size={16} className="mr-2" />
+                    Vorlage erstellen
+                  </Button>
 
-              <FileUploaderWithSharing currentFolderId={currentFolderId} />
-            </div>
+                  <FolderUploader 
+                    currentFolderId={currentFolderId}
+                    onCreateFolder={handleCreateFolderWithReturn}
+                  />
+
+                  <FileUploaderWithSharing currentFolderId={currentFolderId} />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Content */}
           <Card className="flex-1 overflow-hidden">
             <CardContent className="p-4 h-full overflow-y-auto">
-              {isLoading ? (
+              {explorerView === "trash" ? (
+                /* Trash View */
+                trashLoading ? (
+                  <div className="grid grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={i} className="h-32 rounded-lg" />
+                    ))}
+                  </div>
+                ) : trashedDocuments.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                      Gelöschte Dokumente ({trashedDocuments.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {/* List Header */}
+                      <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                        <div className="col-span-5">Name</div>
+                        <div className="col-span-3">Gelöscht am</div>
+                        <div className="col-span-1">Grösse</div>
+                        <div className="col-span-3 text-right">Aktionen</div>
+                      </div>
+                      {trashedDocuments.map((doc) => {
+                        const FileIcon = getFileIcon(doc.mime_type);
+                        return (
+                          <div
+                            key={doc.id}
+                            className="group grid grid-cols-12 gap-4 items-center px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="col-span-5 flex items-center gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 opacity-50">
+                                <FileIcon size={16} className="text-muted-foreground" />
+                              </div>
+                              <span className="text-sm truncate text-muted-foreground">{doc.name}</span>
+                            </div>
+                            <div className="col-span-3 flex items-center gap-1.5">
+                              <Clock size={12} className="text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground">
+                                {doc.deleted_at ? formatDistanceToNow(new Date(doc.deleted_at), { locale: de, addSuffix: true }) : "—"}
+                              </span>
+                            </div>
+                            <div className="col-span-1">
+                              <span className="text-xs text-muted-foreground">
+                                {formatFileSize(doc.file_size)}
+                              </span>
+                            </div>
+                            <div className="col-span-3 flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => restoreDocument.mutate(doc.id)}
+                              >
+                                <RotateCcw size={14} className="mr-1" />
+                                Wiederherstellen
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  if (window.confirm(`"${doc.name}" endgültig löschen?`)) {
+                                    permanentlyDeleteDocument.mutate({ id: doc.id, filePath: doc.file_path });
+                                  }
+                                }}
+                              >
+                                <Trash2 size={14} className="mr-1" />
+                                Endgültig löschen
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                      <Trash2 size={24} className="text-muted-foreground" />
+                    </div>
+                    <h3 className="font-medium text-lg mb-1">Papierkorb ist leer</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Gelöschte Dokumente werden hier angezeigt
+                    </p>
+                  </div>
+                )
+              ) : isLoading ? (
                 <div className="grid grid-cols-4 gap-4">
                   {[...Array(8)].map((_, i) => (
                     <Skeleton key={i} className="h-32 rounded-lg" />
