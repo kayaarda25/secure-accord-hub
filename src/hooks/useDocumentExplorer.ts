@@ -91,7 +91,7 @@ export function useDocumentExplorer() {
     enabled: !!user,
   });
 
-  // Fetch documents with folder and tag info
+  // Fetch documents with folder and tag info (exclude trashed)
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["explorer-documents", currentFolderId],
     queryFn: async () => {
@@ -104,6 +104,7 @@ export function useDocumentExplorer() {
             document_tags(id, name, color)
           )
         `)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (currentFolderId) {
@@ -113,6 +114,28 @@ export function useDocumentExplorer() {
       }
 
       const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch trashed documents
+  const { data: trashedDocuments = [], isLoading: trashLoading } = useQuery({
+    queryKey: ["explorer-trash"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select(`
+          *,
+          document_tag_assignments(
+            tag_id,
+            document_tags(id, name, color)
+          )
+        `)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+
       if (error) throw error;
       return data;
     },
@@ -226,40 +249,57 @@ export function useDocumentExplorer() {
     },
   });
 
-  // Delete document mutation
+  // Soft-delete document (move to trash)
   const deleteDocument = useMutation({
     mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
-      // First verify the document exists and user has permission
-      const { data: existingDoc, error: checkError } = await supabase
+      const { error } = await supabase
         .from("documents")
-        .select("id, uploaded_by")
-        .eq("id", id)
-        .maybeSingle();
-      
-      if (checkError) throw checkError;
-      if (!existingDoc) throw new Error("Dokument nicht gefunden");
-
-      // Delete from database first (RLS will enforce permissions)
-      const { error, count } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", id)
-        .select();
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
 
       if (error) throw error;
-      
-      // Check if anything was actually deleted (RLS may have blocked it)
-      const { data: stillExists } = await supabase
-        .from("documents")
-        .select("id")
-        .eq("id", id)
-        .maybeSingle();
-      
-      if (stillExists) {
-        throw new Error("Keine Berechtigung zum Löschen dieses Dokuments");
-      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["explorer-trash"] });
+      toast.success("Dokument in den Papierkorb verschoben");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Fehler beim Löschen");
+      console.error(error);
+    },
+  });
 
-      // Only delete from storage if database delete was successful
+  // Restore document from trash
+  const restoreDocument = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("documents")
+        .update({ deleted_at: null })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["explorer-trash"] });
+      toast.success("Dokument wiederhergestellt");
+    },
+    onError: () => {
+      toast.error("Fehler beim Wiederherstellen");
+    },
+  });
+
+  // Permanently delete document
+  const permanentlyDeleteDocument = useMutation({
+    mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
       const { error: storageError } = await supabase.storage
         .from("documents")
         .remove([filePath]);
@@ -267,12 +307,46 @@ export function useDocumentExplorer() {
       if (storageError) console.error("Storage delete error:", storageError);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
-      toast.success("Dokument gelöscht");
+      queryClient.invalidateQueries({ queryKey: ["explorer-trash"] });
+      toast.success("Dokument endgültig gelöscht");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Fehler beim Löschen");
+      toast.error(error.message || "Fehler beim endgültigen Löschen");
       console.error(error);
+    },
+  });
+
+  // Empty entire trash
+  const emptyTrash = useMutation({
+    mutationFn: async () => {
+      // Get all trashed documents
+      const { data: trashed, error: fetchError } = await supabase
+        .from("documents")
+        .select("id, file_path")
+        .not("deleted_at", "is", null);
+
+      if (fetchError) throw fetchError;
+      if (!trashed || trashed.length === 0) return;
+
+      // Delete from database
+      const ids = trashed.map(d => d.id);
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .in("id", ids);
+
+      if (error) throw error;
+
+      // Delete from storage
+      const paths = trashed.map(d => d.file_path);
+      await supabase.storage.from("documents").remove(paths);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["explorer-trash"] });
+      toast.success("Papierkorb geleert");
+    },
+    onError: () => {
+      toast.error("Fehler beim Leeren des Papierkorbs");
     },
   });
 
@@ -421,14 +495,19 @@ export function useDocumentExplorer() {
     tags,
     templates,
     documents,
+    trashedDocuments,
     currentFolderId,
     setCurrentFolderId,
     isLoading: foldersLoading || tagsLoading || templatesLoading || documentsLoading,
+    trashLoading,
     createFolder,
     deleteFolder,
     renameFolder,
     renameDocument,
     deleteDocument,
+    restoreDocument,
+    permanentlyDeleteDocument,
+    emptyTrash,
     createTag,
     assignTag,
     moveToFolder,

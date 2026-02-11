@@ -1332,6 +1332,7 @@ export type Database = {
       documents: {
         Row: {
           created_at: string
+          deleted_at: string | null
           description: string | null
           expires_at: string | null
           file_path: string
@@ -1349,6 +1350,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           expires_at?: string | null
           file_path: string
@@ -1366,6 +1368,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           expires_at?: string | null
           file_path?: string
