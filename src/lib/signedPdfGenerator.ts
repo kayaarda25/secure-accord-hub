@@ -120,13 +120,6 @@ async function stampSignature(
   const x = Math.max(10, Math.min((pos.xPercent / 100) * width - 80, width - 170));
   const y = Math.max(30, Math.min(height - (pos.yPercent / 100) * height, height - 10));
 
-  // Background box
-  page.drawRectangle({
-    x: x - 10, y: y - 15, width: 160, height: 60,
-    color: rgb(1, 1, 1), opacity: 0.92,
-    borderColor: rgb(0.83, 0.69, 0.33), borderWidth: 0.5,
-  });
-
   const sigImage = sig.signatureImage;
   const isTextSig = !sigImage || sigImage.toLowerCase().startsWith("text:");
 
@@ -141,25 +134,18 @@ async function stampSignature(
       let embedded;
       try { embedded = await pdfDoc.embedPng(imageBytes); }
       catch { embedded = await pdfDoc.embedJpg(imageBytes); }
-      const dims = embedded.scaleToFit(120, 30);
-      page.drawImage(embedded, { x, y: y + 5, width: dims.width, height: dims.height });
+      const dims = embedded.scaleToFit(140, 40);
+      page.drawImage(embedded, { x, y, width: dims.width, height: dims.height });
     } catch {
       const initials = sig.signerName.split(" ").map(n => n[0]).join(".");
-      page.drawText(sanitize(initials), { x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1) });
+      page.drawText(sanitize(initials), { x, y, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1) });
     }
   } else {
     const text = sig.signatureInitials
       || (sigImage ? sigImage.replace(/^text:/i, "") : null)
       || sig.signerName.split(" ").map(n => n[0]).join(".");
-    page.drawText(sanitize(text), { x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText(sanitize(text), { x, y, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1) });
   }
-
-  // Signature line
-  page.drawLine({ start: { x, y: y + 2 }, end: { x: x + 120, y: y + 2 }, thickness: 0.5, color: rgb(0.6, 0.6, 0.6) });
-
-  // Signer info
-  const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-  page.drawText(sanitize(`${sig.signerName} - ${signedDate}`), { x, y: y - 10, size: 7, font: helvFont, color: rgb(0.4, 0.4, 0.4) });
 }
 
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
