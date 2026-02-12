@@ -30,6 +30,7 @@ export function DocumentSigningOverlay({
 }: DocumentSigningOverlayProps) {
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -49,6 +50,7 @@ export function DocumentSigningOverlay({
     if (!open) return;
     setIsLoadingDoc(true);
     setLoadError(false);
+    setPdfReady(false);
     setSigPos({ x: 50, y: 80 });
     setSigSize({ w: 180, h: 70 });
     setZoom(1);
@@ -57,7 +59,6 @@ export function DocumentSigningOverlay({
 
     (async () => {
       try {
-        // Download the PDF bytes
         const { data, error } = await supabase.storage
           .from("documents")
           .download(documentFilePath);
@@ -65,49 +66,46 @@ export function DocumentSigningOverlay({
         if (cancelled) return;
 
         const arrayBuffer = await data.arrayBuffer();
-        console.log("[SigningOverlay] PDF bytes:", arrayBuffer.byteLength);
-
         const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
-        console.log("[SigningOverlay] PDF loaded, pages:", pdf.numPages);
 
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1.5 });
-        console.log("[SigningOverlay] Viewport:", viewport.width, "x", viewport.height);
-
         setPageSize({ width: viewport.width, height: viewport.height });
+        setIsLoadingDoc(false);
 
-        // Wait for canvas to be mounted after state update
-        await new Promise(r => setTimeout(r, 100));
+        // Wait for canvas to mount after isLoadingDoc=false re-render
+        const waitForCanvas = () => new Promise<HTMLCanvasElement>((resolve, reject) => {
+          let attempts = 0;
+          const check = () => {
+            if (cancelled) { reject(new Error("Cancelled")); return; }
+            if (canvasRef.current) { resolve(canvasRef.current); return; }
+            attempts++;
+            if (attempts > 50) { reject(new Error("Canvas not found")); return; }
+            requestAnimationFrame(check);
+          };
+          check();
+        });
 
-        const canvas = canvasRef.current;
-        if (!canvas || cancelled) {
-          console.warn("[SigningOverlay] Canvas not available after wait");
-          return;
-        }
-
+        const canvas = await waitForCanvas();
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Could not get canvas context");
 
-        // Fill white background first
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, viewport.width, viewport.height);
 
-        const renderTask = page.render({ canvasContext: context, viewport });
-        await renderTask.promise;
-        console.log("[SigningOverlay] Render complete");
+        await page.render({ canvasContext: context, viewport }).promise;
+        setPdfReady(true);
       } catch (err) {
-        console.error("[SigningOverlay] Error loading document:", err);
-        if (!cancelled) {
-          setLoadError(true);
-          toast.error("Dokument konnte nicht geladen werden");
-        }
-      } finally {
-        if (!cancelled) setIsLoadingDoc(false);
+        if (cancelled) return;
+        console.error("[SigningOverlay] Error:", err);
+        setLoadError(true);
+        setIsLoadingDoc(false);
+        toast.error("Dokument konnte nicht geladen werden");
       }
     })();
 
@@ -272,6 +270,11 @@ export function DocumentSigningOverlay({
                 height: `${scaledHeight}px`,
               }}
             />
+            {!pdfReady && !loadError && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
+              </div>
+            )}
 
             {/* Draggable + Resizable Signature */}
             <div
