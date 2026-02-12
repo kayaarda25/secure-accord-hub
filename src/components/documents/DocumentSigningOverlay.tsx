@@ -6,8 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configure PDF.js worker via CDN (Vite bundling doesn't handle local worker files reliably)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configure PDF.js worker via jsDelivr (mirrors npm exactly, avoids version mismatch)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface DocumentSigningOverlayProps {
   open: boolean;
@@ -65,19 +65,27 @@ export function DocumentSigningOverlay({
         if (cancelled) return;
 
         const arrayBuffer = await data.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        console.log("[SigningOverlay] PDF bytes:", arrayBuffer.byteLength);
+
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+        const pdf = await loadingTask.promise;
         if (cancelled) return;
+        console.log("[SigningOverlay] PDF loaded, pages:", pdf.numPages);
 
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 }); // High-res render
+        const viewport = page.getViewport({ scale: 1.5 });
+        console.log("[SigningOverlay] Viewport:", viewport.width, "x", viewport.height);
 
         setPageSize({ width: viewport.width, height: viewport.height });
 
-        // Wait for canvas to be available
-        await new Promise(r => setTimeout(r, 50));
+        // Wait for canvas to be mounted after state update
+        await new Promise(r => setTimeout(r, 100));
 
         const canvas = canvasRef.current;
-        if (!canvas || cancelled) return;
+        if (!canvas || cancelled) {
+          console.warn("[SigningOverlay] Canvas not available after wait");
+          return;
+        }
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -85,9 +93,15 @@ export function DocumentSigningOverlay({
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Could not get canvas context");
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        // Fill white background first
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, viewport.width, viewport.height);
+
+        const renderTask = page.render({ canvasContext: context, viewport });
+        await renderTask.promise;
+        console.log("[SigningOverlay] Render complete");
       } catch (err) {
-        console.error("Error loading document:", err);
+        console.error("[SigningOverlay] Error loading document:", err);
         if (!cancelled) {
           setLoadError(true);
           toast.error("Dokument konnte nicht geladen werden");
