@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
@@ -20,6 +20,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      spellcheck: true,
     },
     titleBarStyle: 'default',
     show: false,
@@ -27,11 +28,9 @@ function createWindow() {
 
   // Load the app
   if (process.env.NODE_ENV === 'development') {
-    // In development, load from Vite dev server
     mainWindow.loadURL('http://localhost:8080');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built files
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
@@ -48,8 +47,85 @@ function createWindow() {
 
   // Enable file downloads in Electron (file-saver uses blob URLs)
   mainWindow.webContents.session.on('will-download', (event, item) => {
-    // Let Electron handle the download with a Save As dialog
     item.setSavePath('');
+  });
+
+  // Right-click context menu
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const contextMenu = [];
+
+    // Text editing actions
+    if (params.isEditable) {
+      contextMenu.push(
+        { label: 'Rückgängig', role: 'undo', enabled: params.editFlags.canUndo },
+        { label: 'Wiederholen', role: 'redo', enabled: params.editFlags.canRedo },
+        { type: 'separator' },
+        { label: 'Ausschneiden', role: 'cut', enabled: params.editFlags.canCut },
+        { label: 'Kopieren', role: 'copy', enabled: params.editFlags.canCopy },
+        { label: 'Einfügen', role: 'paste', enabled: params.editFlags.canPaste },
+        { label: 'Alles auswählen', role: 'selectAll', enabled: params.editFlags.canSelectAll },
+      );
+    } else if (params.selectionText) {
+      contextMenu.push(
+        { label: 'Kopieren', role: 'copy' },
+        { label: 'Alles auswählen', role: 'selectAll' },
+      );
+    }
+
+    // Link actions
+    if (params.linkURL) {
+      if (contextMenu.length > 0) contextMenu.push({ type: 'separator' });
+      contextMenu.push(
+        {
+          label: 'Link im Browser öffnen',
+          click: () => shell.openExternal(params.linkURL),
+        },
+        {
+          label: 'Link kopieren',
+          click: () => {
+            const { clipboard } = require('electron');
+            clipboard.writeText(params.linkURL);
+          },
+        },
+      );
+    }
+
+    // Image actions
+    if (params.hasImageContents) {
+      if (contextMenu.length > 0) contextMenu.push({ type: 'separator' });
+      contextMenu.push(
+        {
+          label: 'Bild kopieren',
+          click: () => mainWindow.webContents.copyImageAt(params.x, params.y),
+        },
+      );
+    }
+
+    // Spelling suggestions
+    if (params.misspelledWord) {
+      if (contextMenu.length > 0) contextMenu.push({ type: 'separator' });
+      for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
+        contextMenu.push({
+          label: suggestion,
+          click: () => mainWindow.webContents.replaceMisspelling(suggestion),
+        });
+      }
+      if (params.dictionarySuggestions.length === 0) {
+        contextMenu.push({ label: 'Keine Vorschläge', enabled: false });
+      }
+    }
+
+    // General actions (always available)
+    if (contextMenu.length > 0) contextMenu.push({ type: 'separator' });
+    contextMenu.push(
+      { label: 'Neu laden', role: 'reload' },
+      { label: 'Vollständig neu laden', role: 'forceReload' },
+    );
+
+    if (contextMenu.length > 0) {
+      const menu = Menu.buildFromTemplate(contextMenu);
+      menu.popup();
+    }
   });
 
   // Create application menu
@@ -91,7 +167,6 @@ function createWindow() {
         {
           label: 'Über MGI × AFRIKA',
           click: async () => {
-            const { dialog } = require('electron');
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'Über MGI × AFRIKA',
