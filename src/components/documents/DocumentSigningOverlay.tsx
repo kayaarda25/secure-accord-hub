@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { X, Check, Loader2, Move, ZoomIn, ZoomOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { X, Check, Loader2, Move, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -15,9 +15,6 @@ interface DocumentSigningOverlayProps {
   onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }, comment?: string) => void;
 }
 
-/**
- * Determines if a file is a Word document based on extension or mime-type-like path.
- */
 function isWordDocument(filePathOrName: string): boolean {
   const lower = filePathOrName.toLowerCase();
   return lower.endsWith(".doc") || lower.endsWith(".docx");
@@ -39,37 +36,43 @@ export function DocumentSigningOverlay({
   const [zoom, setZoom] = useState(1);
 
   // Draggable signature state
-  const [sigPos, setSigPos] = useState({ x: 50, y: 80 }); // percentage
+  const [sigPos, setSigPos] = useState({ x: 50, y: 80 });
+  const [sigSize, setSigSize] = useState({ w: 180, h: 70 }); // pixels
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, w: 0, h: 0 });
   const [signatureComment, setSignatureComment] = useState("");
 
-  // Load document URL
+  // Load document URL - use object URL for PDFs to avoid iframe blocking
   useEffect(() => {
     if (!open) return;
     setIsLoadingDoc(true);
     setLoadError(false);
     setDocumentUrl(null);
     setSigPos({ x: 50, y: 80 });
+    setSigSize({ w: 180, h: 70 });
     setZoom(1);
 
     (async () => {
       try {
-        // Use a longer expiry for the signed URL (10 min)
-        const { data, error } = await supabase.storage
-          .from("documents")
-          .createSignedUrl(documentFilePath, 600);
-        if (error) throw error;
+        const isWord = isWordDocument(documentFilePath) || isWordDocument(documentName);
 
-        const signedUrl = data.signedUrl;
-
-        // For Word documents, use Microsoft Office Online Viewer
-        if (isWordDocument(documentFilePath) || isWordDocument(documentName)) {
-          const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-          setDocumentUrl(viewerUrl);
+        if (isWord) {
+          // For Word docs, get signed URL and use Office Online Viewer
+          const { data, error } = await supabase.storage
+            .from("documents")
+            .createSignedUrl(documentFilePath, 600);
+          if (error) throw error;
+          setDocumentUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(data.signedUrl)}`);
         } else {
-          // For PDFs and images, use the signed URL directly
-          setDocumentUrl(signedUrl);
+          // For PDFs, download the blob and create a local object URL (avoids Chrome blocking)
+          const { data, error } = await supabase.storage
+            .from("documents")
+            .download(documentFilePath);
+          if (error) throw error;
+          const url = URL.createObjectURL(data);
+          setDocumentUrl(url);
         }
       } catch (err) {
         console.error("Error loading document:", err);
@@ -79,8 +82,16 @@ export function DocumentSigningOverlay({
         setIsLoadingDoc(false);
       }
     })();
+
+    return () => {
+      // Clean up object URLs
+      if (documentUrl && documentUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(documentUrl);
+      }
+    };
   }, [open, documentFilePath, documentName]);
 
+  // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = containerRef.current;
@@ -107,7 +118,6 @@ export function DocumentSigningOverlay({
 
   useEffect(() => {
     if (!isDragging) return;
-
     const handleMove = (clientX: number, clientY: number) => {
       const container = containerRef.current;
       if (!container) return;
@@ -115,18 +125,13 @@ export function DocumentSigningOverlay({
       const newX = ((clientX - dragOffset.current.x) / rect.width) * 100;
       const newY = ((clientY - dragOffset.current.y) / rect.height) * 100;
       setSigPos({
-        x: Math.max(0, Math.min(85, newX)),
-        y: Math.max(0, Math.min(92, newY)),
+        x: Math.max(0, Math.min(90, newX)),
+        y: Math.max(0, Math.min(95, newY)),
       });
     };
-
     const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleMove(e.touches[0].clientX, e.touches[0].clientY);
-    };
+    const onTouchMove = (e: TouchEvent) => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); };
     const onEnd = () => setIsDragging(false);
-
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onEnd);
     window.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -138,6 +143,33 @@ export function DocumentSigningOverlay({
       window.removeEventListener("touchend", onEnd);
     };
   }, [isDragging]);
+
+  // Resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, w: sigSize.w, h: sigSize.h };
+    setIsResizing(true);
+  }, [sigSize]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const onMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - resizeStart.current.mouseX;
+      const dy = e.clientY - resizeStart.current.mouseY;
+      setSigSize({
+        w: Math.max(120, Math.min(400, resizeStart.current.w + dx)),
+        h: Math.max(50, Math.min(200, resizeStart.current.h + dy)),
+      });
+    };
+    const onEnd = () => setIsResizing(false);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onEnd);
+    };
+  }, [isResizing]);
 
   const handleConfirm = () => {
     onConfirmSign({
@@ -171,30 +203,16 @@ export function DocumentSigningOverlay({
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 mr-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-            >
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
               <ZoomOut className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground w-12 text-center">
-              {Math.round(zoom * 100)}%
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setZoom((z) => Math.min(2, z + 0.25))}
-            >
+            <span className="text-xs text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(2, z + 0.25))}>
               <ZoomIn className="h-4 w-4" />
             </Button>
           </div>
 
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
           <Button onClick={handleConfirm} className="bg-success text-success-foreground hover:bg-success/90">
             <Check className="h-4 w-4 mr-2" />
             Hier signieren
@@ -212,42 +230,39 @@ export function DocumentSigningOverlay({
         ) : loadError || !documentUrl ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <p className="text-sm text-destructive">Dokument konnte nicht geladen werden.</p>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Schließen
-            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Schließen</Button>
           </div>
         ) : (
           <div
             ref={containerRef}
             className="relative bg-white shadow-xl rounded-lg overflow-hidden select-none"
-            style={{
-              width: `${zoom * 800}px`,
-              minHeight: `${zoom * 1100}px`,
-            }}
+            style={{ width: `${zoom * 800}px`, minHeight: `${zoom * 1100}px` }}
           >
             {/* Embedded Document */}
             <iframe
               src={documentUrl}
               className="w-full border-0"
-              style={{ height: `${zoom * 1100}px`, pointerEvents: isDragging ? 'none' : 'auto' }}
+              style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
               title="Dokument-Vorschau"
               allow="fullscreen"
             />
 
-            {/* Draggable Signature */}
+            {/* Draggable + Resizable Signature */}
             <div
               onMouseDown={handleMouseDown}
               onTouchStart={handleTouchStart}
               className={`absolute cursor-grab active:cursor-grabbing transition-shadow ${
-                isDragging ? "shadow-2xl scale-105 z-20" : "shadow-lg z-10"
+                isDragging ? "shadow-2xl scale-[1.02] z-20" : "shadow-lg z-10"
               }`}
               style={{
                 left: `${sigPos.x}%`,
                 top: `${sigPos.y}%`,
                 transform: "translate(-50%, -50%)",
+                width: `${sigSize.w}px`,
+                height: `${sigSize.h}px`,
               }}
             >
-              <div className="relative bg-white/90 backdrop-blur-sm border-2 border-accent rounded-lg p-3 min-w-[140px]">
+              <div className="relative bg-white/90 backdrop-blur-sm border-2 border-accent rounded-lg h-full flex flex-col items-center justify-center p-2 overflow-hidden">
                 {/* Drag handle indicator */}
                 <div className="absolute -top-2 -right-2 bg-accent text-accent-foreground rounded-full p-1">
                   <Move className="h-3 w-3" />
@@ -257,7 +272,7 @@ export function DocumentSigningOverlay({
                   <img
                     src={signatureImage}
                     alt="Ihre Signatur"
-                    className="h-12 object-contain pointer-events-none"
+                    className="max-h-full max-w-full object-contain pointer-events-none"
                     draggable={false}
                   />
                 ) : signatureInitials ? (
@@ -265,28 +280,19 @@ export function DocumentSigningOverlay({
                     {signatureInitials}
                   </span>
                 ) : (
-                  <span className="text-sm text-muted-foreground pointer-events-none">
-                    Signatur
-                  </span>
+                  <span className="text-sm text-muted-foreground pointer-events-none">Signatur</span>
                 )}
 
-                <div className="mt-1 border-t border-border pt-1">
-                  <p className="text-[9px] text-muted-foreground">
-                    Digital signiert
-                  </p>
+                <div className="w-full border-t border-border mt-auto pt-1">
+                  <p className="text-[9px] text-muted-foreground text-center">Digital signiert</p>
                 </div>
 
-                {/* Comment text field */}
-                <div className="mt-2 border-t border-border pt-2">
-                  <Textarea
-                    placeholder="Kommentar hinzufügen (z.B. Ort, Datum…)"
-                    value={signatureComment}
-                    onChange={(e) => setSignatureComment(e.target.value)}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    className="text-xs min-h-[50px] resize-none bg-white/80 border-muted"
-                    rows={2}
-                  />
+                {/* Resize handle (bottom-right corner) */}
+                <div
+                  onMouseDown={handleResizeStart}
+                  className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize flex items-center justify-center hover:bg-accent/20 rounded-tl"
+                >
+                  <GripVertical className="h-3 w-3 text-muted-foreground rotate-[-45deg]" />
                 </div>
               </div>
             </div>
@@ -294,12 +300,18 @@ export function DocumentSigningOverlay({
         )}
       </div>
 
-      {/* Bottom hint */}
-      <div className="px-4 py-2 border-t border-border bg-card text-center">
-        <p className="text-xs text-muted-foreground">
-          <Move className="inline h-3 w-3 mr-1" />
-          Signatur per Drag & Drop an die gewünschte Stelle verschieben, dann "Hier signieren" klicken
-        </p>
+      {/* Bottom bar with comment */}
+      <div className="px-4 py-3 border-t border-border bg-card flex items-center gap-4">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+          <Move className="h-3 w-3" />
+          Drag & Drop / Ecke ziehen zum Skalieren
+        </div>
+        <Input
+          placeholder="Kommentar hinzufügen (z.B. Ort, Datum…) — optional"
+          value={signatureComment}
+          onChange={(e) => setSignatureComment(e.target.value)}
+          className="max-w-md text-sm"
+        />
       </div>
     </div>
   );
