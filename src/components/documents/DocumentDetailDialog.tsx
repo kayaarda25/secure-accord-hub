@@ -103,27 +103,30 @@ export function DocumentDetailDialog({
   const openDocument = async (download = false) => {
     setIsLoading(true);
     try {
-      // Download blob directly to avoid Chrome popup blocker on signed URLs
-      const { data: blobData, error } = await supabase.storage
-        .from("documents")
-        .download(document.file_path);
-
-      if (error) throw error;
-      if (!blobData) throw new Error("Could not download document");
-
-      const url = URL.createObjectURL(blobData);
-      const a = window.document.createElement("a");
-      a.href = url;
       if (download) {
+        // Download: use blob + a.download (works in sandboxed iframes)
+        const { data: blobData, error } = await supabase.storage
+          .from("documents")
+          .download(document.file_path);
+        if (error) throw error;
+        if (!blobData) throw new Error("Could not download document");
+
+        const url = URL.createObjectURL(blobData);
+        const a = window.document.createElement("a");
+        a.href = url;
         a.download = document.name;
+        window.document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       } else {
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
+        // Open: use signed URL in new tab (avoids sandbox issues with blob URLs)
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(document.file_path, 600);
+        if (error) throw error;
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
       }
-      window.document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (error) {
       console.error("Error opening document:", error);
       toast.error("Dokument konnte nicht geöffnet werden");
