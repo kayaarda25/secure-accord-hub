@@ -35,6 +35,7 @@ export function DocumentSigningOverlay({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 800, height: 1100 });
+  const [numPages, setNumPages] = useState(1);
 
   // Draggable signature state
   const [sigPos, setSigPos] = useState({ x: 50, y: 80 });
@@ -66,16 +67,32 @@ export function DocumentSigningOverlay({
         if (cancelled) return;
 
         const arrayBuffer = await data.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
-        const pdf = await loadingTask.promise;
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
         if (cancelled) return;
 
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 });
-        setPageSize({ width: viewport.width, height: viewport.height });
+        const totalPages = pdf.numPages;
+        setNumPages(totalPages);
+
+        // Get first page to determine width
+        const firstPage = await pdf.getPage(1);
+        const firstViewport = firstPage.getViewport({ scale: 1.5 });
+        const pageWidth = firstViewport.width;
+
+        // Calculate total height of all pages (with gap)
+        const pageGap = 10;
+        let totalHeight = 0;
+        const viewports: ReturnType<typeof firstPage.getViewport>[] = [];
+        for (let i = 1; i <= totalPages; i++) {
+          const pg = await pdf.getPage(i);
+          const vp = pg.getViewport({ scale: 1.5 });
+          viewports.push(vp);
+          totalHeight += vp.height + (i < totalPages ? pageGap : 0);
+        }
+
+        setPageSize({ width: pageWidth, height: totalHeight });
         setIsLoadingDoc(false);
 
-        // Wait for canvas to mount after isLoadingDoc=false re-render
+        // Wait for canvas
         const waitForCanvas = () => new Promise<HTMLCanvasElement>((resolve, reject) => {
           let attempts = 0;
           const check = () => {
@@ -89,16 +106,41 @@ export function DocumentSigningOverlay({
         });
 
         const canvas = await waitForCanvas();
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        canvas.width = pageWidth;
+        canvas.height = totalHeight;
 
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Could not get canvas context");
 
         context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, viewport.width, viewport.height);
+        context.fillRect(0, 0, pageWidth, totalHeight);
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        // Render each page stacked vertically
+        let yOffset = 0;
+        for (let i = 0; i < totalPages; i++) {
+          if (cancelled) return;
+          const pg = await pdf.getPage(i + 1);
+          const vp = viewports[i];
+
+          // Draw page separator line (except before first page)
+          if (i > 0) {
+            context.strokeStyle = "#e0e0e0";
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(0, yOffset - pageGap / 2);
+            context.lineTo(pageWidth, yOffset - pageGap / 2);
+            context.stroke();
+          }
+
+          await pg.render({
+            canvasContext: context,
+            viewport: vp,
+            transform: [1, 0, 0, 1, 0, yOffset],
+          }).promise;
+
+          yOffset += vp.height + pageGap;
+        }
+
         setPdfReady(true);
       } catch (err) {
         if (cancelled) return;
