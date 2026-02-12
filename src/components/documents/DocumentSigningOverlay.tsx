@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { X, Check, Loader2, Move, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 interface DocumentSigningOverlayProps {
   open: boolean;
@@ -15,11 +22,6 @@ interface DocumentSigningOverlayProps {
   onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }, comment?: string) => void;
 }
 
-function isWordDocument(filePathOrName: string): boolean {
-  const lower = filePathOrName.toLowerCase();
-  return lower.endsWith(".doc") || lower.endsWith(".docx");
-}
-
 export function DocumentSigningOverlay({
   open,
   onOpenChange,
@@ -29,58 +31,77 @@ export function DocumentSigningOverlay({
   signatureInitials,
   onConfirmSign,
 }: DocumentSigningOverlayProps) {
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
+  const [pageSize, setPageSize] = useState({ width: 800, height: 1100 });
 
   // Draggable signature state
   const [sigPos, setSigPos] = useState({ x: 50, y: 80 });
-  const [sigSize, setSigSize] = useState({ w: 180, h: 70 }); // pixels
+  const [sigSize, setSigSize] = useState({ w: 180, h: 70 });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, w: 0, h: 0 });
   const [signatureComment, setSignatureComment] = useState("");
 
-  // Load document URL - use signed URL for reliable rendering in sandboxed iframes
+  // Render PDF to canvas using PDF.js
   useEffect(() => {
     if (!open) return;
     setIsLoadingDoc(true);
     setLoadError(false);
-    setDocumentUrl(null);
     setSigPos({ x: 50, y: 80 });
     setSigSize({ w: 180, h: 70 });
     setZoom(1);
 
+    let cancelled = false;
+
     (async () => {
       try {
-        const isWord = isWordDocument(documentFilePath) || isWordDocument(documentName);
+        // Download the PDF bytes
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .download(documentFilePath);
+        if (error) throw error;
+        if (cancelled) return;
 
-        if (isWord) {
-          const { data, error } = await supabase.storage
-            .from("documents")
-            .createSignedUrl(documentFilePath, 600);
-          if (error) throw error;
-          setDocumentUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(data.signedUrl)}`);
-        } else {
-          // Use signed URL directly - blob URLs don't render in sandboxed iframes
-          const { data, error } = await supabase.storage
-            .from("documents")
-            .createSignedUrl(documentFilePath, 600);
-          if (error) throw error;
-          setDocumentUrl(data.signedUrl);
-        }
+        const arrayBuffer = await data.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        if (cancelled) return;
+
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 }); // High-res render
+
+        setPageSize({ width: viewport.width, height: viewport.height });
+
+        // Wait for canvas to be available
+        await new Promise(r => setTimeout(r, 50));
+
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Could not get canvas context");
+
+        await page.render({ canvasContext: context, viewport }).promise;
       } catch (err) {
         console.error("Error loading document:", err);
-        setLoadError(true);
-        toast.error("Dokument konnte nicht geladen werden");
+        if (!cancelled) {
+          setLoadError(true);
+          toast.error("Dokument konnte nicht geladen werden");
+        }
       } finally {
-        setIsLoadingDoc(false);
+        if (!cancelled) setIsLoadingDoc(false);
       }
     })();
-  }, [open, documentFilePath, documentName]);
+
+    return () => { cancelled = true; };
+  }, [open, documentFilePath]);
 
   // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -174,6 +195,9 @@ export function DocumentSigningOverlay({
 
   if (!open) return null;
 
+  const scaledWidth = pageSize.width * zoom;
+  const scaledHeight = pageSize.height * zoom;
+
   return (
     <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
       {/* Top Bar */}
@@ -218,7 +242,7 @@ export function DocumentSigningOverlay({
             <Loader2 className="h-8 w-8 animate-spin text-accent" />
             <p className="text-sm text-muted-foreground">Dokument wird geladen…</p>
           </div>
-        ) : loadError || !documentUrl ? (
+        ) : loadError ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <p className="text-sm text-destructive">Dokument konnte nicht geladen werden.</p>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Schließen</Button>
@@ -227,15 +251,15 @@ export function DocumentSigningOverlay({
           <div
             ref={containerRef}
             className="relative bg-white shadow-xl rounded-lg overflow-hidden select-none"
-            style={{ width: `${zoom * 800}px`, minHeight: `${zoom * 1100}px` }}
+            style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}
           >
-            {/* Embedded Document */}
-            <iframe
-              src={documentUrl}
-              className="w-full border-0"
-              style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
-              title="Dokument-Vorschau"
-              allow="fullscreen"
+            {/* PDF rendered as canvas */}
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: `${scaledWidth}px`,
+                height: `${scaledHeight}px`,
+              }}
             />
 
             {/* Draggable + Resizable Signature */}
