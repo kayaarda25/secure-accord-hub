@@ -5,12 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FileUploaderProps {
   currentFolderId: string | null;
 }
 
 export function FileUploader({ currentFolderId }: FileUploaderProps) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +28,6 @@ export function FileUploader({ currentFolderId }: FileUploaderProps) {
       let uploadedCount = 0;
       
       for (const file of Array.from(files)) {
-        // Upload to storage
         const filePath = `${user.id}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("documents")
@@ -37,7 +38,6 @@ export function FileUploader({ currentFolderId }: FileUploaderProps) {
           continue;
         }
 
-        // Create document record
         await supabase.from("documents").insert({
           name: file.name,
           file_path: filePath,
@@ -50,11 +50,11 @@ export function FileUploader({ currentFolderId }: FileUploaderProps) {
         uploadedCount++;
       }
 
-      toast.success(`${uploadedCount} Datei(en) hochgeladen`);
+      toast.success(`${uploadedCount} ${t("explorer.filesUploaded")}`);
       queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Fehler beim Hochladen");
+      toast.error(t("explorer.uploadError"));
     } finally {
       setIsUploading(false);
       if (inputRef.current) {
@@ -82,7 +82,7 @@ export function FileUploader({ currentFolderId }: FileUploaderProps) {
         ) : (
           <Upload size={16} className="mr-2" />
         )}
-        Hochladen
+        {t("explorer.upload")}
       </Button>
     </>
   );

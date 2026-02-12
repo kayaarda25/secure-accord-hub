@@ -19,12 +19,7 @@ import { useOrganizations, useOrganizationUsers } from "@/hooks/useFolderSharing
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const FOLDER_COLORS = [
-  "#c97c5d", // copper
-  "#5d9cc9", // blue
-  "#5dc985", // green
-  "#c95d9c", // pink
-  "#9c5dc9", // purple
-  "#c9b85d", // gold
+  "#c97c5d", "#5d9cc9", "#5dc985", "#c95d9c", "#9c5dc9", "#c9b85d",
 ];
 
 interface CreateFolderDialogProps {
@@ -64,7 +59,6 @@ export function CreateFolderDialog({
   const { data: organizations = [] } = useOrganizations();
   const { data: orgUsers = [] } = useOrganizationUsers(activeOrgForUsers || undefined);
 
-  // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
       setFolderName("");
@@ -77,25 +71,16 @@ export function CreateFolderDialog({
 
   const handleOrganizationToggle = (orgId: string) => {
     setSelectedOrganizations(prev => 
-      prev.includes(orgId) 
-        ? prev.filter(id => id !== orgId)
-        : [...prev, orgId]
+      prev.includes(orgId) ? prev.filter(id => id !== orgId) : [...prev, orgId]
     );
   };
 
   const handleUserToggle = (user: { user_id: string; email: string; first_name: string | null; last_name: string | null; organization_id: string }) => {
     const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
-    
     setSelectedUsers(prev => {
       const exists = prev.find(u => u.user_id === user.user_id);
-      if (exists) {
-        return prev.filter(u => u.user_id !== user.user_id);
-      }
-      return [...prev, { 
-        user_id: user.user_id, 
-        display_name: displayName,
-        organization_id: user.organization_id 
-      }];
+      if (exists) return prev.filter(u => u.user_id !== user.user_id);
+      return [...prev, { user_id: user.user_id, display_name: displayName, organization_id: user.organization_id }];
     });
   };
 
@@ -105,20 +90,14 @@ export function CreateFolderDialog({
 
   const handleCreate = () => {
     if (folderName.trim()) {
-      onCreateFolder(
-        folderName.trim(), 
-        parentId, 
-        folderColor,
-        selectedOrganizations,
-        selectedUsers.map(u => u.user_id)
-      );
+      onCreateFolder(folderName.trim(), parentId, folderColor, selectedOrganizations, selectedUsers.map(u => u.user_id));
       onOpenChange(false);
     }
   };
 
   const title = parentName 
-    ? `Neuer Unterordner in "${parentName}"`
-    : "Neuer Ordner";
+    ? `${t("explorer.newSubfolderIn")} "${parentName}"`
+    : t("explorer.newFolderTitle");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -128,20 +107,18 @@ export function CreateFolderDialog({
         </DialogHeader>
         
         <div className="space-y-6 py-4">
-          {/* Folder Name */}
           <div className="space-y-2">
-            <Label>Ordnername</Label>
+            <Label>{t("explorer.folderName")}</Label>
             <Input
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              placeholder="Ordnername eingeben..."
+              placeholder={t("explorer.folderNamePlaceholder")}
               autoFocus
             />
           </div>
 
-          {/* Folder Color */}
           <div className="space-y-2">
-            <Label>Farbe</Label>
+            <Label>{t("explorer.color")}</Label>
             <div className="flex gap-2">
               {FOLDER_COLORS.map(color => (
                 <button
@@ -157,22 +134,21 @@ export function CreateFolderDialog({
             </div>
           </div>
 
-          {/* Sharing Section */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <Users size={16} />
-              Teilen mit
+              {t("explorer.shareWith")}
             </Label>
             
             <Tabs defaultValue="organizations" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="organizations" className="flex items-center gap-2">
                   <Building2 size={14} />
-                  Organisationen
+                  {t("explorer.organizations")}
                 </TabsTrigger>
                 <TabsTrigger value="members" className="flex items-center gap-2">
                   <Users size={14} />
-                  Mitglieder
+                  {t("explorer.members")}
                 </TabsTrigger>
               </TabsList>
 
@@ -180,31 +156,23 @@ export function CreateFolderDialog({
                 <ScrollArea className="h-[150px] border rounded-md p-2">
                   <div className="space-y-2">
                     {organizations.map(org => (
-                      <div
-                        key={org.id}
-                        className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md"
-                      >
+                      <div key={org.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
                         <Checkbox
                           id={`org-${org.id}`}
                           checked={selectedOrganizations.includes(org.id)}
                           onCheckedChange={() => handleOrganizationToggle(org.id)}
                         />
-                        <label
-                          htmlFor={`org-${org.id}`}
-                          className="flex-1 text-sm font-medium cursor-pointer"
-                        >
+                        <label htmlFor={`org-${org.id}`} className="flex-1 text-sm font-medium cursor-pointer">
                           {org.name}
                         </label>
                         {org.org_type && (
-                          <Badge variant="outline" className="text-xs">
-                            {org.org_type}
-                          </Badge>
+                          <Badge variant="outline" className="text-xs">{org.org_type}</Badge>
                         )}
                       </div>
                     ))}
                     {organizations.length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        Keine Organisationen verfügbar
+                        {t("explorer.noOrganizations")}
                       </p>
                     )}
                   </div>
@@ -212,20 +180,12 @@ export function CreateFolderDialog({
               </TabsContent>
 
               <TabsContent value="members" className="mt-3 space-y-3">
-                {/* Selected Users Display */}
                 {selectedUsers.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-muted/30">
                     {selectedUsers.map(user => (
-                      <Badge 
-                        key={user.user_id} 
-                        variant="secondary"
-                        className="flex items-center gap-1"
-                      >
+                      <Badge key={user.user_id} variant="secondary" className="flex items-center gap-1">
                         {user.display_name}
-                        <button 
-                          onClick={() => removeSelectedUser(user.user_id)}
-                          className="ml-1 hover:bg-muted rounded-full"
-                        >
+                        <button onClick={() => removeSelectedUser(user.user_id)} className="ml-1 hover:bg-muted rounded-full">
                           <X size={12} />
                         </button>
                       </Badge>
@@ -233,10 +193,9 @@ export function CreateFolderDialog({
                   </div>
                 )}
 
-                {/* Organization Selector */}
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">
-                    Zuerst Organisation wählen:
+                    {t("explorer.selectOrgFirst")}
                   </Label>
                   <div className="flex flex-wrap gap-1">
                     {organizations.map(org => (
@@ -253,28 +212,20 @@ export function CreateFolderDialog({
                   </div>
                 </div>
 
-                {/* Members List */}
                 {activeOrgForUsers && (
                   <ScrollArea className="h-[120px] border rounded-md p-2">
                     <div className="space-y-1">
                       {orgUsers.map(user => {
                         const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
                         const isSelected = selectedUsers.some(u => u.user_id === user.user_id);
-                        
                         return (
-                          <div
-                            key={user.user_id}
-                            className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md"
-                          >
+                          <div key={user.user_id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
                             <Checkbox
                               id={`user-${user.user_id}`}
                               checked={isSelected}
                               onCheckedChange={() => handleUserToggle(user)}
                             />
-                            <label
-                              htmlFor={`user-${user.user_id}`}
-                              className="flex-1 cursor-pointer"
-                            >
+                            <label htmlFor={`user-${user.user_id}`} className="flex-1 cursor-pointer">
                               <div className="text-sm font-medium">{displayName}</div>
                               <div className="text-xs text-muted-foreground">{user.email}</div>
                             </label>
@@ -283,7 +234,7 @@ export function CreateFolderDialog({
                       })}
                       {orgUsers.length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                          Keine Mitglieder in dieser Organisation
+                          {t("explorer.noMembers")}
                         </p>
                       )}
                     </div>
@@ -292,10 +243,9 @@ export function CreateFolderDialog({
               </TabsContent>
             </Tabs>
 
-            {/* Summary */}
             {(selectedOrganizations.length > 0 || selectedUsers.length > 0) && (
               <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded-md">
-                Wird geteilt mit: {selectedOrganizations.length} Organisation(en), {selectedUsers.length} Mitglied(er)
+                {t("explorer.sharedWith")} {selectedOrganizations.length} {t("explorer.orgs")}, {selectedUsers.length} {t("explorer.membersCount")}
               </div>
             )}
           </div>
@@ -303,10 +253,10 @@ export function CreateFolderDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleCreate} disabled={!folderName.trim()}>
-            Erstellen
+            {t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
