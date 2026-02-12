@@ -59,10 +59,13 @@ serve(async (req) => {
     // Call ConvertAPI to convert Word → PDF
     const fileName = filePath.split("/").pop() || "document.docx";
     const convertResponse = await fetch(
-      `https://v2.convertapi.com/convert/docx/to/pdf?Secret=${CONVERTAPI_SECRET}`,
+      `https://v2.convertapi.com/convert/docx/to/pdf`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${CONVERTAPI_SECRET}`,
+        },
         body: JSON.stringify({
           Parameters: [
             {
