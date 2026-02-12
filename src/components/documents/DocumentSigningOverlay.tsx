@@ -61,12 +61,12 @@ export function DocumentSigningOverlay({
 
         const signedUrl = data.signedUrl;
 
-        // For Word documents, use Google Docs Viewer to render them in browser
+        // For Word documents, use Microsoft Office Online Viewer
         if (isWordDocument(documentFilePath) || isWordDocument(documentName)) {
-          const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
+          const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
           setDocumentUrl(viewerUrl);
         } else {
-          // For PDFs, use the signed URL directly
+          // For PDFs and images, use the signed URL directly
           setDocumentUrl(signedUrl);
         }
       } catch (err) {
@@ -222,13 +222,13 @@ export function DocumentSigningOverlay({
               minHeight: `${zoom * 1100}px`,
             }}
           >
-            {/* Embedded Document - allow pointer events so user can scroll through document */}
+            {/* Embedded Document */}
             <iframe
               src={documentUrl}
               className="w-full border-0"
               style={{ height: `${zoom * 1100}px`, pointerEvents: isDragging ? 'none' : 'auto' }}
               title="Dokument-Vorschau"
-              sandbox="allow-scripts allow-same-origin allow-popups"
+              allow="fullscreen"
             />
 
             {/* Draggable Signature */}
