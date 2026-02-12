@@ -32,7 +32,8 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
     try {
       const { data, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'Authenticator App'
+        friendlyName: 'MGI Hub',
+        issuer: 'MGI Hub'
       });
       
       if (enrollError) throw enrollError;
