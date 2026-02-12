@@ -244,10 +244,41 @@ export function DocumentSigningOverlay({
   }, [isResizing]);
 
   const handleConfirm = () => {
+    // Calculate which page the signature is on and convert to per-page coordinates
+    // The canvas renders all pages stacked vertically with gaps
+    // sigPos is in % of the full canvas (all pages)
+    const totalHeight = pageSize.height;
+    const sigYAbsolute = (sigPos.y / 100) * totalHeight;
+
+    // Reconstruct per-page heights from the canvas render logic (scale 1.5, gap 10)
+    // We stored totalHeight but not individual page heights, so we approximate:
+    // For a single-page doc, page = 1 and yPercent maps directly
+    // For multi-page, we divide evenly (best approximation without storing page heights)
+    const pageGap = 10;
+    const estimatedPageHeight = (totalHeight - (numPages - 1) * pageGap) / numPages;
+    
+    let pageIndex = 0;
+    let yInPage = sigYAbsolute;
+    for (let i = 0; i < numPages; i++) {
+      const pageTop = i * (estimatedPageHeight + pageGap);
+      const pageBottom = pageTop + estimatedPageHeight;
+      if (sigYAbsolute >= pageTop && sigYAbsolute < pageBottom) {
+        pageIndex = i;
+        yInPage = sigYAbsolute - pageTop;
+        break;
+      }
+      if (i === numPages - 1) {
+        pageIndex = i;
+        yInPage = sigYAbsolute - pageTop;
+      }
+    }
+
+    const yPercentInPage = (yInPage / estimatedPageHeight) * 100;
+
     onConfirmSign({
       xPercent: sigPos.x,
-      yPercent: sigPos.y,
-      page: 1,
+      yPercent: yPercentInPage,
+      page: pageIndex + 1,
     }, signatureComment.trim() || undefined);
     setSignatureComment("");
     onOpenChange(false);

@@ -110,8 +110,12 @@ async function stampSignature(
   helvFont: PDFFont,
 ) {
   const { width, height } = page.getSize();
-  const x = Math.max(10, Math.min((pos.xPercent / 100) * width, width - 170));
-  const y = Math.max(30, height - Math.min((pos.yPercent / 100) * height, height - 10));
+  // xPercent/yPercent represent the center of the signature box in the overlay
+  // PDF coordinate system: (0,0) is bottom-left, Y increases upward
+  // Overlay coordinate system: (0,0) is top-left, Y increases downward
+  // So we convert: pdf_y = height - (yPercent/100 * height) - offset for box center
+  const x = Math.max(10, Math.min((pos.xPercent / 100) * width - 80, width - 170));
+  const y = Math.max(30, Math.min(height - (pos.yPercent / 100) * height, height - 10));
 
   // Background box
   page.drawRectangle({
