@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +69,7 @@ interface Document {
 }
 
 export default function Authorities() {
+  const { t } = useLanguage();
   const [authorities, setAuthorities] = useState<Organization[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -216,7 +218,7 @@ export default function Authorities() {
   });
 
   return (
-    <Layout title="Behörden" subtitle="Behörden-Kontakte und Compliance-Dokumente verwalten">
+    <Layout title={t("page.authorities.title")} subtitle={t("page.authorities.subtitle")}>
       {/* Deadline Warnings */}
       {upcomingDeadlines.length > 0 && (
         <Card className="mb-6 border-warning bg-warning/5">

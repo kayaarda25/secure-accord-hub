@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -37,25 +38,11 @@ interface ScannedData {
   description: string | null;
 }
 
-const EXPENSE_CATEGORIES = [
-  { value: "salaries", label: "Salaries & Wages" },
-  { value: "rent", label: "Rent & Lease" },
-  { value: "insurance", label: "Insurance" },
-  { value: "transportation", label: "Transportation" },
-  { value: "it", label: "IT & Technology" },
-  { value: "utilities", label: "Utilities" },
-  { value: "maintenance", label: "Maintenance" },
-  { value: "marketing", label: "Marketing & Ads" },
-  { value: "training", label: "Training & Education" },
-  { value: "office", label: "Office Supplies" },
-  { value: "communication", label: "Communication" },
-  { value: "other", label: "Other" },
-];
-
 const CURRENCIES = ["CHF", "EUR", "USD", "UGX"];
 
 export default function ReceiptScanner() {
   const { user, profile } = useAuth();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -76,13 +63,27 @@ export default function ReceiptScanner() {
     expense_date: new Date().toISOString().split("T")[0],
   });
 
+  const EXPENSE_CATEGORIES = [
+    { value: "salaries", label: t("category.salaries") },
+    { value: "rent", label: t("category.rent") },
+    { value: "insurance", label: t("category.insurance") },
+    { value: "transportation", label: t("category.transportation") },
+    { value: "it", label: t("category.it") },
+    { value: "utilities", label: t("category.utilities") },
+    { value: "maintenance", label: t("category.maintenance") },
+    { value: "marketing", label: t("category.marketing") },
+    { value: "training", label: t("category.training") },
+    { value: "office", label: t("category.office") },
+    { value: "communication", label: t("category.communication") },
+    { value: "other", label: t("category.other") },
+  ];
+
   useEffect(() => {
     fetchCostCenters();
   }, [profile?.organization_id]);
 
   const fetchCostCenters = async () => {
     try {
-      // First get the user's organization to filter cost centers
       let orgName = "";
       if (profile?.organization_id) {
         const { data: orgData } = await supabase
@@ -103,7 +104,6 @@ export default function ReceiptScanner() {
 
       if (error) throw error;
       
-      // Filter cost centers based on user's organization
       let filtered = data || [];
       if (orgName) {
         if (orgName.includes("mgi m") || orgName.includes("mgi media")) {
@@ -114,7 +114,6 @@ export default function ReceiptScanner() {
           filtered = filtered.filter(cc => cc.code.startsWith("GW") && cc.name.toLowerCase().includes("allgemein"));
         }
       } else {
-        // If no org, still only show Allgemein cost centers
         filtered = filtered.filter(cc => cc.name.toLowerCase().includes("allgemein"));
       }
       
@@ -157,7 +156,6 @@ export default function ReceiptScanner() {
 
     setIsScanning(true);
     try {
-      // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -185,7 +183,6 @@ export default function ReceiptScanner() {
 
       const scanned: ScannedData = data.data;
       
-      // Update form with scanned data
       setFormData(prev => ({
         ...prev,
         title: scanned.title || prev.title,
@@ -236,7 +233,6 @@ export default function ReceiptScanner() {
 
       toast.success("Expense created successfully!");
       
-      // Reset form
       setFormData({
         title: "",
         amount: "",
@@ -269,7 +265,7 @@ export default function ReceiptScanner() {
 
   if (isLoading) {
     return (
-      <Layout title="Receipt Scanner" subtitle="Scan and categorize receipts with AI">
+      <Layout title={t("page.scanner.title")} subtitle={t("page.scanner.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -278,17 +274,17 @@ export default function ReceiptScanner() {
   }
 
   return (
-    <Layout title="Receipt Scanner" subtitle="Scan and categorize receipts with AI">
+    <Layout title={t("page.scanner.title")} subtitle={t("page.scanner.subtitle")}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upload Section */}
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Camera className="h-5 w-5 text-accent" />
-              Upload Receipt
+              {t("page.scanner.uploadReceipt")}
             </CardTitle>
             <CardDescription>
-              Upload a photo of your receipt or invoice
+              {t("page.scanner.uploadDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -315,10 +311,10 @@ export default function ReceiptScanner() {
               >
                 <FileImage className="h-12 w-12 text-muted-foreground mb-4" />
                 <span className="text-sm text-muted-foreground">
-                  Click to upload or drag and drop
+                  {t("page.scanner.clickUpload")}
                 </span>
                 <span className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG up to 10MB
+                  {t("page.scanner.fileHint")}
                 </span>
               </label>
             )}
@@ -341,12 +337,12 @@ export default function ReceiptScanner() {
                 {isScanning ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Scanning...
+                    {t("page.scanner.scanning")}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Scan with AI
+                    {t("page.scanner.scanAI")}
                   </>
                 )}
               </Button>
@@ -359,27 +355,27 @@ export default function ReceiptScanner() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-accent" />
-              Expense Details
+              {t("page.scanner.expenseDetails")}
             </CardTitle>
             <CardDescription>
-              Review and submit the expense to OPEX
+              {t("page.scanner.reviewSubmit")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title">{t("page.scanner.titleField")} *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g., Office supplies purchase"
+                  placeholder={t("page.scanner.titlePlaceholder")}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount *</Label>
+                  <Label htmlFor="amount">{t("common.amount")} *</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -390,7 +386,7 @@ export default function ReceiptScanner() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">{t("common.currency")}</Label>
                   <Select
                     value={formData.currency}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
@@ -408,7 +404,7 @@ export default function ReceiptScanner() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category">{t("common.category")} *</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
@@ -427,13 +423,13 @@ export default function ReceiptScanner() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cost_center">Cost Center *</Label>
+                <Label htmlFor="cost_center">{t("page.scanner.costCenter")} *</Label>
                 <Select
                   value={formData.cost_center_id}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, cost_center_id: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select cost center" />
+                    <SelectValue placeholder={t("page.scanner.selectCostCenter")} />
                   </SelectTrigger>
                   <SelectContent>
                     {costCenters.map((cc) => (
@@ -446,7 +442,7 @@ export default function ReceiptScanner() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="expense_date">Date</Label>
+                <Label htmlFor="expense_date">{t("page.scanner.date")}</Label>
                 <Input
                   id="expense_date"
                   type="date"
@@ -456,12 +452,12 @@ export default function ReceiptScanner() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t("page.scanner.description")}</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Additional notes..."
+                  placeholder={t("page.scanner.descPlaceholder")}
                   rows={3}
                 />
               </div>
@@ -474,12 +470,12 @@ export default function ReceiptScanner() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
+                    {t("page.scanner.submitting")}
                   </>
                 ) : (
                   <>
                     <Check className="h-4 w-4 mr-2" />
-                    Submit to OPEX
+                    {t("page.scanner.submitOpex")}
                   </>
                 )}
               </Button>

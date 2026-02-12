@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { generateSignedPdf } from "@/lib/signedPdfGenerator";
 import {
   FileText,
@@ -86,6 +87,7 @@ const folders = [
 
 export default function Documents() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { logAction } = useAuditLog();
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -644,7 +646,7 @@ export default function Documents() {
 
   if (isLoading) {
     return (
-      <Layout title="Contracts & Documents" subtitle="Document Management and Archive">
+      <Layout title={t("page.documents.title")} subtitle={t("page.documents.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -653,7 +655,7 @@ export default function Documents() {
   }
 
   return (
-    <Layout title="Contracts & Documents" subtitle="Document Management and Archive">
+    <Layout title={t("page.documents.title")} subtitle={t("page.documents.subtitle")}>
       {/* Pending Signatures Alert */}
       {pendingSignatures.length > 0 && (
         <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-lg">

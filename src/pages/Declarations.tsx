@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,6 +107,7 @@ interface CarrierRate {
 
 export default function Declarations() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { logAction } = useAuditLog();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
@@ -1011,7 +1013,7 @@ export default function Declarations() {
 
   if (isLoading || permissionsLoading) {
     return (
-      <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
+      <Layout title={t("page.declarations.title")} subtitle={t("page.declarations.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -1022,7 +1024,7 @@ export default function Declarations() {
   // Access control - only MGI Media finance can view
   if (!permissions.canViewDeclarations) {
     return (
-      <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
+      <Layout title={t("page.declarations.title")} subtitle={t("page.declarations.subtitle")}>
         <Card className="max-w-lg mx-auto">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
@@ -1037,7 +1039,7 @@ export default function Declarations() {
   }
 
   return (
-    <Layout title="Declarations" subtitle="Traffic declarations and regulatory filings">
+    <Layout title={t("page.declarations.title")} subtitle={t("page.declarations.subtitle")}>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>

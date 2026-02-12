@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,6 +87,7 @@ interface BudgetAlert {
 }
 
 export default function BudgetPlanning() {
+  const { t } = useLanguage();
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [alerts, setAlerts] = useState<BudgetAlert[]>([]);
@@ -242,7 +244,7 @@ export default function BudgetPlanning() {
   const years = [2024, 2025, 2026, 2027];
 
   return (
-    <Layout title="Budget & Planung" subtitle="Jahresbudgets planen und überwachen">
+    <Layout title={t("page.budget.title")} subtitle={t("page.budget.subtitle")}>
       {orgPermsLoading ? (
         <div className="text-center py-8 text-muted-foreground">Laden...</div>
       ) : !canViewBudget ? (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,6 +33,7 @@ interface SecuritySettings {
   allowed_ips: string[] | null;
 }
 export default function Security() {
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -241,7 +243,7 @@ export default function Security() {
     }
     setIsChangingPassword(false);
   };
-  return <Layout title="Sicherheit" subtitle="Sicherheitseinstellungen und Sessions verwalten">
+  return <Layout title={t("page.security.title")} subtitle={t("page.security.subtitle")}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Security Overview */}
         <div className="lg:col-span-2 space-y-6">

@@ -24,6 +24,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useDocumentExplorer } from "@/hooks/useDocumentExplorer";
 import { useExplorerClipboard } from "@/hooks/useExplorerClipboard";
 import { useExplorerKeyboard } from "@/hooks/useExplorerKeyboard";
@@ -82,6 +83,7 @@ interface SelectedDocument {
 }
 
 export default function Explorer() {
+  const { t } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [explorerView, setExplorerView] = useState<ExplorerView>("files");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -344,7 +346,7 @@ export default function Explorer() {
   };
 
   return (
-    <Layout title="Explorer" subtitle="Dokumente und Vorlagen verwalten">
+    <Layout title={t("page.explorer.title")} subtitle={t("page.explorer.subtitle")}>
       <div className="flex h-[calc(100vh-8rem)] gap-4">
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-4">

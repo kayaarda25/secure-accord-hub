@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: typeof Circle }> = {
 
 export default function Tasks() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -274,7 +276,7 @@ export default function Tasks() {
 
   if (isLoading) {
     return (
-      <Layout title="Tasks" subtitle="Manage your tasks and to-dos">
+      <Layout title={t("page.tasks.title")} subtitle={t("page.tasks.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -283,7 +285,7 @@ export default function Tasks() {
   }
 
   return (
-    <Layout title="Tasks" subtitle="Manage your tasks and to-dos">
+    <Layout title={t("page.tasks.title")} subtitle={t("page.tasks.subtitle")}>
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
         <Card className="mb-6 border-warning/50 bg-warning/5">

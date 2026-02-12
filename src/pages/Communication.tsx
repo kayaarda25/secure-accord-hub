@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +77,7 @@ interface UserProfile {
 
 export default function Communication() {
   const { user, profile, hasAnyRole } = useAuth();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const { ready: cryptoReady, encrypt, decrypt } = useE2ECrypto(user?.id);
   const [activeTab, setActiveTab] = useState<CommunicationType>("direct");
@@ -501,7 +503,7 @@ export default function Communication() {
   ];
 
   return (
-    <Layout title="Communication" subtitle="Messages, protocols and online meetings">
+    <Layout title={t("page.communication.title")} subtitle={t("page.communication.subtitle")}>
       {/* Video Meeting Modal */}
       {showVideoMeeting && (
         <VideoMeeting 

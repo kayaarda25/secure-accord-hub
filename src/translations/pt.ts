@@ -1,0 +1,278 @@
+export const pt: Record<string, string> = {
+  // Navigation
+  "nav.dashboard": "Painel",
+  "nav.finances": "Finanças",
+  "nav.overview": "Visão geral",
+  "nav.opex": "OPEX",
+  "nav.receiptScanner": "Scanner de recibos",
+  "nav.invoices": "Faturas",
+  "nav.declarations": "Declarações",
+  "nav.budget": "Orçamento",
+  "nav.reports": "Relatórios",
+  "nav.documents": "Documentos",
+  "nav.explorer": "Explorador",
+  "nav.signatures": "Assinaturas",
+  "nav.protocols": "Protocolos",
+  "nav.collaboration": "Colaboração",
+  "nav.communication": "Comunicação",
+  "nav.calendar": "Calendário",
+  "nav.tasks": "Tarefas",
+  "nav.projects": "Projetos",
+  "nav.hr": "RH",
+  "nav.employees": "Funcionários",
+  "nav.vacations": "Gestão de férias",
+  "nav.payroll": "Folha de pagamento",
+  "nav.socialInsurance": "Segurança social",
+  "nav.partners": "Parceiros",
+  "nav.authorities": "Autoridades",
+  "nav.users": "Utilizadores",
+  "nav.security": "Segurança",
+  "nav.settings": "Configurações",
+  "nav.signOut": "Terminar sessão",
+
+  // Settings page
+  "settings.title": "Configurações",
+  "settings.subtitle": "Gerir perfil e preferências",
+  "settings.profile": "Perfil",
+  "settings.signature": "Assinatura",
+  "settings.letterhead": "Papel timbrado",
+  "settings.rates": "Tarifas",
+  "settings.notifications": "Notificações",
+  "settings.appearance": "Aparência",
+  "settings.language": "Idioma",
+  "settings.profile.title": "Editar perfil",
+  "settings.profile.description": "Atualize as suas informações pessoais",
+  "settings.profile.changePhoto": "Alterar foto",
+  "settings.profile.uploading": "A carregar...",
+  "settings.profile.photoHint": "JPG, GIF ou PNG. Máx 1MB.",
+  "settings.profile.firstName": "Primeiro nome",
+  "settings.profile.lastName": "Apelido",
+  "settings.profile.email": "E-mail",
+  "settings.profile.phone": "Telefone",
+  "settings.profile.position": "Cargo",
+  "settings.profile.department": "Departamento",
+  "settings.profile.save": "Guardar",
+  "settings.profile.saving": "A guardar...",
+  "settings.notifications.title": "Definições de notificação",
+  "settings.notifications.description": "Escolha quais notificações pretende receber",
+  "settings.notifications.loading": "A carregar...",
+  "settings.notifications.channels": "Canais",
+  "settings.notifications.email": "Notificações por e-mail",
+  "settings.notifications.emailDesc": "Receber notificações por e-mail",
+  "settings.notifications.push": "Notificações push",
+  "settings.notifications.pushDesc": "Receber notificações do navegador",
+  "settings.notifications.categories": "Categorias",
+  "settings.notifications.tasks": "Tarefas",
+  "settings.notifications.documents": "Documentos",
+  "settings.notifications.expenses": "Despesas & OPEX",
+  "settings.notifications.calendar": "Calendário",
+  "settings.notifications.approvals": "Aprovações",
+  "settings.notifications.budget": "Orçamento",
+  "settings.appearance.title": "Aparência",
+  "settings.appearance.description": "Personalize a aparência da aplicação",
+  "settings.appearance.colorScheme": "Esquema de cores",
+  "settings.appearance.light": "Claro",
+  "settings.appearance.dark": "Escuro",
+  "settings.appearance.system": "Sistema",
+  "settings.appearance.accentColor": "Cor de destaque",
+  "settings.language.title": "Idioma & Região",
+  "settings.language.description": "Personalize as definições de idioma e região",
+  "settings.language.language": "Idioma",
+  "settings.language.timezone": "Fuso horário",
+  "settings.language.dateFormat": "Formato de data",
+
+  // Common
+  "common.save": "Guardar",
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
+  "common.edit": "Editar",
+  "common.create": "Criar",
+  "common.search": "Pesquisar",
+  "common.filter": "Filtrar",
+  "common.loading": "A carregar...",
+  "common.error": "Erro",
+  "common.success": "Sucesso",
+  "common.submit": "Submeter",
+  "common.back": "Voltar",
+  "common.close": "Fechar",
+  "common.yes": "Sim",
+  "common.no": "Não",
+  "common.all": "Todos",
+  "common.none": "Nenhum",
+  "common.status": "Estado",
+  "common.date": "Data",
+  "common.amount": "Montante",
+  "common.currency": "Moeda",
+  "common.description": "Descrição",
+  "common.title": "Título",
+  "common.category": "Categoria",
+  "common.actions": "Ações",
+  "common.export": "Exportar",
+  "common.import": "Importar",
+  "common.download": "Descarregar",
+  "common.upload": "Carregar",
+  "common.add": "Adicionar",
+  "common.remove": "Remover",
+  "common.confirm": "Confirmar",
+  "common.pending": "Pendente",
+  "common.approved": "Aprovado",
+  "common.rejected": "Rejeitado",
+  "common.total": "Total",
+  "common.noData": "Sem dados disponíveis",
+  "common.accessDenied": "Acesso negado",
+  "common.new": "Novo",
+
+  // Header
+  "header.secure": "Seguro",
+  "header.search": "Pesquisar...",
+
+  // Dashboard
+  "page.dashboard.title": "Painel",
+  "page.dashboard.subtitle": "Visão geral",
+
+  // Finances
+  "page.finances.title": "Finanças",
+  "page.finances.subtitle": "Declarações & visão geral de receitas",
+  "page.finances.totalRevenue": "Receita total",
+  "page.finances.declarations": "Declarações",
+  "page.finances.mgiBalance": "Saldo MGI",
+  "page.finances.giaBalance": "Saldo GIA",
+  "page.finances.pending": "Pendente",
+  "page.finances.approved": "Aprovado",
+
+  // OPEX
+  "page.opex.title": "OPEX",
+  "page.opex.subtitle": "Gerir e monitorizar despesas operacionais",
+  "page.opex.newExpense": "Nova despesa",
+  "page.opex.totalExpenses": "Despesas totais",
+  "page.opex.approvedExpenses": "Despesas aprovadas",
+  "page.opex.pendingExpenses": "Despesas pendentes",
+  "page.opex.rejectedExpenses": "Despesas rejeitadas",
+  "page.opex.costCenter": "Centro de custos",
+  "page.opex.period": "Período",
+  "page.opex.notes": "Notas",
+  "page.opex.submitExpenses": "Submeter despesas",
+  "page.opex.submitting": "A submeter...",
+  "page.opex.approve": "Aprovar",
+  "page.opex.reject": "Rejeitar",
+
+  // Receipt Scanner
+  "page.scanner.title": "Scanner de recibos",
+  "page.scanner.subtitle": "Digitalizar e categorizar recibos com IA",
+  "page.scanner.uploadReceipt": "Carregar recibo",
+  "page.scanner.uploadDesc": "Carregue uma foto do seu recibo ou fatura",
+  "page.scanner.clickUpload": "Clique para carregar ou arraste e solte",
+  "page.scanner.fileHint": "PNG, JPG até 10MB",
+  "page.scanner.scanAI": "Digitalizar com IA",
+  "page.scanner.scanning": "A digitalizar...",
+  "page.scanner.expenseDetails": "Detalhes da despesa",
+  "page.scanner.reviewSubmit": "Rever e submeter a despesa ao OPEX",
+  "page.scanner.titleField": "Título",
+  "page.scanner.titlePlaceholder": "ex: Compra de material de escritório",
+  "page.scanner.costCenter": "Centro de custos",
+  "page.scanner.selectCostCenter": "Selecionar centro de custos",
+  "page.scanner.date": "Data",
+  "page.scanner.description": "Descrição",
+  "page.scanner.descPlaceholder": "Notas adicionais...",
+  "page.scanner.submitOpex": "Submeter ao OPEX",
+  "page.scanner.submitting": "A submeter...",
+
+  // Invoices
+  "page.invoices.title": "Faturas de fornecedores",
+  "page.invoices.subtitle": "Gerir e aprovar faturas recebidas",
+  "page.invoices.newInvoice": "Nova fatura",
+  "page.invoices.totalInvoices": "Faturas totais",
+  "page.invoices.pendingApproval": "Aprovação pendente",
+  "page.invoices.overdue": "Em atraso",
+  "page.invoices.paid": "Pago",
+
+  // Declarations
+  "page.declarations.title": "Declarações",
+  "page.declarations.subtitle": "Declarações de tráfego e registos regulatórios",
+  "page.declarations.accessDenied": "Acesso negado",
+  "page.declarations.accessDeniedMsg": "Esta função está disponível apenas para o gestor financeiro da MGI Media.",
+
+  // Budget
+  "page.budget.title": "Orçamento & Planeamento",
+  "page.budget.subtitle": "Planear e monitorizar orçamentos anuais",
+
+  // Reports
+  "page.reports.title": "Relatórios",
+  "page.reports.subtitle": "Gerar e automatizar relatórios",
+
+  // Documents
+  "page.documents.title": "Contratos & Documentos",
+  "page.documents.subtitle": "Gestão e arquivo de documentos",
+
+  // Explorer
+  "page.explorer.title": "Explorador",
+  "page.explorer.subtitle": "Gerir documentos e modelos",
+
+  // Protocols
+  "page.protocols.title": "Protocolos",
+  "page.protocols.subtitle": "Protocolos de reunião e documentação",
+
+  // Communication
+  "page.communication.title": "Comunicação",
+  "page.communication.subtitle": "Mensagens, protocolos e reuniões online",
+
+  // Calendar
+  "page.calendar.title": "Calendário & Eventos",
+  "page.calendar.subtitle": "Visão geral de todos os eventos importantes",
+  "page.calendar.dayView": "Vista diária",
+
+  // Tasks
+  "page.tasks.title": "Tarefas",
+  "page.tasks.subtitle": "Gerir as suas tarefas e a fazer",
+
+  // Projects
+  "page.projects.title": "Projetos",
+  "page.projects.subtitle": "Gestão de projetos",
+
+  // Employees
+  "page.employees.title": "Funcionários",
+  "page.employees.subtitle": "Gestão de RH e visão geral dos funcionários",
+
+  // Vacations
+  "page.vacations.title": "Gestão de férias",
+  "page.vacations.subtitle": "Gerir pedidos de férias e ausências",
+
+  // Payroll
+  "page.payroll.title": "Folha de pagamento",
+  "page.payroll.subtitle": "Folha de pagamento e visão geral de salários",
+
+  // Social Insurance
+  "page.socialInsurance.title": "Segurança social",
+  "page.socialInsurance.subtitle": "AHV, BVG, UVG e outras contribuições de segurança social",
+
+  // Partners
+  "page.partners.title": "Parceiros",
+  "page.partners.subtitle": "Gerir organizações parceiras e contactos",
+
+  // Authorities
+  "page.authorities.title": "Autoridades",
+  "page.authorities.subtitle": "Gerir contactos de autoridades e documentos de conformidade",
+
+  // Users
+  "page.users.title": "Utilizadores",
+  "page.users.subtitle": "Gestão de utilizadores",
+  "page.users.accessDenied": "Acesso negado",
+
+  // Security
+  "page.security.title": "Segurança",
+  "page.security.subtitle": "Gerir definições de segurança e sessões",
+
+  // Expense categories
+  "category.salaries": "Salários",
+  "category.rent": "Renda & Aluguer",
+  "category.insurance": "Seguro",
+  "category.transportation": "Transporte",
+  "category.it": "TI & Tecnologia",
+  "category.utilities": "Serviços públicos",
+  "category.maintenance": "Manutenção",
+  "category.marketing": "Marketing & Publicidade",
+  "category.training": "Formação & Educação",
+  "category.office": "Material de escritório",
+  "category.communication": "Comunicação",
+  "category.other": "Outro",
+};

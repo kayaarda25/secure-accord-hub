@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ const EVENT_TYPES = [
 
 export default function Calendar() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -108,7 +110,7 @@ export default function Calendar() {
 
   if (isLoading) {
     return (
-      <Layout title="Kalender & Termine" subtitle="Übersicht aller wichtigen Termine">
+      <Layout title={t("page.calendar.title")} subtitle={t("page.calendar.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -120,7 +122,7 @@ export default function Calendar() {
   if (selectedDay !== null) {
     const dayEvents = getEventsForDay(selectedDay);
     return (
-      <Layout title="Kalender & Termine" subtitle="Tagesansicht">
+      <Layout title={t("page.calendar.title")} subtitle={t("page.calendar.dayView")}>
         <DayView
           day={selectedDay}
           month={currentMonth}
@@ -153,7 +155,7 @@ export default function Calendar() {
   }
 
   return (
-    <Layout title="Kalender & Termine" subtitle="Übersicht aller wichtigen Termine">
+    <Layout title={t("page.calendar.title")} subtitle={t("page.calendar.subtitle")}>
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
         <Card className="mb-6 border-warning/50 bg-warning/5">

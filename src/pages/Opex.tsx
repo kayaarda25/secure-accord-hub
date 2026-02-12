@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
@@ -63,6 +64,7 @@ interface OpexExpense {
 
 export default function Opex() {
   const { user, profile, hasAnyRole } = useAuth();
+  const { t } = useLanguage();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
   const isGatewayUser = permissions.isGateway;
   const { logAction } = useAuditLog();
@@ -700,7 +702,7 @@ export default function Opex() {
 
   if (isLoading) {
     return (
-      <Layout title="OPEX" subtitle="Operating Expenses Management">
+      <Layout title={t("page.opex.title")} subtitle={t("page.opex.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -709,7 +711,7 @@ export default function Opex() {
   }
 
   return (
-    <Layout title="OPEX" subtitle="Operating Expenses Management">
+    <Layout title={t("page.opex.title")} subtitle={t("page.opex.subtitle")}>
       {/* Action Bar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
