@@ -56,31 +56,69 @@ function parsePosition(position?: string | null): { xPercent: number; yPercent: 
 }
 
 /**
- * Strips HTML tags and returns plain text lines from HTML content.
+ * Sanitize text for pdf-lib's WinAnsi encoding.
+ * Replaces tabs, control chars, and unsupported Unicode with safe alternatives.
+ */
+function sanitizeText(text: string): string {
+  return text
+    .replace(/\t/g, "    ") // tabs → 4 spaces
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // control chars
+    .replace(/[""]/g, '"')  // smart quotes
+    .replace(/['']/g, "'")
+    .replace(/–/g, "-")
+    .replace(/—/g, " - ")
+    .replace(/…/g, "...")
+    .replace(/•/g, "-")
+    .replace(/\u00A0/g, " "); // non-breaking space
+}
+
+/**
+ * Converts HTML to structured lines, preserving paragraph breaks and basic layout.
  */
 function htmlToLines(html: string): string[] {
-  // Replace block-level elements with newlines
+  // Insert double newlines for block elements to preserve paragraph spacing
   let text = html
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/div>/gi, "\n")
-    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
     .replace(/<\/li>/gi, "\n")
     .replace(/<\/tr>/gi, "\n")
-    .replace(/<td[^>]*>/gi, "  |  ")
-    .replace(/<[^>]+>/g, ""); // strip all remaining HTML tags
+    .replace(/<td[^>]*>/gi, "    ")
+    .replace(/<[^>]+>/g, "");
 
   // Decode HTML entities
   const textarea = document.createElement("textarea");
   textarea.innerHTML = text;
   text = textarea.value;
 
-  // Split into lines and clean up
-  return text.split("\n").map(line => line.replace(/[\t\r\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim()).filter(Boolean);
+  // Sanitize for WinAnsi
+  text = sanitizeText(text);
+
+  // Split and preserve empty lines as paragraph separators
+  const rawLines = text.split("\n");
+  const result: string[] = [];
+  let lastWasEmpty = false;
+
+  for (const line of rawLines) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      if (!lastWasEmpty) {
+        result.push(""); // paragraph break marker
+        lastWasEmpty = true;
+      }
+    } else {
+      result.push(trimmed);
+      lastWasEmpty = false;
+    }
+  }
+
+  return result;
 }
 
 /**
- * Renders text lines onto PDF pages, automatically creating new pages as needed.
+ * Renders text lines onto PDF pages with proper pagination.
+ * Returns the pages and total page count.
  */
 function renderTextToPages(
   pdfDoc: PDFDocument,
@@ -92,86 +130,183 @@ function renderTextToPages(
   const pageWidth = 595;
   const pageHeight = 842;
   const margin = 50;
-  const lineHeight = 14;
+  const lineHeight = 13;
+  const paragraphSpacing = 10;
   const maxWidth = pageWidth - 2 * margin;
-  const fontSize = 10;
+  const fontSize = 9.5;
   const pages: PDFPage[] = [];
 
   let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
   pages.push(currentPage);
   let y = pageHeight - margin;
 
-  // Document title at top of first page
-  currentPage.drawText(documentName, {
+  // Document title
+  const safeTitle = sanitizeText(documentName);
+  currentPage.drawText(safeTitle, {
     x: margin,
     y,
-    size: 14,
+    size: 13,
     font: boldFont,
     color: rgb(0.1, 0.1, 0.1),
   });
-  y -= 25;
+  y -= 22;
 
-  // Draw a separator line
+  // Separator
   currentPage.drawLine({
     start: { x: margin, y },
     end: { x: pageWidth - margin, y },
     thickness: 0.5,
     color: rgb(0.7, 0.7, 0.7),
   });
-  y -= 15;
+  y -= 14;
+
+  const startNewPage = () => {
+    currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+    pages.push(currentPage);
+    y = pageHeight - margin;
+  };
 
   for (const line of lines) {
-    // Word wrap long lines
+    // Empty line = paragraph break
+    if (line === "") {
+      y -= paragraphSpacing;
+      if (y < margin + 20) startNewPage();
+      continue;
+    }
+
+    // Word wrap
     const words = line.split(" ");
     let currentLine = "";
 
     for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+      const safeWord = sanitizeText(word);
+      const testLine = currentLine ? `${currentLine} ${safeWord}` : safeWord;
+
+      let textWidth: number;
+      try {
+        textWidth = font.widthOfTextAtSize(testLine, fontSize);
+      } catch {
+        // If encoding fails, skip this word
+        continue;
+      }
 
       if (textWidth > maxWidth && currentLine) {
-        // Draw the current line
-        if (y < margin + 20) {
-          currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
-          pages.push(currentPage);
-          y = pageHeight - margin;
+        if (y < margin + 20) startNewPage();
+        try {
+          currentPage.drawText(currentLine, {
+            x: margin, y, size: fontSize, font, color: rgb(0.12, 0.12, 0.12),
+          });
+        } catch {
+          // skip unencodable line
         }
-        currentPage.drawText(currentLine, {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-          color: rgb(0.15, 0.15, 0.15),
-        });
         y -= lineHeight;
-        currentLine = word;
+        currentLine = safeWord;
       } else {
         currentLine = testLine;
       }
     }
 
-    // Draw remaining text
     if (currentLine) {
-      if (y < margin + 20) {
-        currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
-        pages.push(currentPage);
-        y = pageHeight - margin;
+      if (y < margin + 20) startNewPage();
+      try {
+        currentPage.drawText(currentLine, {
+          x: margin, y, size: fontSize, font, color: rgb(0.12, 0.12, 0.12),
+        });
+      } catch {
+        // skip unencodable line
       }
-      currentPage.drawText(currentLine, {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(0.15, 0.15, 0.15),
-      });
       y -= lineHeight;
     }
-
-    // Extra spacing between paragraphs
-    y -= 4;
   }
 
   return pages;
+}
+
+/**
+ * Stamps a signature onto a specific page at the given position.
+ */
+async function stampSignature(
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  sig: SignatureInfo,
+  pos: { xPercent: number; yPercent: number },
+  courierFont: PDFFont,
+  helvFont: PDFFont,
+) {
+  const { width, height } = page.getSize();
+
+  // Clamp position to keep signature within page bounds
+  const x = Math.max(10, Math.min((pos.xPercent / 100) * width, width - 170));
+  const y = Math.max(30, height - Math.min((pos.yPercent / 100) * height, height - 10));
+
+  // Background box
+  page.drawRectangle({
+    x: x - 10,
+    y: y - 15,
+    width: 160,
+    height: 60,
+    color: rgb(1, 1, 1),
+    opacity: 0.92,
+    borderColor: rgb(0.83, 0.69, 0.33),
+    borderWidth: 0.5,
+  });
+
+  const sigImage = sig.signatureImage;
+  const isTextSignature = !sigImage || sigImage.toLowerCase().startsWith("text:");
+
+  if (!isTextSignature && sigImage) {
+    try {
+      let imageBytes: Uint8Array;
+      if (sigImage.startsWith("data:image")) {
+        imageBytes = dataUrlToBytes(sigImage);
+      } else {
+        imageBytes = await fetchImageBytes(sigImage);
+      }
+
+      let embeddedImage;
+      try {
+        embeddedImage = await pdfDoc.embedPng(imageBytes);
+      } catch {
+        embeddedImage = await pdfDoc.embedJpg(imageBytes);
+      }
+
+      const imgDims = embeddedImage.scaleToFit(120, 30);
+      page.drawImage(embeddedImage, {
+        x, y: y + 5,
+        width: imgDims.width,
+        height: imgDims.height,
+      });
+    } catch (err) {
+      console.error("Could not embed signature image:", err);
+      const initials = sig.signerName.split(" ").map(n => n[0]).join(".");
+      page.drawText(sanitizeText(initials), {
+        x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
+      });
+    }
+  } else {
+    const text = sig.signatureInitials
+      || (sigImage ? sigImage.replace(/^text:/i, "") : null)
+      || sig.signerName.split(" ").map(n => n[0]).join(".");
+    page.drawText(sanitizeText(text), {
+      x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
+    });
+  }
+
+  // Signature line
+  page.drawLine({
+    start: { x, y: y + 2 },
+    end: { x: x + 120, y: y + 2 },
+    thickness: 0.5,
+    color: rgb(0.6, 0.6, 0.6),
+  });
+
+  // Signer info
+  const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  });
+  page.drawText(sanitizeText(`${sig.signerName} · ${signedDate}`), {
+    x, y: y - 10, size: 7, font: helvFont, color: rgb(0.4, 0.4, 0.4),
+  });
 }
 
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
@@ -186,11 +321,8 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
     const docBytes = await fetchDocumentBytes(documentFilePath);
     pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
   } else if (isWord) {
-    // Convert Word document to PDF using mammoth (Word → HTML → PDF text)
     const docBytes = await fetchDocumentBytes(documentFilePath);
-    const arrayBuffer = docBytes;
-
-    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const result = await mammoth.convertToHtml({ arrayBuffer: docBytes });
     const htmlContent = result.value;
     const textLines = htmlToLines(htmlContent);
 
@@ -199,15 +331,14 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     renderTextToPages(pdfDoc, textLines, font, boldFont, documentName);
   } else {
-    // Fallback for other file types
     pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([595, 842]);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    page.drawText(`Dokument: ${documentName}`, {
+    page.drawText(sanitizeText(`Dokument: ${documentName}`), {
       x: 40, y: 750, size: 14, font: boldFont, color: rgb(0.1, 0.1, 0.1),
     });
-    page.drawText("Dateiformat wird nicht direkt unterstützt.", {
+    page.drawText("Dateiformat wird nicht direkt unterstuetzt.", {
       x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4),
     });
   }
@@ -216,93 +347,19 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
   const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
   const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  // Stamp each signature onto the document
+  // Stamp each signature
   for (const sig of signatures) {
     const pos = parsePosition(sig.position);
     const pageIndex = Math.min(pos.page, pages.length - 1);
     const page = pages[Math.max(0, pageIndex)];
-    const { width, height } = page.getSize();
 
-    const x = (pos.xPercent / 100) * width;
-    const y = height - (pos.yPercent / 100) * height;
-
-    // Draw background box
-    page.drawRectangle({
-      x: x - 10,
-      y: y - 15,
-      width: 160,
-      height: 60,
-      color: rgb(1, 1, 1),
-      opacity: 0.9,
-      borderColor: rgb(0.83, 0.69, 0.33),
-      borderWidth: 0.5,
-    });
-
-    // Determine if signature is image or text
-    // Handle both "text:" and "TEXT:" prefixes (case-insensitive)
-    const sigImage = sig.signatureImage;
-    const isTextSignature = !sigImage || sigImage.toLowerCase().startsWith("text:");
-
-    if (!isTextSignature && sigImage) {
-      try {
-        let imageBytes: Uint8Array;
-        if (sigImage.startsWith("data:image")) {
-          imageBytes = dataUrlToBytes(sigImage);
-        } else {
-          imageBytes = await fetchImageBytes(sigImage);
-        }
-
-        let embeddedImage;
-        try {
-          embeddedImage = await pdfDoc.embedPng(imageBytes);
-        } catch {
-          embeddedImage = await pdfDoc.embedJpg(imageBytes);
-        }
-
-        const imgDims = embeddedImage.scaleToFit(120, 30);
-        page.drawImage(embeddedImage, {
-          x, y: y + 5,
-          width: imgDims.width,
-          height: imgDims.height,
-        });
-      } catch (err) {
-        console.error("Could not embed signature image:", err);
-        const initials = sig.signerName.split(" ").map(n => n[0]).join(".");
-        page.drawText(initials, {
-          x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
-        });
-      }
-    } else {
-      // Text signature
-      const text = sig.signatureInitials
-        || (sigImage ? sigImage.replace(/^text:/i, "") : null)
-        || sig.signerName.split(" ").map(n => n[0]).join(".");
-      page.drawText(text, {
-        x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
-      });
-    }
-
-    // Signature line
-    page.drawLine({
-      start: { x, y: y + 2 },
-      end: { x: x + 120, y: y + 2 },
-      thickness: 0.5,
-      color: rgb(0.6, 0.6, 0.6),
-    });
-
-    // Signer info
-    const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-    });
-    page.drawText(`${sig.signerName} · ${signedDate}`, {
-      x, y: y - 10, size: 7, font: helv, color: rgb(0.4, 0.4, 0.4),
-    });
+    await stampSignature(pdfDoc, page, sig, pos, courierFont, helv);
   }
 
   // Footer on last page
   const lastPage = pages[pages.length - 1];
   const { width: pw } = lastPage.getSize();
-  lastPage.drawText(`Digitally signed · ${signatures.length} Signatur(en) · MGI Hub`, {
+  lastPage.drawText(sanitizeText(`Digitally signed · ${signatures.length} Signatur(en) · MGI Hub`), {
     x: pw / 2 - 80, y: 15, size: 6, font: helv, color: rgb(0.6, 0.6, 0.6),
   });
 
