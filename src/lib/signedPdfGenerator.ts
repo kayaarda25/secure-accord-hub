@@ -106,7 +106,7 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
     if (between) {
       const segments = parseInlineSegments(between);
       if (segments.length > 0 && segments.some(s => s.text.trim())) {
-        blocks.push({ type: "paragraph", segments, spacingAfter: 4 });
+        blocks.push({ type: "paragraph", segments, spacingAfter: 8 });
       }
     }
     lastIndex = match.index + match[0].length;
@@ -126,7 +126,7 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
 
     if (segments.length === 0 || !segments.some(s => s.text.trim())) {
       // Empty paragraph = extra spacing
-      blocks.push({ type: "paragraph", segments: [{ text: "", bold: false }], spacingAfter: 8 });
+      blocks.push({ type: "paragraph", segments: [{ text: "", bold: false }], spacingAfter: 14 });
       continue;
     }
 
@@ -135,15 +135,15 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
       blocks.push({
         type: "heading",
         segments: segments.map(s => ({ ...s, bold: true })),
-        spacingBefore: 12,
-        spacingAfter: 6,
+        spacingBefore: 16,
+        spacingAfter: 10,
       });
     } else {
       blocks.push({
         type: "paragraph",
         segments,
-        spacingBefore: 2,
-        spacingAfter: 4,
+        spacingBefore: 3,
+        spacingAfter: 8,
       });
     }
   }
@@ -153,7 +153,7 @@ function parseHtmlToBlocks(html: string): ContentBlock[] {
   if (remaining) {
     const segments = parseInlineSegments(remaining);
     if (segments.length > 0 && segments.some(s => s.text.trim())) {
-      blocks.push({ type: "paragraph", segments, spacingAfter: 4 });
+      blocks.push({ type: "paragraph", segments, spacingAfter: 8 });
     }
   }
 
@@ -208,15 +208,15 @@ function renderBlocksToPages(
 ): PDFPage[] {
   const pageWidth = 595; // A4
   const pageHeight = 842;
-  const marginLeft = 60;
-  const marginRight = 60;
-  const marginTop = 60;
-  const marginBottom = 60;
+  const marginLeft = 72;  // ~2.5cm like Word default
+  const marginRight = 72;
+  const marginTop = 72;
+  const marginBottom = 72;
   const maxWidth = pageWidth - marginLeft - marginRight;
-  const normalSize = 10;
-  const headingSize = 14;
-  const lineHeight = 14;
-  const headingLineHeight = 18;
+  const normalSize = 11;
+  const headingSize = 16;
+  const lineHeight = 18;   // ~1.5x line spacing like Word
+  const headingLineHeight = 24;
 
   const pages: PDFPage[] = [];
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -259,7 +259,7 @@ function renderBlocksToPages(
 
     // Empty paragraph = spacing
     if (block.segments.length === 1 && !block.segments[0].text.trim()) {
-      y -= 8;
+      y -= 14;
       if (y < marginBottom) newPage();
       continue;
     }
