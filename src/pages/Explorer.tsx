@@ -54,7 +54,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS, fr, pt } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 
 type ViewMode = "grid" | "list";
@@ -83,7 +83,8 @@ interface SelectedDocument {
 }
 
 export default function Explorer() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dateFnsLocale = { de, en: enUS, fr, pt }[language] || de;
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [explorerView, setExplorerView] = useState<ExplorerView>("files");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -158,7 +159,7 @@ export default function Explorer() {
 
   const handleKeyboardDelete = useCallback(() => {
     if (activeDoc) {
-      if (window.confirm(`"${activeDoc.name}" wirklich löschen?`)) {
+      if (window.confirm(`"${activeDoc.name}" ${t("explorer.deleteConfirmName")}`)) {
         deleteDocument.mutate({ id: activeDoc.id, filePath: activeDoc.file_path });
         setActiveDocId(null);
       }
@@ -269,7 +270,7 @@ export default function Explorer() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error("Fehler beim Herunterladen");
+      toast.error(t("explorer.downloadError"));
       console.error(error);
     }
   };
@@ -283,7 +284,7 @@ export default function Explorer() {
   };
 
   const handleDelete = async (docId: string, filePath: string) => {
-    if (window.confirm("Dokument wirklich löschen?")) {
+    if (window.confirm(t("explorer.deleteConfirm"))) {
       deleteDocument.mutate({ id: docId, filePath });
     }
   };
@@ -338,7 +339,7 @@ export default function Explorer() {
             .update({ folder_id: currentFolderId })
             .eq("id", item.id);
           if (error) throw error;
-          toast.success(`"${item.name}" hierher verschoben`);
+          toast.success(`"${item.name}" ${t("explorer.movedHere")}`);
           const { useQueryClient } = await import("@tanstack/react-query");
         }
       } catch {}
@@ -353,8 +354,8 @@ export default function Explorer() {
           <Card className="flex-1 overflow-hidden">
             <CardContent className="p-3 h-full overflow-y-auto">
               <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                <FolderOpen size={12} />
-                <span>Ordner</span>
+                 <FolderOpen size={12} />
+                 <span>{t("explorer.folders")}</span>
               </div>
               <FolderTree
                 folders={filteredFolders}
@@ -399,7 +400,7 @@ export default function Explorer() {
             }}
           >
             <Trash2 size={16} />
-            Papierkorb
+             {t("explorer.trash")}
             {trashedDocuments.length > 0 && (
               <span className="ml-auto text-xs bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">
                 {trashedDocuments.length}
@@ -425,7 +426,7 @@ export default function Explorer() {
                   <ChevronRight size={14} className="text-muted-foreground" />
                   <span className="flex items-center gap-1.5 text-foreground font-medium">
                     <Trash2 size={14} />
-                    Papierkorb
+                     {t("explorer.trash")}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -434,13 +435,13 @@ export default function Explorer() {
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (window.confirm("Papierkorb endgültig leeren? Alle Dokumente werden unwiderruflich gelöscht.")) {
+                         if (window.confirm(t("explorer.emptyTrashConfirm"))) {
                           emptyTrash.mutate();
                         }
                       }}
                     >
-                      <Trash2 size={14} className="mr-2" />
-                      Papierkorb leeren
+                       <Trash2 size={14} className="mr-2" />
+                       {t("explorer.emptyTrash")}
                     </Button>
                   )}
                 </div>
@@ -471,8 +472,8 @@ export default function Explorer() {
                 <div className="flex items-center gap-2">
                   {hasClipboard && (
                     <Button variant="outline" onClick={handlePaste}>
-                      <ClipboardPaste size={16} className="mr-2" />
-                      Einfügen (Ctrl+V)
+                       <ClipboardPaste size={16} className="mr-2" />
+                       {t("explorer.paste")}
                     </Button>
                   )}
 
@@ -498,8 +499,8 @@ export default function Explorer() {
                   </div>
 
                   <Button variant="outline" onClick={() => setShowTemplateGenerator(true)}>
-                    <LayoutTemplate size={16} className="mr-2" />
-                    Vorlage erstellen
+                   <LayoutTemplate size={16} className="mr-2" />
+                     {t("explorer.createTemplate")}
                   </Button>
 
                   <FolderUploader 
@@ -526,16 +527,16 @@ export default function Explorer() {
                   </div>
                 ) : trashedDocuments.length > 0 ? (
                   <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                      Gelöschte Dokumente ({trashedDocuments.length})
+                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                       {t("explorer.deletedDocuments")} ({trashedDocuments.length})
                     </h3>
                     <div className="space-y-1">
                       {/* List Header */}
                       <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
-                        <div className="col-span-5">Name</div>
-                        <div className="col-span-3">Gelöscht am</div>
-                        <div className="col-span-1">Grösse</div>
-                        <div className="col-span-3 text-right">Aktionen</div>
+                         <div className="col-span-5">{t("explorer.name")}</div>
+                         <div className="col-span-3">{t("explorer.deletedAt")}</div>
+                         <div className="col-span-1">{t("explorer.size")}</div>
+                         <div className="col-span-3 text-right">{t("explorer.actions")}</div>
                       </div>
                       {trashedDocuments.map((doc) => {
                         const FileIcon = getFileIcon(doc.mime_type);
@@ -552,8 +553,8 @@ export default function Explorer() {
                             </div>
                             <div className="col-span-3 flex items-center gap-1.5">
                               <Clock size={12} className="text-muted-foreground flex-shrink-0" />
-                              <span className="text-xs text-muted-foreground">
-                                {doc.deleted_at ? formatDistanceToNow(new Date(doc.deleted_at), { locale: de, addSuffix: true }) : "—"}
+                               <span className="text-xs text-muted-foreground">
+                                 {doc.deleted_at ? formatDistanceToNow(new Date(doc.deleted_at), { locale: dateFnsLocale, addSuffix: true }) : "—"}
                               </span>
                             </div>
                             <div className="col-span-1">
@@ -568,21 +569,21 @@ export default function Explorer() {
                                 className="h-7 text-xs"
                                 onClick={() => restoreDocument.mutate(doc.id)}
                               >
-                                <RotateCcw size={14} className="mr-1" />
-                                Wiederherstellen
+                                 <RotateCcw size={14} className="mr-1" />
+                                 {t("explorer.restore")}
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  if (window.confirm(`"${doc.name}" endgültig löschen?`)) {
+                                 onClick={() => {
+                                   if (window.confirm(`"${doc.name}" ${t("explorer.deletePermanentlyConfirm")}`)) {
                                     permanentlyDeleteDocument.mutate({ id: doc.id, filePath: doc.file_path });
                                   }
                                 }}
                               >
-                                <Trash2 size={14} className="mr-1" />
-                                Endgültig löschen
+                                 <Trash2 size={14} className="mr-1" />
+                                 {t("explorer.deletePermanently")}
                               </Button>
                             </div>
                           </div>
@@ -595,10 +596,10 @@ export default function Explorer() {
                     <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                       <Trash2 size={24} className="text-muted-foreground" />
                     </div>
-                    <h3 className="font-medium text-lg mb-1">Papierkorb ist leer</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Gelöschte Dokumente werden hier angezeigt
-                    </p>
+                     <h3 className="font-medium text-lg mb-1">{t("explorer.trashEmpty")}</h3>
+                     <p className="text-sm text-muted-foreground">
+                       {t("explorer.trashEmptyDesc")}
+                     </p>
                   </div>
                 )
               ) : isLoading ? (
@@ -612,8 +613,8 @@ export default function Explorer() {
                   {/* Child Folders */}
                   {childFolders.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                        Ordner
+                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                         {t("explorer.folders")}
                       </h3>
                       <div className={cn(
                         viewMode === "grid" 
@@ -664,16 +665,16 @@ export default function Explorer() {
                                   id: folder.id,
                                   currentName: folder.name,
                                 })}>
-                                  <Pencil size={14} className="mr-2" />
-                                  Umbenennen
+                                   <Pencil size={14} className="mr-2" />
+                                   {t("explorer.rename")}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className="text-destructive"
                                   onClick={() => deleteFolder.mutate(folder.id)}
                                 >
-                                  <Trash2 size={14} className="mr-2" />
-                                  Löschen
+                                   <Trash2 size={14} className="mr-2" />
+                                   {t("common.delete")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -686,13 +687,13 @@ export default function Explorer() {
                   {/* Documents */}
                   {filteredDocuments.length > 0 ? (
                     <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                        Dokumente ({filteredDocuments.length})
-                        {activeDocId && (
-                          <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">
-                            Ctrl+C Kopieren · Ctrl+X Ausschneiden · Ctrl+V Einfügen · Entf Löschen
-                          </span>
-                        )}
+                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                         {t("explorer.documents")} ({filteredDocuments.length})
+                         {activeDocId && (
+                           <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">
+                             Ctrl+C {t("explorer.keyboardCopy")} · Ctrl+X {t("explorer.keyboardCut")} · Ctrl+V {t("explorer.keyboardPaste")} · Entf {t("explorer.keyboardDelete")}
+                           </span>
+                         )}
                       </h3>
                       
                       {viewMode === "grid" ? (
@@ -728,8 +729,8 @@ export default function Explorer() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem onClick={() => handleDownload(doc.file_path, doc.name, doc.mime_type)}>
-                                        <Download size={14} className="mr-2" />
-                                        Herunterladen
+                                         <Download size={14} className="mr-2" />
+                                         {t("explorer.download")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => setRenameState({
                                         open: true,
@@ -737,24 +738,24 @@ export default function Explorer() {
                                         id: doc.id,
                                         currentName: doc.name,
                                       })}>
-                                        <Pencil size={14} className="mr-2" />
-                                        Umbenennen
+                                         <Pencil size={14} className="mr-2" />
+                                         {t("explorer.rename")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
-                                        <Copy size={14} className="mr-2" />
-                                        Kopieren (Ctrl+C)
+                                         <Copy size={14} className="mr-2" />
+                                         {t("explorer.copy")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
-                                        <Scissors size={14} className="mr-2" />
-                                        Ausschneiden (Ctrl+X)
+                                         <Scissors size={14} className="mr-2" />
+                                         {t("explorer.cut")}
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem 
                                         className="text-destructive"
                                         onClick={() => handleDelete(doc.id, doc.file_path)}
                                       >
-                                        <Trash2 size={14} className="mr-2" />
-                                        Löschen (Entf)
+                                         <Trash2 size={14} className="mr-2" />
+                                         {t("explorer.delete")}
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -762,7 +763,7 @@ export default function Explorer() {
 
                                 <h4 className="font-medium text-sm truncate mb-1">{doc.name}</h4>
                                 <p className="text-xs text-muted-foreground mb-2">
-                                  {formatFileSize(doc.file_size)} • {format(new Date(doc.created_at), "dd.MM.yyyy", { locale: de })}
+                                  {formatFileSize(doc.file_size)} • {format(new Date(doc.created_at), "dd.MM.yyyy", { locale: dateFnsLocale })}
                                 </p>
 
                                 {docTags.length > 0 && (
@@ -780,12 +781,12 @@ export default function Explorer() {
                       ) : (
                         <div className="space-y-1">
                           {/* List Header */}
-                          <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
-                            <div className="col-span-5">Name</div>
-                            <div className="col-span-2">Erstellt von</div>
-                            <div className="col-span-2">Geändert</div>
-                            <div className="col-span-1">Grösse</div>
-                            <div className="col-span-2 text-right">Aktionen</div>
+                           <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                             <div className="col-span-5">{t("explorer.name")}</div>
+                             <div className="col-span-2">{t("explorer.createdBy")}</div>
+                             <div className="col-span-2">{t("explorer.modified")}</div>
+                             <div className="col-span-1">{t("explorer.size")}</div>
+                             <div className="col-span-2 text-right">{t("explorer.actions")}</div>
                           </div>
                           
                           {filteredDocuments.map((doc) => {
@@ -793,7 +794,7 @@ export default function Explorer() {
                             const docTags = doc.document_tag_assignments?.map(
                               (a: { document_tags: { id: string; name: string; color: string } }) => a.document_tags
                             ).filter(Boolean) || [];
-                            const uploaderName = userProfileMap.get(doc.uploaded_by) || "Unbekannt";
+                            const uploaderName = userProfileMap.get(doc.uploaded_by) || t("explorer.unknown");
 
                             return (
                               <div
@@ -847,7 +848,7 @@ export default function Explorer() {
                                         </div>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Erstellt von {uploaderName}</p>
+                                        <p>{t("explorer.createdByName")} {uploaderName}</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -859,12 +860,12 @@ export default function Explorer() {
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-xs text-muted-foreground truncate">
-                                          {formatDistanceToNow(new Date(doc.updated_at), { locale: de, addSuffix: true })}
+                                         <span className="text-xs text-muted-foreground truncate">
+                                           {formatDistanceToNow(new Date(doc.updated_at), { locale: dateFnsLocale, addSuffix: true })}
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>{format(new Date(doc.updated_at), "dd.MM.yyyy HH:mm", { locale: de })}</p>
+                                        <p>{format(new Date(doc.updated_at), "dd.MM.yyyy HH:mm", { locale: dateFnsLocale })}</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -915,8 +916,8 @@ export default function Explorer() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem onClick={() => handleOpenDocumentDetails(doc as SelectedDocument)}>
-                                        <Info size={14} className="mr-2" />
-                                        Details & Freigabe
+                                       <Info size={14} className="mr-2" />
+                                       {t("explorer.detailsSharing")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => setRenameState({
                                         open: true,
@@ -924,32 +925,32 @@ export default function Explorer() {
                                         id: doc.id,
                                         currentName: doc.name,
                                       })}>
-                                        <Pencil size={14} className="mr-2" />
-                                        Umbenennen
+                                       <Pencil size={14} className="mr-2" />
+                                       {t("explorer.rename")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => copyDocument(doc.id, doc.name, doc.file_path)}>
-                                        <Copy size={14} className="mr-2" />
-                                        Kopieren (Ctrl+C)
+                                       <Copy size={14} className="mr-2" />
+                                       {t("explorer.copy")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => cutDocument(doc.id, doc.name, doc.file_path)}>
-                                        <Scissors size={14} className="mr-2" />
-                                        Ausschneiden (Ctrl+X)
+                                       <Scissors size={14} className="mr-2" />
+                                       {t("explorer.cut")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
-                                        <Share2 size={14} className="mr-2" />
-                                        Teilen
+                                       <Share2 size={14} className="mr-2" />
+                                       {t("explorer.share")}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem>
-                                        <Tag size={14} className="mr-2" />
-                                        Tag hinzufügen
+                                       <Tag size={14} className="mr-2" />
+                                       {t("explorer.addTag")}
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem 
                                         className="text-destructive"
                                         onClick={() => handleDelete(doc.id, doc.file_path)}
                                       >
-                                        <Trash2 size={14} className="mr-2" />
-                                        Löschen (Entf)
+                                       <Trash2 size={14} className="mr-2" />
+                                       {t("explorer.delete")}
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -965,17 +966,17 @@ export default function Explorer() {
                       <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                         <FileText size={24} className="text-muted-foreground" />
                       </div>
-                      <h3 className="font-medium text-lg mb-1">Keine Dokumente</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {selectedTags.length > 0 
-                          ? "Keine Dokumente mit den ausgewählten Tags gefunden"
-                          : "Dieser Ordner ist leer"
-                        }
-                      </p>
-                      <Button onClick={() => setShowTemplateGenerator(true)}>
-                        <LayoutTemplate size={16} className="mr-2" />
-                        Vorlage erstellen
-                      </Button>
+                       <h3 className="font-medium text-lg mb-1">{t("explorer.noDocuments")}</h3>
+                       <p className="text-sm text-muted-foreground mb-4">
+                         {selectedTags.length > 0 
+                           ? t("explorer.noDocumentsTagFilter")
+                           : t("explorer.folderEmpty")
+                         }
+                       </p>
+                       <Button onClick={() => setShowTemplateGenerator(true)}>
+                         <LayoutTemplate size={16} className="mr-2" />
+                         {t("explorer.createTemplate")}
+                       </Button>
                     </div>
                   )}
                 </>

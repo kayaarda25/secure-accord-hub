@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FolderUploaderProps {
   currentFolderId: string | null;
@@ -25,6 +26,7 @@ interface FileWithPath extends File {
 }
 
 export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUploaderProps) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,23 +47,18 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
     try {
       const fileList = Array.from(files) as FileWithPath[];
       
-      // Group files by folder structure
       const folderStructure = new Map<string, FileWithPath[]>();
       
       for (const file of fileList) {
         const path = file.webkitRelativePath;
         const parts = path.split("/");
-        
-        // Get folder path (excluding filename)
         const folderPath = parts.slice(0, -1).join("/");
-        
         if (!folderStructure.has(folderPath)) {
           folderStructure.set(folderPath, []);
         }
         folderStructure.get(folderPath)!.push(file);
       }
 
-      // Create folders first
       const folderIdMap = new Map<string, string>();
       const sortedPaths = Array.from(folderStructure.keys()).sort();
       
@@ -72,9 +69,7 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
         
         for (const part of parts) {
           currentPath = currentPath ? `${currentPath}/${part}` : part;
-          
           if (!folderIdMap.has(currentPath)) {
-            // Create folder
             const result = await onCreateFolder(part, parentId);
             if (result && 'id' in result) {
               folderIdMap.set(currentPath, result.id);
@@ -86,14 +81,12 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
         }
       }
 
-      // Upload files
       let uploadedCount = 0;
       for (const file of fileList) {
         const path = file.webkitRelativePath;
         const folderPath = path.split("/").slice(0, -1).join("/");
         const folderId = folderIdMap.get(folderPath) || currentFolderId;
         
-        // Upload to storage
         const filePath = `${user.id}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("documents")
@@ -104,7 +97,6 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
           continue;
         }
 
-        // Create document record
         await supabase.from("documents").insert({
           name: file.name,
           file_path: filePath,
@@ -119,12 +111,12 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
         setProgress((uploadedCount / files.length) * 100);
       }
 
-      toast.success(`${uploadedCount} Dateien hochgeladen`);
+      toast.success(`${uploadedCount} ${t("explorer.filesUploadedLabel")}`);
       queryClient.invalidateQueries({ queryKey: ["explorer-documents"] });
       queryClient.invalidateQueries({ queryKey: ["document-folders"] });
     } catch (error) {
       console.error("Folder upload error:", error);
-      toast.error("Fehler beim Hochladen");
+      toast.error(t("explorer.uploadError"));
     } finally {
       setIsUploading(false);
       setTimeout(() => setShowProgress(false), 2000);
@@ -139,7 +131,7 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
       <input
         ref={inputRef}
         type="file"
-        // @ts-ignore - webkitdirectory is not in the standard types
+        // @ts-ignore
         webkitdirectory=""
         directory=""
         multiple
@@ -157,15 +149,15 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
         ) : (
           <FolderUp size={16} className="mr-2" />
         )}
-        Ordner hochladen
+        {t("explorer.uploadFolder")}
       </Button>
 
       <Dialog open={showProgress} onOpenChange={setShowProgress}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ordner wird hochgeladen</DialogTitle>
+            <DialogTitle>{t("explorer.folderUploading")}</DialogTitle>
             <DialogDescription>
-              {uploadStats.current} von {uploadStats.total} Dateien hochgeladen
+              {uploadStats.current} {t("explorer.filesUploadedOf")} {uploadStats.total} {t("explorer.filesUploadedLabel")}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -173,7 +165,7 @@ export function FolderUploader({ currentFolderId, onCreateFolder }: FolderUpload
           </div>
           <DialogFooter>
             {!isUploading && (
-              <Button onClick={() => setShowProgress(false)}>Schliessen</Button>
+              <Button onClick={() => setShowProgress(false)}>{t("common.close")}</Button>
             )}
           </DialogFooter>
         </DialogContent>

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface RenameDialogProps {
   open: boolean;
@@ -18,19 +19,12 @@ interface RenameDialogProps {
   onRename: (newName: string) => void;
 }
 
-export function RenameDialog({
-  open,
-  onOpenChange,
-  currentName,
-  itemType,
-  onRename,
-}: RenameDialogProps) {
+export function RenameDialog({ open, onOpenChange, currentName, itemType, onRename }: RenameDialogProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState(currentName);
 
   useEffect(() => {
-    if (open) {
-      setName(currentName);
-    }
+    if (open) setName(currentName);
   }, [open, currentName]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,27 +40,27 @@ export function RenameDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {itemType === "folder" ? "Ordner umbenennen" : "Dokument umbenennen"}
+            {itemType === "folder" ? t("explorer.renameFolder") : t("explorer.renameDocument")}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Neuer Name</Label>
+              <Label>{t("explorer.newName")}</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Name eingeben..."
+                placeholder={t("explorer.newNamePlaceholder")}
                 autoFocus
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || name.trim() === currentName}>
-              Umbenennen
+              {t("explorer.rename")}
             </Button>
           </DialogFooter>
         </form>

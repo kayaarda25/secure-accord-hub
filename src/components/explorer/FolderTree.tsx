@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CreateFolderDialog } from "./CreateFolderDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FolderTreeProps {
   folders: DocumentFolder[];
@@ -74,6 +75,7 @@ function FolderNode({
   onDrop,
   dropTargetId,
 }: FolderNodeProps) {
+  const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
@@ -135,12 +137,12 @@ function FolderNode({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setShowNewFolderDialog(true)}>
               <Plus size={14} className="mr-2" />
-              Unterordner erstellen
+              {t("explorer.createSubfolder")}
             </DropdownMenuItem>
             {onRenameFolder && (
               <DropdownMenuItem onClick={() => onRenameFolder(folder.id, folder.name)}>
                 <Pencil size={14} className="mr-2" />
-                Umbenennen
+                {t("explorer.rename")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem 
@@ -148,7 +150,7 @@ function FolderNode({
               className="text-destructive"
             >
               <Trash2 size={14} className="mr-2" />
-              Löschen
+              {t("common.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -199,6 +201,7 @@ export function FolderTree({
   onDrop,
   dropTargetId,
 }: FolderTreeProps) {
+  const { t } = useLanguage();
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
   const rootFolders = folders.filter(f => !f.parent_id);
@@ -216,7 +219,7 @@ export function FolderTree({
         onClick={() => onFolderSelect(null)}
       >
         <Folder size={16} />
-        <span>Alle Dokumente</span>
+        <span>{t("explorer.allDocuments")}</span>
       </div>
 
       {/* Folder Tree */}
@@ -248,7 +251,7 @@ export function FolderTree({
         onClick={() => setShowNewFolderDialog(true)}
       >
         <Plus size={14} className="mr-2" />
-        Neuer Ordner
+        {t("explorer.newFolder")}
       </Button>
 
       <CreateFolderDialog
