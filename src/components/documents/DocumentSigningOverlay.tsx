@@ -9,9 +9,17 @@ interface DocumentSigningOverlayProps {
   onOpenChange: (open: boolean) => void;
   documentFilePath: string;
   documentName: string;
-  signatureImage?: string | null; // base64 or URL for drawn signatures
-  signatureInitials?: string | null; // text initials
+  signatureImage?: string | null;
+  signatureInitials?: string | null;
   onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }) => void;
+}
+
+/**
+ * Determines if a file is a Word document based on extension or mime-type-like path.
+ */
+function isWordDocument(filePathOrName: string): boolean {
+  const lower = filePathOrName.toLowerCase();
+  return lower.endsWith(".doc") || lower.endsWith(".docx");
 }
 
 export function DocumentSigningOverlay({
@@ -45,11 +53,22 @@ export function DocumentSigningOverlay({
 
     (async () => {
       try {
+        // Use a longer expiry for the signed URL (10 min)
         const { data, error } = await supabase.storage
           .from("documents")
-          .createSignedUrl(documentFilePath, 300);
+          .createSignedUrl(documentFilePath, 600);
         if (error) throw error;
-        setDocumentUrl(data.signedUrl);
+
+        const signedUrl = data.signedUrl;
+
+        // For Word documents, use Google Docs Viewer to render them in browser
+        if (isWordDocument(documentFilePath) || isWordDocument(documentName)) {
+          const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
+          setDocumentUrl(viewerUrl);
+        } else {
+          // For PDFs, use the signed URL directly
+          setDocumentUrl(signedUrl);
+        }
       } catch (err) {
         console.error("Error loading document:", err);
         setLoadError(true);
@@ -58,7 +77,7 @@ export function DocumentSigningOverlay({
         setIsLoadingDoc(false);
       }
     })();
-  }, [open, documentFilePath]);
+  }, [open, documentFilePath, documentName]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -203,12 +222,13 @@ export function DocumentSigningOverlay({
               minHeight: `${zoom * 1100}px`,
             }}
           >
-            {/* Embedded Document */}
+            {/* Embedded Document - allow pointer events so user can scroll through document */}
             <iframe
-              src={`${documentUrl}#toolbar=0`}
-              className="w-full border-0 pointer-events-none"
-              style={{ height: `${zoom * 1100}px` }}
+              src={documentUrl}
+              className="w-full border-0"
+              style={{ height: `${zoom * 1100}px`, pointerEvents: isDragging ? 'none' : 'auto' }}
               title="Dokument-Vorschau"
+              sandbox="allow-scripts allow-same-origin allow-popups"
             />
 
             {/* Draggable Signature */}
