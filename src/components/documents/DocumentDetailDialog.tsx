@@ -234,42 +234,6 @@ export function DocumentDetailDialog({
                 <Download className="h-4 w-4 mr-2" />
                 Herunterladen
               </Button>
-              {signedSignatures.length > 0 && (
-                <Button
-                  onClick={async () => {
-                    setIsGeneratingPdf(true);
-                    try {
-                      await generateSignedPdf({
-                        documentName: document.name,
-                        documentFilePath: document.file_path,
-                        signatures: signedSignatures.map((sig) => ({
-                          signerName: getSignerName(sig),
-                          signedAt: sig.signed_at || "",
-                          signatureImage: getSignatureImage(sig),
-                          signatureInitials: getSignatureInitials(sig),
-                          position: sig.signature_position,
-                        })),
-                      });
-                      toast.success("Signiertes PDF wurde generiert");
-                    } catch (error) {
-                      console.error("Error generating signed PDF:", error);
-                      toast.error("PDF konnte nicht generiert werden");
-                    } finally {
-                      setIsGeneratingPdf(false);
-                    }
-                  }}
-                  disabled={isGeneratingPdf}
-                  size="sm"
-                  className="bg-success text-success-foreground hover:bg-success/90"
-                >
-                  {isGeneratingPdf ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Signiertes PDF
-                </Button>
-              )}
             </div>
 
             <Separator />
