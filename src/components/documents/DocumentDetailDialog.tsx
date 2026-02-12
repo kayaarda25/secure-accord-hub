@@ -104,21 +104,15 @@ export function DocumentDetailDialog({
     setIsLoading(true);
     try {
       if (download) {
-        // Download: use blob + a.download (works in sandboxed iframes)
+        // Download: use file-saver (works in sandboxed iframes and Electron)
         const { data: blobData, error } = await supabase.storage
           .from("documents")
           .download(document.file_path);
         if (error) throw error;
         if (!blobData) throw new Error("Could not download document");
 
-        const url = URL.createObjectURL(blobData);
-        const a = window.document.createElement("a");
-        a.href = url;
-        a.download = document.name;
-        window.document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        const { saveAs } = await import("file-saver");
+        saveAs(blobData, document.name);
       } else {
         // Open: use signed URL in new tab (avoids sandbox issues with blob URLs)
         const { data, error } = await supabase.storage

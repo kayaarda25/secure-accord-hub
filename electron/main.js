@@ -46,6 +46,12 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // Enable file downloads in Electron (file-saver uses blob URLs)
+  mainWindow.webContents.session.on('will-download', (event, item) => {
+    // Let Electron handle the download with a Save As dialog
+    item.setSavePath('');
+  });
+
   // Create application menu
   const template = [
     {
