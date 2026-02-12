@@ -209,5 +209,6 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Delay revoking so the browser has time to start the download
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
