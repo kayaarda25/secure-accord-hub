@@ -32,6 +32,7 @@ export function DocumentSigningOverlay({
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [isPdfBlob, setIsPdfBlob] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
 
@@ -44,12 +45,13 @@ export function DocumentSigningOverlay({
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, w: 0, h: 0 });
   const [signatureComment, setSignatureComment] = useState("");
 
-  // Load document URL - use object URL for PDFs to avoid iframe blocking
+  // Load document URL
   useEffect(() => {
     if (!open) return;
     setIsLoadingDoc(true);
     setLoadError(false);
     setDocumentUrl(null);
+    setIsPdfBlob(false);
     setSigPos({ x: 50, y: 80 });
     setSigSize({ w: 180, h: 70 });
     setZoom(1);
@@ -59,20 +61,21 @@ export function DocumentSigningOverlay({
         const isWord = isWordDocument(documentFilePath) || isWordDocument(documentName);
 
         if (isWord) {
-          // For Word docs, get signed URL and use Office Online Viewer
           const { data, error } = await supabase.storage
             .from("documents")
             .createSignedUrl(documentFilePath, 600);
           if (error) throw error;
           setDocumentUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(data.signedUrl)}`);
         } else {
-          // For PDFs, download the blob and create a local object URL (avoids Chrome blocking)
+          // Download as blob, re-create with explicit PDF mime type
           const { data, error } = await supabase.storage
             .from("documents")
             .download(documentFilePath);
           if (error) throw error;
-          const url = URL.createObjectURL(data);
+          const pdfBlob = new Blob([data], { type: "application/pdf" });
+          const url = URL.createObjectURL(pdfBlob);
           setDocumentUrl(url);
+          setIsPdfBlob(true);
         }
       } catch (err) {
         console.error("Error loading document:", err);
@@ -82,14 +85,16 @@ export function DocumentSigningOverlay({
         setIsLoadingDoc(false);
       }
     })();
+  }, [open, documentFilePath, documentName]);
 
+  // Clean up blob URLs on unmount
+  useEffect(() => {
     return () => {
-      // Clean up object URLs
       if (documentUrl && documentUrl.startsWith("blob:")) {
         URL.revokeObjectURL(documentUrl);
       }
     };
-  }, [open, documentFilePath, documentName]);
+  }, [documentUrl]);
 
   // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -239,13 +244,22 @@ export function DocumentSigningOverlay({
             style={{ width: `${zoom * 800}px`, minHeight: `${zoom * 1100}px` }}
           >
             {/* Embedded Document */}
-            <iframe
-              src={documentUrl}
-              className="w-full border-0"
-              style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
-              title="Dokument-Vorschau"
-              allow="fullscreen"
-            />
+            {isPdfBlob ? (
+              <embed
+                src={documentUrl}
+                type="application/pdf"
+                className="w-full border-0"
+                style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
+              />
+            ) : (
+              <iframe
+                src={documentUrl}
+                className="w-full border-0"
+                style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
+                title="Dokument-Vorschau"
+                allow="fullscreen"
+              />
+            )}
 
             {/* Draggable + Resizable Signature */}
             <div
