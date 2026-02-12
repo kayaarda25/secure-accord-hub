@@ -18,10 +18,12 @@ import {
   Calendar,
   User,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { SignatureDisplay } from "./SignatureDisplay";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { generateSignedPdf } from "@/lib/signedPdfGenerator";
 
 interface Profile {
   id: string;
@@ -69,6 +71,7 @@ export function DocumentDetailDialog({
   onOpenChange,
 }: DocumentDetailDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   if (!document) return null;
 
@@ -215,7 +218,7 @@ export function DocumentDetailDialog({
             )}
 
             {/* Actions */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={() => openDocument()} disabled={isLoading} variant="outline" size="sm">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Öffnen
@@ -224,6 +227,41 @@ export function DocumentDetailDialog({
                 <Download className="h-4 w-4 mr-2" />
                 Herunterladen
               </Button>
+              {signedSignatures.length > 0 && (
+                <Button
+                  onClick={async () => {
+                    setIsGeneratingPdf(true);
+                    try {
+                      await generateSignedPdf({
+                        documentName: document.name,
+                        signatures: signedSignatures.map((sig) => ({
+                          signerName: getSignerName(sig),
+                          signedAt: sig.signed_at || "",
+                          signatureImage: getSignatureImage(sig),
+                          signatureInitials: getSignatureInitials(sig),
+                          position: sig.signature_position,
+                        })),
+                      });
+                      toast.success("Signiertes PDF wurde generiert");
+                    } catch (error) {
+                      console.error("Error generating signed PDF:", error);
+                      toast.error("PDF konnte nicht generiert werden");
+                    } finally {
+                      setIsGeneratingPdf(false);
+                    }
+                  }}
+                  disabled={isGeneratingPdf}
+                  size="sm"
+                  className="bg-success text-success-foreground hover:bg-success/90"
+                >
+                  {isGeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Signiertes PDF
+                </Button>
+              )}
             </div>
 
             <Separator />

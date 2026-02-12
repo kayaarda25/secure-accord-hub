@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/Layout";
+import { generateSignedPdf } from "@/lib/signedPdfGenerator";
 import {
   FileText,
   Folder,
@@ -1286,13 +1287,15 @@ export default function Documents() {
                         {signedDocuments.map((doc) => (
                           <div
                             key={doc.id}
-                            className="flex items-center justify-between p-4 card-state rounded-lg cursor-pointer hover:bg-muted/50"
-                            onClick={() => {
-                              setSelectedDocument(doc);
-                              setShowDetailDialog(true);
-                            }}
+                            className="flex items-center justify-between p-4 card-state rounded-lg"
                           >
-                            <div className="flex items-center gap-3">
+                            <div
+                              className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80"
+                              onClick={() => {
+                                setSelectedDocument(doc);
+                                setShowDetailDialog(true);
+                              }}
+                            >
                               <FileText size={16} className="text-muted-foreground" />
                               <div>
                                 <span className="text-sm font-medium">{doc.name}</span>
@@ -1301,7 +1304,30 @@ export default function Documents() {
                                 </p>
                               </div>
                             </div>
-                            {getStatusBadge(getDocumentStatus(doc))}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const signedSigs = (doc.signatures || []).filter(s => s.status === "signed");
+                                  await generateSignedPdf({
+                                    documentName: doc.name,
+                                    signatures: signedSigs.map(sig => ({
+                                      signerName: sig.signer ? `${sig.signer.first_name || ""} ${sig.signer.last_name || ""}`.trim() || sig.signer.email : "Unbekannt",
+                                      signedAt: sig.signed_at || "",
+                                      signatureImage: sig.signature_image && !sig.signature_image.startsWith("text:") ? sig.signature_image : null,
+                                      signatureInitials: sig.signature_image?.startsWith("text:") ? sig.signature_image.replace("text:", "") : null,
+                                      position: sig.signature_position,
+                                    })),
+                                  });
+                                  toast.success("Signiertes PDF wurde generiert");
+                                }}
+                                className="px-3 py-1.5 bg-success text-success-foreground rounded text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1"
+                              >
+                                <Download size={14} />
+                                PDF
+                              </button>
+                              {getStatusBadge(getDocumentStatus(doc))}
+                            </div>
                           </div>
                         ))}
                       </div>
