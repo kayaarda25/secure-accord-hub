@@ -244,22 +244,13 @@ export function DocumentSigningOverlay({
             style={{ width: `${zoom * 800}px`, minHeight: `${zoom * 1100}px` }}
           >
             {/* Embedded Document */}
-            {isPdfBlob ? (
-              <embed
-                src={documentUrl}
-                type="application/pdf"
-                className="w-full border-0"
-                style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
-              />
-            ) : (
-              <iframe
-                src={documentUrl}
-                className="w-full border-0"
-                style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
-                title="Dokument-Vorschau"
-                allow="fullscreen"
-              />
-            )}
+            <iframe
+              src={isPdfBlob ? `${documentUrl}#toolbar=0&navpanes=0` : documentUrl}
+              className="w-full border-0"
+              style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
+              title="Dokument-Vorschau"
+              allow="fullscreen"
+            />
 
             {/* Draggable + Resizable Signature */}
             <div
