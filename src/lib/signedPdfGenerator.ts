@@ -76,7 +76,7 @@ function htmlToLines(html: string): string[] {
   text = textarea.value;
 
   // Split into lines and clean up
-  return text.split("\n").map(line => line.trim()).filter(Boolean);
+  return text.split("\n").map(line => line.replace(/[\t\r\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim()).filter(Boolean);
 }
 
 /**
