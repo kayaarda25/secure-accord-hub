@@ -879,13 +879,6 @@ export default function Documents() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        onClick={() => openDocument(doc, true)}
-                        className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                        title="Download"
-                      >
-                        <Download size={16} />
-                      </button>
 
                       {(() => {
                         const myPending = (doc.signatures || []).find(
@@ -1327,6 +1320,28 @@ export default function Documents() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const signedSigs = (doc.signatures || []).filter(s => s.status === "signed");
+                                  await generateSignedPdf({
+                                    documentName: doc.name,
+                                    documentFilePath: doc.file_path,
+                                    signatures: signedSigs.map(sig => ({
+                                      signerName: sig.signer ? `${sig.signer.first_name || ""} ${sig.signer.last_name || ""}`.trim() || sig.signer.email : "Unbekannt",
+                                      signedAt: sig.signed_at || "",
+                                      signatureImage: sig.signature_image && !sig.signature_image.toLowerCase().startsWith("text:") ? sig.signature_image : null,
+                                      signatureInitials: sig.signature_image?.toLowerCase().startsWith("text:") ? sig.signature_image.replace(/^text:/i, "") : null,
+                                      position: sig.signature_position,
+                                    })),
+                                  });
+                                  toast.success("Signiertes PDF wurde generiert");
+                                }}
+                                className="px-3 py-1.5 bg-success text-success-foreground rounded text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1"
+                              >
+                                <Download size={14} />
+                                PDF
+                              </button>
                               {getStatusBadge(getDocumentStatus(doc))}
                             </div>
                           </div>
