@@ -397,6 +397,7 @@ export default function Documents() {
       documentId: doc.id,
       documentName: doc.name,
     });
+    setShowDetailDialog(false);
     setShowSigningOverlay(true);
   };
 
@@ -414,6 +415,7 @@ export default function Documents() {
       signatureId,
       documentName,
     });
+    setShowDetailDialog(false);
     setShowSigningOverlay(true);
   };
 
