@@ -52,6 +52,7 @@ function createWindow() {
 
   // Right-click context menu
   mainWindow.webContents.on('context-menu', (event, params) => {
+    event.preventDefault();
     const contextMenu = [];
 
     // Text editing actions

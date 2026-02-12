@@ -1,5 +1,5 @@
 import { useState } from "react";
-import mgiLogo from "@/assets/mgi-media-logo.jfif";
+import mgiLogo from "@/assets/mgi-media-logo.png";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
