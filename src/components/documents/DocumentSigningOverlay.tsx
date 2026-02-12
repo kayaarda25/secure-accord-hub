@@ -115,7 +115,7 @@ export function DocumentSigningOverlay({
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, pageWidth, totalHeight);
 
-        // Render each page stacked vertically
+        // Render each page to an offscreen canvas, then composite onto main canvas
         let yOffset = 0;
         for (let i = 0; i < totalPages; i++) {
           if (cancelled) return;
@@ -132,11 +132,20 @@ export function DocumentSigningOverlay({
             context.stroke();
           }
 
-          await pg.render({
-            canvasContext: context,
-            viewport: vp,
-            transform: [1, 0, 0, 1, 0, yOffset],
-          }).promise;
+          // Render page to offscreen canvas
+          const offscreen = document.createElement("canvas");
+          offscreen.width = vp.width;
+          offscreen.height = vp.height;
+          const offCtx = offscreen.getContext("2d");
+          if (!offCtx) continue;
+
+          offCtx.fillStyle = "#ffffff";
+          offCtx.fillRect(0, 0, vp.width, vp.height);
+
+          await pg.render({ canvasContext: offCtx, viewport: vp }).promise;
+
+          // Draw the rendered page onto the main canvas at the correct offset
+          context.drawImage(offscreen, 0, yOffset);
 
           yOffset += vp.height + pageGap;
         }
