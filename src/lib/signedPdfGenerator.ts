@@ -14,6 +14,16 @@ interface SignedPdfOptions {
 }
 
 const getPositionLabel = (position?: string | null) => {
+  if (!position) return "Standard";
+  // Handle new JSON coordinate format
+  try {
+    const parsed = JSON.parse(position);
+    if (parsed.xPercent !== undefined && parsed.yPercent !== undefined) {
+      return `X: ${Math.round(parsed.xPercent)}%, Y: ${Math.round(parsed.yPercent)}%`;
+    }
+  } catch {
+    // Not JSON, try legacy string values
+  }
   switch (position) {
     case "top-left": return "Oben Links";
     case "top-center": return "Oben Mitte";
@@ -21,7 +31,7 @@ const getPositionLabel = (position?: string | null) => {
     case "bottom-left": return "Unten Links";
     case "bottom-center": return "Unten Mitte";
     case "bottom-right": return "Unten Rechts";
-    default: return "Standard";
+    default: return position;
   }
 };
 
