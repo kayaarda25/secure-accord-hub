@@ -103,23 +103,27 @@ export function DocumentDetailDialog({
   const openDocument = async (download = false) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.storage
+      // Download blob directly to avoid Chrome popup blocker on signed URLs
+      const { data: blobData, error } = await supabase.storage
         .from("documents")
-        .createSignedUrl(document.file_path, 60);
+        .download(document.file_path);
 
       if (error) throw error;
-      if (!data?.signedUrl) throw new Error("Could not create access link");
+      if (!blobData) throw new Error("Could not download document");
 
+      const url = URL.createObjectURL(blobData);
+      const a = window.document.createElement("a");
+      a.href = url;
       if (download) {
-        const a = window.document.createElement("a");
-        a.href = data.signedUrl;
         a.download = document.name;
-        window.document.body.appendChild(a);
-        a.click();
-        a.remove();
       } else {
-        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
       }
+      window.document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (error) {
       console.error("Error opening document:", error);
       toast.error("Dokument konnte nicht geöffnet werden");
