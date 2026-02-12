@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout/Layout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FinanceChart } from "@/components/dashboard/FinanceChart";
 import {
@@ -27,6 +28,7 @@ interface DeclarationSummary {
 
 export default function Finances() {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [summary, setSummary] = useState<DeclarationSummary>({
     total_declarations: 0,
     total_revenue: 0,
@@ -82,7 +84,7 @@ export default function Finances() {
     : 0;
 
   return (
-    <Layout title="Finances" subtitle="Declarations & Revenue Overview">
+    <Layout title={t("page.finances.title")} subtitle={t("page.finances.subtitle")}>
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-3">

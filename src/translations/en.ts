@@ -1,0 +1,278 @@
+export const en: Record<string, string> = {
+  // Navigation
+  "nav.dashboard": "Dashboard",
+  "nav.finances": "Finances",
+  "nav.overview": "Overview",
+  "nav.opex": "OPEX",
+  "nav.receiptScanner": "Receipt Scanner",
+  "nav.invoices": "Invoices",
+  "nav.declarations": "Declarations",
+  "nav.budget": "Budget",
+  "nav.reports": "Reports",
+  "nav.documents": "Documents",
+  "nav.explorer": "Explorer",
+  "nav.signatures": "Signatures",
+  "nav.protocols": "Protocols",
+  "nav.collaboration": "Collaboration",
+  "nav.communication": "Communication",
+  "nav.calendar": "Calendar",
+  "nav.tasks": "Tasks",
+  "nav.projects": "Projects",
+  "nav.hr": "HR",
+  "nav.employees": "Employees",
+  "nav.vacations": "Vacation Management",
+  "nav.payroll": "Payroll",
+  "nav.socialInsurance": "Social Insurance",
+  "nav.partners": "Partners",
+  "nav.authorities": "Authorities",
+  "nav.users": "Users",
+  "nav.security": "Security",
+  "nav.settings": "Settings",
+  "nav.signOut": "Sign Out",
+
+  // Settings page
+  "settings.title": "Settings",
+  "settings.subtitle": "Manage profile and preferences",
+  "settings.profile": "Profile",
+  "settings.signature": "Signature",
+  "settings.letterhead": "Letterhead",
+  "settings.rates": "Rates",
+  "settings.notifications": "Notifications",
+  "settings.appearance": "Appearance",
+  "settings.language": "Language",
+  "settings.profile.title": "Edit Profile",
+  "settings.profile.description": "Update your personal information",
+  "settings.profile.changePhoto": "Change Photo",
+  "settings.profile.uploading": "Uploading...",
+  "settings.profile.photoHint": "JPG, GIF or PNG. Max 1MB.",
+  "settings.profile.firstName": "First Name",
+  "settings.profile.lastName": "Last Name",
+  "settings.profile.email": "Email",
+  "settings.profile.phone": "Phone",
+  "settings.profile.position": "Position",
+  "settings.profile.department": "Department",
+  "settings.profile.save": "Save",
+  "settings.profile.saving": "Saving...",
+  "settings.notifications.title": "Notification Settings",
+  "settings.notifications.description": "Choose which notifications you want to receive",
+  "settings.notifications.loading": "Loading...",
+  "settings.notifications.channels": "Channels",
+  "settings.notifications.email": "Email Notifications",
+  "settings.notifications.emailDesc": "Receive notifications via email",
+  "settings.notifications.push": "Push Notifications",
+  "settings.notifications.pushDesc": "Receive browser notifications",
+  "settings.notifications.categories": "Categories",
+  "settings.notifications.tasks": "Tasks",
+  "settings.notifications.documents": "Documents",
+  "settings.notifications.expenses": "Expenses & OPEX",
+  "settings.notifications.calendar": "Calendar",
+  "settings.notifications.approvals": "Approvals",
+  "settings.notifications.budget": "Budget",
+  "settings.appearance.title": "Appearance",
+  "settings.appearance.description": "Customize the look of the application",
+  "settings.appearance.colorScheme": "Color Scheme",
+  "settings.appearance.light": "Light",
+  "settings.appearance.dark": "Dark",
+  "settings.appearance.system": "System",
+  "settings.appearance.accentColor": "Accent Color",
+  "settings.language.title": "Language & Region",
+  "settings.language.description": "Customize language and regional settings",
+  "settings.language.language": "Language",
+  "settings.language.timezone": "Timezone",
+  "settings.language.dateFormat": "Date Format",
+
+  // Common
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.create": "Create",
+  "common.search": "Search",
+  "common.filter": "Filter",
+  "common.loading": "Loading...",
+  "common.error": "Error",
+  "common.success": "Success",
+  "common.submit": "Submit",
+  "common.back": "Back",
+  "common.close": "Close",
+  "common.yes": "Yes",
+  "common.no": "No",
+  "common.all": "All",
+  "common.none": "None",
+  "common.status": "Status",
+  "common.date": "Date",
+  "common.amount": "Amount",
+  "common.currency": "Currency",
+  "common.description": "Description",
+  "common.title": "Title",
+  "common.category": "Category",
+  "common.actions": "Actions",
+  "common.export": "Export",
+  "common.import": "Import",
+  "common.download": "Download",
+  "common.upload": "Upload",
+  "common.add": "Add",
+  "common.remove": "Remove",
+  "common.confirm": "Confirm",
+  "common.pending": "Pending",
+  "common.approved": "Approved",
+  "common.rejected": "Rejected",
+  "common.total": "Total",
+  "common.noData": "No data available",
+  "common.accessDenied": "Access Denied",
+  "common.new": "New",
+
+  // Header
+  "header.secure": "Secure",
+  "header.search": "Search...",
+
+  // Dashboard
+  "page.dashboard.title": "Dashboard",
+  "page.dashboard.subtitle": "Overview",
+
+  // Finances
+  "page.finances.title": "Finances",
+  "page.finances.subtitle": "Declarations & Revenue Overview",
+  "page.finances.totalRevenue": "Total Revenue",
+  "page.finances.declarations": "Declarations",
+  "page.finances.mgiBalance": "MGI Balance",
+  "page.finances.giaBalance": "GIA Balance",
+  "page.finances.pending": "Pending",
+  "page.finances.approved": "Approved",
+
+  // OPEX
+  "page.opex.title": "OPEX",
+  "page.opex.subtitle": "Manage and monitor operating expenses",
+  "page.opex.newExpense": "New Expense",
+  "page.opex.totalExpenses": "Total Expenses",
+  "page.opex.approvedExpenses": "Approved Expenses",
+  "page.opex.pendingExpenses": "Pending Expenses",
+  "page.opex.rejectedExpenses": "Rejected Expenses",
+  "page.opex.costCenter": "Cost Center",
+  "page.opex.period": "Period",
+  "page.opex.notes": "Notes",
+  "page.opex.submitExpenses": "Submit Expenses",
+  "page.opex.submitting": "Submitting...",
+  "page.opex.approve": "Approve",
+  "page.opex.reject": "Reject",
+
+  // Receipt Scanner
+  "page.scanner.title": "Receipt Scanner",
+  "page.scanner.subtitle": "Scan and categorize receipts with AI",
+  "page.scanner.uploadReceipt": "Upload Receipt",
+  "page.scanner.uploadDesc": "Upload a photo of your receipt or invoice",
+  "page.scanner.clickUpload": "Click to upload or drag and drop",
+  "page.scanner.fileHint": "PNG, JPG up to 10MB",
+  "page.scanner.scanAI": "Scan with AI",
+  "page.scanner.scanning": "Scanning...",
+  "page.scanner.expenseDetails": "Expense Details",
+  "page.scanner.reviewSubmit": "Review and submit the expense to OPEX",
+  "page.scanner.titleField": "Title",
+  "page.scanner.titlePlaceholder": "e.g., Office supplies purchase",
+  "page.scanner.costCenter": "Cost Center",
+  "page.scanner.selectCostCenter": "Select cost center",
+  "page.scanner.date": "Date",
+  "page.scanner.description": "Description",
+  "page.scanner.descPlaceholder": "Additional notes...",
+  "page.scanner.submitOpex": "Submit to OPEX",
+  "page.scanner.submitting": "Submitting...",
+
+  // Invoices
+  "page.invoices.title": "Creditor Invoices",
+  "page.invoices.subtitle": "Manage and approve incoming invoices",
+  "page.invoices.newInvoice": "New Invoice",
+  "page.invoices.totalInvoices": "Total Invoices",
+  "page.invoices.pendingApproval": "Pending Approval",
+  "page.invoices.overdue": "Overdue",
+  "page.invoices.paid": "Paid",
+
+  // Declarations
+  "page.declarations.title": "Declarations",
+  "page.declarations.subtitle": "Traffic declarations and regulatory filings",
+  "page.declarations.accessDenied": "Access Denied",
+  "page.declarations.accessDeniedMsg": "This feature is only available for MGI Media finance managers.",
+
+  // Budget
+  "page.budget.title": "Budget & Planning",
+  "page.budget.subtitle": "Plan and monitor annual budgets",
+
+  // Reports
+  "page.reports.title": "Reports",
+  "page.reports.subtitle": "Generate and automate reports",
+
+  // Documents
+  "page.documents.title": "Contracts & Documents",
+  "page.documents.subtitle": "Document Management and Archive",
+
+  // Explorer
+  "page.explorer.title": "Explorer",
+  "page.explorer.subtitle": "Manage documents and templates",
+
+  // Protocols
+  "page.protocols.title": "Protocols",
+  "page.protocols.subtitle": "Meeting protocols and documentation",
+
+  // Communication
+  "page.communication.title": "Communication",
+  "page.communication.subtitle": "Messages, protocols and online meetings",
+
+  // Calendar
+  "page.calendar.title": "Calendar & Events",
+  "page.calendar.subtitle": "Overview of all important events",
+  "page.calendar.dayView": "Day View",
+
+  // Tasks
+  "page.tasks.title": "Tasks",
+  "page.tasks.subtitle": "Manage your tasks and to-dos",
+
+  // Projects
+  "page.projects.title": "Projects",
+  "page.projects.subtitle": "Project Management",
+
+  // Employees
+  "page.employees.title": "Employees",
+  "page.employees.subtitle": "HR Management and employee overview",
+
+  // Vacations
+  "page.vacations.title": "Vacation Management",
+  "page.vacations.subtitle": "Manage vacation requests and absences",
+
+  // Payroll
+  "page.payroll.title": "Payroll",
+  "page.payroll.subtitle": "Payroll and salary overviews",
+
+  // Social Insurance
+  "page.socialInsurance.title": "Social Insurance",
+  "page.socialInsurance.subtitle": "AHV, BVG, UVG and other social insurance contributions",
+
+  // Partners
+  "page.partners.title": "Partners",
+  "page.partners.subtitle": "Manage partner organizations and contacts",
+
+  // Authorities
+  "page.authorities.title": "Authorities",
+  "page.authorities.subtitle": "Manage authority contacts and compliance documents",
+
+  // Users
+  "page.users.title": "Users",
+  "page.users.subtitle": "User Management",
+  "page.users.accessDenied": "Access Denied",
+
+  // Security
+  "page.security.title": "Security",
+  "page.security.subtitle": "Manage security settings and sessions",
+
+  // Expense categories
+  "category.salaries": "Salaries & Wages",
+  "category.rent": "Rent & Lease",
+  "category.insurance": "Insurance",
+  "category.transportation": "Transportation",
+  "category.it": "IT & Technology",
+  "category.utilities": "Utilities",
+  "category.maintenance": "Maintenance",
+  "category.marketing": "Marketing & Ads",
+  "category.training": "Training & Education",
+  "category.office": "Office Supplies",
+  "category.communication": "Communication",
+  "category.other": "Other",
+};

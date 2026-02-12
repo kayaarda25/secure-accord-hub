@@ -3,6 +3,7 @@ import { Shield, Clock, Menu, Timer } from "lucide-react";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface HeaderProps {
   title: string;
@@ -23,8 +24,10 @@ function formatDuration(seconds: number): string {
 
 export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
   const [sessionSeconds, setSessionSeconds] = useState(0);
+  const { t, language } = useLanguage();
   
-  const currentDate = new Date().toLocaleDateString("de-DE", {
+  const localeMap: Record<string, string> = { de: "de-DE", en: "en-US", fr: "fr-FR", pt: "pt-PT" };
+  const currentDate = new Date().toLocaleDateString(localeMap[language] || "de-DE", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -98,7 +101,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
         {/* Security Status */}
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md status-success">
           <Shield size={12} />
-          <span className="text-[11px] font-semibold uppercase tracking-wide">Secure</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide">{t("header.secure")}</span>
         </div>
 
         {/* Divider */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useMgiAggregation } from "@/hooks/useMgiAggregation";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
@@ -16,6 +17,7 @@ interface CompanyStats {
 
 const Index = () => {
   const { hasRole } = useAuth();
+  const { t } = useLanguage();
   const { aggregatedOrgs, mgiOrgIds, isGatewayUser, isLoading: orgsLoading } = useMgiAggregation();
   const { widgets, visibleWidgets, loading: layoutLoading, saving, toggleWidget, moveWidget, resetLayout } = useDashboardLayout();
   const [selectedCompany, setSelectedCompany] = useState<string>("all");
@@ -115,7 +117,7 @@ const Index = () => {
   const totalStats = getTotalStats();
 
   return (
-    <Layout title="Dashboard" subtitle="Übersicht">
+    <Layout title={t("page.dashboard.title")} subtitle={t("page.dashboard.subtitle")}>
       {/* Widget Editor Toggle */}
       <div className="flex justify-end mb-4">
         <DashboardWidgetEditor

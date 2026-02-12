@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +80,7 @@ interface Contract {
 }
 
 export default function Partners() {
+  const { t } = useLanguage();
   const [partners, setPartners] = useState<Organization[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -209,7 +211,7 @@ export default function Partners() {
   );
 
   return (
-    <Layout title="Partner" subtitle="Partner-Organisationen und Kontakte verwalten">
+    <Layout title={t("page.partners.title")} subtitle={t("page.partners.subtitle")}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Partner List */}
         <Card className="lg:col-span-1">

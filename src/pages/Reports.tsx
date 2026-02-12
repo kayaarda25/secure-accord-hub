@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -140,6 +141,7 @@ const formats = [
 ];
 
 export default function Reports() {
+  const { t } = useLanguage();
   const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([]);
   const [isAddReportOpen, setIsAddReportOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -767,7 +769,7 @@ td{padding:8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f
   };
 
   return (
-    <Layout title="Reports" subtitle="Berichte generieren und automatisieren">
+    <Layout title={t("page.reports.title")} subtitle={t("page.reports.subtitle")}>
       <Tabs defaultValue="opex-overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="quarterly">Quartalsabschlüsse</TabsTrigger>

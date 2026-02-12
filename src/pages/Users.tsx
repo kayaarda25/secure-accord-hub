@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,7 @@ const ROLE_COLORS: Record<AppRole, string> = {
 
 export default function UsersPage() {
   const { hasRole, user, profile } = useAuth();
+  const { t } = useLanguage();
   const { logAction } = useAuditLog();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -401,7 +403,7 @@ export default function UsersPage() {
 
   if (!isAdmin || !profile?.organization_id) {
     return (
-      <Layout title="Zugriff verweigert">
+      <Layout title={t("common.accessDenied")}>
         <div className="flex items-center justify-center h-[60vh]">
           <Card className="max-w-md">
             <CardHeader>
@@ -419,8 +421,8 @@ export default function UsersPage() {
 
   return (
     <Layout 
-      title="Benutzerverwaltung" 
-      subtitle={adminOrganization ? `${adminOrganization.name} - Benutzer einladen und Rollen verwalten` : "Benutzer einladen und Rollen verwalten"}
+      title={t("page.users.title")} 
+      subtitle={t("page.users.subtitle")}
     >
       <div className="space-y-6">
         {/* Organization Badge */}

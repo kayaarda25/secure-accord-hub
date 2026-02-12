@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +35,7 @@ interface Employee {
 
 export default function Employees() {
   const { profile, hasRole } = useAuth();
+  const { t } = useLanguage();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,7 +162,7 @@ export default function Employees() {
   };
 
   return (
-    <Layout title="Mitarbeiter" subtitle="HR-Verwaltung und Mitarbeiterübersicht">
+    <Layout title={t("page.employees.title")} subtitle={t("page.employees.subtitle")}>
       <div className="space-y-6">
         {/* Header with stats */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
