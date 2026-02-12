@@ -32,7 +32,6 @@ export function DocumentSigningOverlay({
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [isPdfBlob, setIsPdfBlob] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
 
@@ -45,13 +44,12 @@ export function DocumentSigningOverlay({
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, w: 0, h: 0 });
   const [signatureComment, setSignatureComment] = useState("");
 
-  // Load document URL
+  // Load document URL - use signed URL for reliable rendering in sandboxed iframes
   useEffect(() => {
     if (!open) return;
     setIsLoadingDoc(true);
     setLoadError(false);
     setDocumentUrl(null);
-    setIsPdfBlob(false);
     setSigPos({ x: 50, y: 80 });
     setSigSize({ w: 180, h: 70 });
     setZoom(1);
@@ -67,15 +65,12 @@ export function DocumentSigningOverlay({
           if (error) throw error;
           setDocumentUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(data.signedUrl)}`);
         } else {
-          // Download as blob, re-create with explicit PDF mime type
+          // Use signed URL directly - blob URLs don't render in sandboxed iframes
           const { data, error } = await supabase.storage
             .from("documents")
-            .download(documentFilePath);
+            .createSignedUrl(documentFilePath, 600);
           if (error) throw error;
-          const pdfBlob = new Blob([data], { type: "application/pdf" });
-          const url = URL.createObjectURL(pdfBlob);
-          setDocumentUrl(url);
-          setIsPdfBlob(true);
+          setDocumentUrl(data.signedUrl);
         }
       } catch (err) {
         console.error("Error loading document:", err);
@@ -86,15 +81,6 @@ export function DocumentSigningOverlay({
       }
     })();
   }, [open, documentFilePath, documentName]);
-
-  // Clean up blob URLs on unmount
-  useEffect(() => {
-    return () => {
-      if (documentUrl && documentUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(documentUrl);
-      }
-    };
-  }, [documentUrl]);
 
   // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -245,7 +231,7 @@ export function DocumentSigningOverlay({
           >
             {/* Embedded Document */}
             <iframe
-              src={isPdfBlob ? `${documentUrl}#toolbar=0&navpanes=0` : documentUrl}
+              src={documentUrl}
               className="w-full border-0"
               style={{ height: `${zoom * 1100}px`, pointerEvents: (isDragging || isResizing) ? 'none' : 'auto' }}
               title="Dokument-Vorschau"
