@@ -29,7 +29,7 @@ import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "sonner";
 import { SignatureDisplay } from "@/components/documents/SignatureDisplay";
 import { DocumentDetailDialog } from "@/components/documents/DocumentDetailDialog";
-import { SignaturePositionSelector, SignaturePosition } from "@/components/documents/SignaturePositionSelector";
+import { DocumentSigningOverlay } from "@/components/documents/DocumentSigningOverlay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Profile {
@@ -99,8 +99,12 @@ export default function Documents() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   
-  // Signature position selector state
-  const [showPositionSelector, setShowPositionSelector] = useState(false);
+  // Signing overlay state
+  const [showSigningOverlay, setShowSigningOverlay] = useState(false);
+  const [signingDocFilePath, setSigningDocFilePath] = useState("");
+  const [signingDocName, setSigningDocName] = useState("");
+  const [signingSignatureImage, setSigningSignatureImage] = useState<string | null>(null);
+  const [signingSignatureInitials, setSigningSignatureInitials] = useState<string | null>(null);
   const [pendingSignAction, setPendingSignAction] = useState<{
     type: 'self' | 'pending';
     documentId?: string;
@@ -381,31 +385,45 @@ export default function Documents() {
     return { image: null, initials: `${first}.${last}`.toUpperCase() };
   };
 
-  // Open position selector for self-sign
+  // Open signing overlay for self-sign
   const openSelfSignSelector = async (doc: Document) => {
+    const preview = await getUserSignaturePreview();
+    setSigningDocFilePath(doc.file_path);
+    setSigningDocName(doc.name);
+    setSigningSignatureImage(preview.image);
+    setSigningSignatureInitials(preview.initials);
     setPendingSignAction({
       type: 'self',
       documentId: doc.id,
       documentName: doc.name,
     });
-    setShowPositionSelector(true);
+    setShowSigningOverlay(true);
   };
 
-  // Open position selector for pending signature
+  // Open signing overlay for pending signature
   const openSignSelector = async (signatureId: string, documentName: string) => {
+    const doc = documents.find(d => d.signatures?.some(s => s.id === signatureId));
+    if (!doc) return;
+    const preview = await getUserSignaturePreview();
+    setSigningDocFilePath(doc.file_path);
+    setSigningDocName(doc.name);
+    setSigningSignatureImage(preview.image);
+    setSigningSignatureInitials(preview.initials);
     setPendingSignAction({
       type: 'pending',
       signatureId,
       documentName,
     });
-    setShowPositionSelector(true);
+    setShowSigningOverlay(true);
   };
 
-  // Execute signing with selected position
-  const handleSignWithPosition = async (position: SignaturePosition) => {
+  // Execute signing with position from overlay
+  const handleSignWithPosition = async (positionInfo: { xPercent: number; yPercent: number; page: number }) => {
     if (!user || !pendingSignAction) return;
 
     const signatureImage = await getUserSignatureImage();
+    // Store position as a JSON string for more precise placement
+    const positionStr = JSON.stringify(positionInfo);
 
     try {
       if (pendingSignAction.type === 'self' && pendingSignAction.documentId) {
@@ -416,7 +434,7 @@ export default function Documents() {
           status: "signed",
           signed_at: new Date().toISOString(),
           signature_image: signatureImage,
-          signature_position: position,
+          signature_position: positionStr,
         });
 
         if (error) throw error;
@@ -428,7 +446,7 @@ export default function Documents() {
             status: "signed",
             signed_at: new Date().toISOString(),
             signature_image: signatureImage,
-            signature_position: position,
+            signature_position: positionStr,
           })
           .eq("id", pendingSignAction.signatureId)
           .eq("signer_id", user.id);
@@ -1380,18 +1398,18 @@ export default function Documents() {
         onOpenChange={setShowDetailDialog}
       />
 
-      {/* Signature Position Selector */}
-      <SignaturePositionSelector
-        open={showPositionSelector}
+      {/* Document Signing Overlay */}
+      <DocumentSigningOverlay
+        open={showSigningOverlay}
         onOpenChange={(open) => {
-          setShowPositionSelector(open);
+          setShowSigningOverlay(open);
           if (!open) setPendingSignAction(null);
         }}
-        onConfirm={handleSignWithPosition}
-        documentName={pendingSignAction?.documentName}
-        signaturePreview={null}
-        signatureInitials={profiles.find(p => p.user_id === user?.id)?.signature_initials || 
-          `${profiles.find(p => p.user_id === user?.id)?.first_name?.[0] || ''}.${profiles.find(p => p.user_id === user?.id)?.last_name?.[0] || ''}`.toUpperCase()}
+        documentFilePath={signingDocFilePath}
+        documentName={signingDocName}
+        signatureImage={signingSignatureImage}
+        signatureInitials={signingSignatureInitials}
+        onConfirmSign={handleSignWithPosition}
       />
     </Layout>
   );
