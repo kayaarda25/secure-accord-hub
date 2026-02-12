@@ -1333,8 +1333,8 @@ export default function Documents() {
                                     signatures: signedSigs.map(sig => ({
                                       signerName: sig.signer ? `${sig.signer.first_name || ""} ${sig.signer.last_name || ""}`.trim() || sig.signer.email : "Unbekannt",
                                       signedAt: sig.signed_at || "",
-                                      signatureImage: sig.signature_image && !sig.signature_image.startsWith("text:") ? sig.signature_image : null,
-                                      signatureInitials: sig.signature_image?.startsWith("text:") ? sig.signature_image.replace("text:", "") : null,
+                                      signatureImage: sig.signature_image && !sig.signature_image.toLowerCase().startsWith("text:") ? sig.signature_image : null,
+                                      signatureInitials: sig.signature_image?.toLowerCase().startsWith("text:") ? sig.signature_image.replace(/^text:/i, "") : null,
                                       position: sig.signature_position,
                                     })),
                                   });

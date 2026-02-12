@@ -1,23 +1,21 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
+import mammoth from "mammoth";
 
 interface SignatureInfo {
   signerName: string;
   signedAt: string;
-  signatureImage?: string | null; // base64 data URL or storage URL
-  signatureInitials?: string | null; // text initials (prefixed with "text:" or plain)
-  position?: string | null; // JSON string with xPercent, yPercent, page
+  signatureImage?: string | null;
+  signatureInitials?: string | null;
+  position?: string | null;
 }
 
 interface SignedPdfOptions {
   documentName: string;
-  documentFilePath: string; // path in the "documents" storage bucket
+  documentFilePath: string;
   signatures: SignatureInfo[];
 }
 
-/**
- * Fetches the original document as an ArrayBuffer from Supabase storage.
- */
 async function fetchDocumentBytes(filePath: string): Promise<ArrayBuffer> {
   const { data, error } = await supabase.storage
     .from("documents")
@@ -26,9 +24,6 @@ async function fetchDocumentBytes(filePath: string): Promise<ArrayBuffer> {
   return await data.arrayBuffer();
 }
 
-/**
- * Fetches an image from a URL and returns it as a Uint8Array.
- */
 async function fetchImageBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   const blob = await response.blob();
@@ -36,9 +31,6 @@ async function fetchImageBytes(url: string): Promise<Uint8Array> {
   return new Uint8Array(arrayBuffer);
 }
 
-/**
- * Converts a base64 data URL to a Uint8Array.
- */
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",")[1];
   const binaryString = atob(base64);
@@ -49,9 +41,6 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Parse position JSON string to get coordinates.
- */
 function parsePosition(position?: string | null): { xPercent: number; yPercent: number; page: number } {
   if (!position) return { xPercent: 70, yPercent: 90, page: 1 };
   try {
@@ -59,62 +48,173 @@ function parsePosition(position?: string | null): { xPercent: number; yPercent: 
     return {
       xPercent: parsed.xPercent ?? 70,
       yPercent: parsed.yPercent ?? 90,
-      page: (parsed.page ?? 1) - 1, // Convert to 0-indexed
+      page: (parsed.page ?? 1) - 1,
     };
   } catch {
-    // Legacy string position - default to bottom right
     return { xPercent: 70, yPercent: 90, page: 0 };
   }
 }
 
 /**
- * Generates a signed PDF by embedding signatures onto the original document.
- * - For PDF documents: loads the PDF and stamps signatures directly onto it.
- * - For non-PDF documents: creates a new PDF with a note and the signatures.
+ * Strips HTML tags and returns plain text lines from HTML content.
  */
+function htmlToLines(html: string): string[] {
+  // Replace block-level elements with newlines
+  let text = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<td[^>]*>/gi, "  |  ")
+    .replace(/<[^>]+>/g, ""); // strip all remaining HTML tags
+
+  // Decode HTML entities
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = text;
+  text = textarea.value;
+
+  // Split into lines and clean up
+  return text.split("\n").map(line => line.trim()).filter(Boolean);
+}
+
+/**
+ * Renders text lines onto PDF pages, automatically creating new pages as needed.
+ */
+function renderTextToPages(
+  pdfDoc: PDFDocument,
+  lines: string[],
+  font: PDFFont,
+  boldFont: PDFFont,
+  documentName: string
+): PDFPage[] {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 50;
+  const lineHeight = 14;
+  const maxWidth = pageWidth - 2 * margin;
+  const fontSize = 10;
+  const pages: PDFPage[] = [];
+
+  let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  pages.push(currentPage);
+  let y = pageHeight - margin;
+
+  // Document title at top of first page
+  currentPage.drawText(documentName, {
+    x: margin,
+    y,
+    size: 14,
+    font: boldFont,
+    color: rgb(0.1, 0.1, 0.1),
+  });
+  y -= 25;
+
+  // Draw a separator line
+  currentPage.drawLine({
+    start: { x: margin, y },
+    end: { x: pageWidth - margin, y },
+    thickness: 0.5,
+    color: rgb(0.7, 0.7, 0.7),
+  });
+  y -= 15;
+
+  for (const line of lines) {
+    // Word wrap long lines
+    const words = line.split(" ");
+    let currentLine = "";
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+      if (textWidth > maxWidth && currentLine) {
+        // Draw the current line
+        if (y < margin + 20) {
+          currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+          pages.push(currentPage);
+          y = pageHeight - margin;
+        }
+        currentPage.drawText(currentLine, {
+          x: margin,
+          y,
+          size: fontSize,
+          font,
+          color: rgb(0.15, 0.15, 0.15),
+        });
+        y -= lineHeight;
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+
+    // Draw remaining text
+    if (currentLine) {
+      if (y < margin + 20) {
+        currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+        pages.push(currentPage);
+        y = pageHeight - margin;
+      }
+      currentPage.drawText(currentLine, {
+        x: margin,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.15, 0.15, 0.15),
+      });
+      y -= lineHeight;
+    }
+
+    // Extra spacing between paragraphs
+    y -= 4;
+  }
+
+  return pages;
+}
+
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
   const { documentName, documentFilePath, signatures } = options;
 
   const isPdf = documentFilePath.toLowerCase().endsWith(".pdf");
+  const isWord = documentFilePath.toLowerCase().endsWith(".docx") || documentFilePath.toLowerCase().endsWith(".doc");
 
   let pdfDoc: PDFDocument;
 
   if (isPdf) {
-    // Load the original PDF
     const docBytes = await fetchDocumentBytes(documentFilePath);
     pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
-  } else {
-    // For non-PDF files (Word etc.), create a new PDF with a note
+  } else if (isWord) {
+    // Convert Word document to PDF using mammoth (Word → HTML → PDF text)
+    const docBytes = await fetchDocumentBytes(documentFilePath);
+    const arrayBuffer = docBytes;
+
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const htmlContent = result.value;
+    const textLines = htmlToLines(htmlContent);
+
     pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]); // A4
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    // Header
-    page.drawRectangle({
-      x: 0, y: 792, width: 595, height: 50,
-      color: rgb(0.1, 0.1, 0.18),
-    });
-    page.drawText("Signiertes Dokument", {
-      x: 40, y: 810, size: 16, font: boldFont,
-      color: rgb(0.83, 0.69, 0.33),
-    });
-
-    // Document info
+    renderTextToPages(pdfDoc, textLines, font, boldFont, documentName);
+  } else {
+    // Fallback for other file types
+    pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     page.drawText(`Dokument: ${documentName}`, {
-      x: 40, y: 750, size: 12, font: boldFont,
-      color: rgb(0.1, 0.1, 0.1),
+      x: 40, y: 750, size: 14, font: boldFont, color: rgb(0.1, 0.1, 0.1),
     });
-    page.drawText(
-      "Das Originaldokument ist kein PDF. Die Signaturen sind unten angefügt.",
-      { x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4) }
-    );
+    page.drawText("Dateiformat wird nicht direkt unterstützt.", {
+      x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4),
+    });
   }
 
   const pages = pdfDoc.getPages();
-  const font = await pdfDoc.embedFont(StandardFonts.Courier);
+  const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
   const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Stamp each signature onto the document
   for (const sig of signatures) {
@@ -123,36 +223,35 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
     const page = pages[Math.max(0, pageIndex)];
     const { width, height } = page.getSize();
 
-    // Convert percentage to absolute coordinates
-    // Note: PDF coordinate system has origin at bottom-left
     const x = (pos.xPercent / 100) * width;
-    const y = height - (pos.yPercent / 100) * height; // Flip Y axis
+    const y = height - (pos.yPercent / 100) * height;
 
-    // Draw a light background box for the signature area
-    const boxWidth = 160;
-    const boxHeight = 60;
+    // Draw background box
     page.drawRectangle({
       x: x - 10,
       y: y - 15,
-      width: boxWidth,
-      height: boxHeight,
+      width: 160,
+      height: 60,
       color: rgb(1, 1, 1),
-      opacity: 0.85,
+      opacity: 0.9,
       borderColor: rgb(0.83, 0.69, 0.33),
       borderWidth: 0.5,
     });
 
-    // Draw signature image or text
-    if (sig.signatureImage && !sig.signatureImage.startsWith("text:")) {
+    // Determine if signature is image or text
+    // Handle both "text:" and "TEXT:" prefixes (case-insensitive)
+    const sigImage = sig.signatureImage;
+    const isTextSignature = !sigImage || sigImage.toLowerCase().startsWith("text:");
+
+    if (!isTextSignature && sigImage) {
       try {
         let imageBytes: Uint8Array;
-        if (sig.signatureImage.startsWith("data:image")) {
-          imageBytes = dataUrlToBytes(sig.signatureImage);
+        if (sigImage.startsWith("data:image")) {
+          imageBytes = dataUrlToBytes(sigImage);
         } else {
-          imageBytes = await fetchImageBytes(sig.signatureImage);
+          imageBytes = await fetchImageBytes(sigImage);
         }
 
-        // Try embedding as PNG, fallback to JPEG
         let embeddedImage;
         try {
           embeddedImage = await pdfDoc.embedPng(imageBytes);
@@ -162,55 +261,49 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
 
         const imgDims = embeddedImage.scaleToFit(120, 30);
         page.drawImage(embeddedImage, {
-          x: x,
-          y: y + 5,
+          x, y: y + 5,
           width: imgDims.width,
           height: imgDims.height,
         });
       } catch (err) {
         console.error("Could not embed signature image:", err);
-        // Fallback: draw initials
         const initials = sig.signerName.split(" ").map(n => n[0]).join(".");
         page.drawText(initials, {
-          x: x, y: y + 15, size: 18, font, color: rgb(0.1, 0.1, 0.1),
+          x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
         });
       }
     } else {
-      // Text-based signature (initials)
+      // Text signature
       const text = sig.signatureInitials
-        || sig.signatureImage?.replace("text:", "")
+        || (sigImage ? sigImage.replace(/^text:/i, "") : null)
         || sig.signerName.split(" ").map(n => n[0]).join(".");
       page.drawText(text, {
-        x: x, y: y + 15, size: 18, font, color: rgb(0.1, 0.1, 0.1),
+        x, y: y + 15, size: 18, font: courierFont, color: rgb(0.1, 0.1, 0.1),
       });
     }
 
-    // Draw signature line
+    // Signature line
     page.drawLine({
-      start: { x: x, y: y + 2 },
+      start: { x, y: y + 2 },
       end: { x: x + 120, y: y + 2 },
       thickness: 0.5,
       color: rgb(0.6, 0.6, 0.6),
     });
 
-    // Draw signer name and date below signature
+    // Signer info
     const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", {
       day: "2-digit", month: "2-digit", year: "numeric",
     });
     page.drawText(`${sig.signerName} · ${signedDate}`, {
-      x: x, y: y - 10, size: 7, font: helv, color: rgb(0.4, 0.4, 0.4),
+      x, y: y - 10, size: 7, font: helv, color: rgb(0.4, 0.4, 0.4),
     });
   }
 
-  // Add a small "digitally signed" footer on the last page
+  // Footer on last page
   const lastPage = pages[pages.length - 1];
   const { width: pw } = lastPage.getSize();
   lastPage.drawText(`Digitally signed · ${signatures.length} Signatur(en) · MGI Hub`, {
-    x: pw / 2 - 80,
-    y: 15,
-    size: 6,
-    font: helv,
-    color: rgb(0.6, 0.6, 0.6),
+    x: pw / 2 - 80, y: 15, size: 6, font: helv, color: rgb(0.6, 0.6, 0.6),
   });
 
   // Save and download
