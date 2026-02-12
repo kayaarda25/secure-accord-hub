@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Check, Loader2, Move, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
+import { X, Check, Loader2, Move, ZoomIn, ZoomOut, GripVertical, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
@@ -16,7 +16,7 @@ interface DocumentSigningOverlayProps {
   documentName: string;
   signatureImage?: string | null;
   signatureInitials?: string | null;
-  onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }, comment?: string) => void;
+  onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }, comment?: string, commentPosition?: { xPercent: number; yPercent: number }) => void;
 }
 
 export function DocumentSigningOverlay({
@@ -46,6 +46,12 @@ export function DocumentSigningOverlay({
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, w: 0, h: 0 });
   const [signatureComment, setSignatureComment] = useState("");
 
+  // Draggable text annotation state
+  const [textPos, setTextPos] = useState({ x: 30, y: 75 });
+  const [isDraggingText, setIsDraggingText] = useState(false);
+  const [showTextAnnotation, setShowTextAnnotation] = useState(false);
+  const textDragOffset = useRef({ x: 0, y: 0 });
+
   // Render PDF to canvas using PDF.js
   useEffect(() => {
     if (!open) return;
@@ -54,6 +60,9 @@ export function DocumentSigningOverlay({
     setPdfReady(false);
     setSigPos({ x: 50, y: 80 });
     setSigSize({ w: 180, h: 70 });
+    setTextPos({ x: 30, y: 75 });
+    setShowTextAnnotation(false);
+    setSignatureComment("");
     setZoom(1);
 
     let cancelled = false;
@@ -73,12 +82,10 @@ export function DocumentSigningOverlay({
         const totalPages = pdf.numPages;
         setNumPages(totalPages);
 
-        // Get first page to determine width
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.5 });
         const pageWidth = firstViewport.width;
 
-        // Calculate total height of all pages (with gap)
         const pageGap = 10;
         let totalHeight = 0;
         const viewports: ReturnType<typeof firstPage.getViewport>[] = [];
@@ -92,7 +99,6 @@ export function DocumentSigningOverlay({
         setPageSize({ width: pageWidth, height: totalHeight });
         setIsLoadingDoc(false);
 
-        // Wait for canvas
         const waitForCanvas = () => new Promise<HTMLCanvasElement>((resolve, reject) => {
           let attempts = 0;
           const check = () => {
@@ -115,14 +121,12 @@ export function DocumentSigningOverlay({
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, pageWidth, totalHeight);
 
-        // Render each page to an offscreen canvas, then composite onto main canvas
         let yOffset = 0;
         for (let i = 0; i < totalPages; i++) {
           if (cancelled) return;
           const pg = await pdf.getPage(i + 1);
           const vp = viewports[i];
 
-          // Draw page separator line (except before first page)
           if (i > 0) {
             context.strokeStyle = "#e0e0e0";
             context.lineWidth = 1;
@@ -132,7 +136,6 @@ export function DocumentSigningOverlay({
             context.stroke();
           }
 
-          // Render page to offscreen canvas
           const offscreen = document.createElement("canvas");
           offscreen.width = vp.width;
           offscreen.height = vp.height;
@@ -143,10 +146,7 @@ export function DocumentSigningOverlay({
           offCtx.fillRect(0, 0, vp.width, vp.height);
 
           await pg.render({ canvasContext: offCtx, viewport: vp }).promise;
-
-          // Draw the rendered page onto the main canvas at the correct offset
           context.drawImage(offscreen, 0, yOffset);
-
           yOffset += vp.height + pageGap;
         }
 
@@ -163,7 +163,7 @@ export function DocumentSigningOverlay({
     return () => { cancelled = true; };
   }, [open, documentFilePath]);
 
-  // Drag handlers
+  // Signature drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = containerRef.current;
@@ -216,6 +216,43 @@ export function DocumentSigningOverlay({
     };
   }, [isDragging]);
 
+  // Text annotation drag handlers
+  const handleTextMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    textDragOffset.current = {
+      x: e.clientX - (textPos.x / 100) * rect.width,
+      y: e.clientY - (textPos.y / 100) * rect.height,
+    };
+    setIsDraggingText(true);
+  }, [textPos]);
+
+  useEffect(() => {
+    if (!isDraggingText) return;
+    const handleMove = (clientX: number, clientY: number) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const newX = ((clientX - textDragOffset.current.x) / rect.width) * 100;
+      const newY = ((clientY - textDragOffset.current.y) / rect.height) * 100;
+      setTextPos({
+        x: Math.max(0, Math.min(90, newX)),
+        y: Math.max(0, Math.min(95, newY)),
+      });
+    };
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+    const onEnd = () => setIsDraggingText(false);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onEnd);
+    };
+  }, [isDraggingText]);
+
   // Resize handlers
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -244,16 +281,8 @@ export function DocumentSigningOverlay({
   }, [isResizing]);
 
   const handleConfirm = () => {
-    // Calculate which page the signature is on and convert to per-page coordinates
-    // The canvas renders all pages stacked vertically with gaps
-    // sigPos is in % of the full canvas (all pages)
     const totalHeight = pageSize.height;
     const sigYAbsolute = (sigPos.y / 100) * totalHeight;
-
-    // Reconstruct per-page heights from the canvas render logic (scale 1.5, gap 10)
-    // We stored totalHeight but not individual page heights, so we approximate:
-    // For a single-page doc, page = 1 and yPercent maps directly
-    // For multi-page, we divide evenly (best approximation without storing page heights)
     const pageGap = 10;
     const estimatedPageHeight = (totalHeight - (numPages - 1) * pageGap) / numPages;
     
@@ -275,11 +304,15 @@ export function DocumentSigningOverlay({
 
     const yPercentInPage = (yInPage / estimatedPageHeight) * 100;
 
+    const commentPos = showTextAnnotation && signatureComment.trim()
+      ? { xPercent: textPos.x, yPercent: (((textPos.y / 100) * totalHeight - pageIndex * (estimatedPageHeight + pageGap)) / estimatedPageHeight) * 100 }
+      : undefined;
+
     onConfirmSign({
       xPercent: sigPos.x,
       yPercent: yPercentInPage,
       page: pageIndex + 1,
-    }, signatureComment.trim() || undefined);
+    }, signatureComment.trim() || undefined, commentPos);
     setSignatureComment("");
     onOpenChange(false);
   };
@@ -302,7 +335,7 @@ export function DocumentSigningOverlay({
               {documentName}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Signatur an gewünschter Position platzieren
+              Signatur und Text an gewünschter Position platzieren
             </p>
           </div>
         </div>
@@ -374,7 +407,6 @@ export function DocumentSigningOverlay({
               }}
             >
               <div className="relative bg-white/90 backdrop-blur-sm border-2 border-accent rounded-lg h-full flex flex-col items-center justify-center p-2 overflow-hidden">
-                {/* Drag handle indicator */}
                 <div className="absolute -top-2 -right-2 bg-accent text-accent-foreground rounded-full p-1">
                   <Move className="h-3 w-3" />
                 </div>
@@ -398,7 +430,6 @@ export function DocumentSigningOverlay({
                   <p className="text-[9px] text-muted-foreground text-center">Digital signiert</p>
                 </div>
 
-                {/* Resize handle (bottom-right corner) */}
                 <div
                   onMouseDown={handleResizeStart}
                   className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize flex items-center justify-center hover:bg-accent/20 rounded-tl"
@@ -407,6 +438,31 @@ export function DocumentSigningOverlay({
                 </div>
               </div>
             </div>
+
+            {/* Draggable Text Annotation */}
+            {showTextAnnotation && signatureComment.trim() && (
+              <div
+                onMouseDown={handleTextMouseDown}
+                className={`absolute cursor-grab active:cursor-grabbing transition-shadow ${
+                  isDraggingText ? "shadow-2xl z-20" : "shadow-md z-10"
+                }`}
+                style={{
+                  left: `${textPos.x}%`,
+                  top: `${textPos.y}%`,
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
+                <div className="relative bg-yellow-50/95 backdrop-blur-sm border-2 border-yellow-400 rounded px-3 py-1.5 flex items-center gap-2">
+                  <div className="absolute -top-2 -right-2 bg-yellow-500 text-white rounded-full p-0.5">
+                    <Move className="h-2.5 w-2.5" />
+                  </div>
+                  <Type className="h-3 w-3 text-yellow-600 shrink-0" />
+                  <span className="text-sm text-yellow-900 whitespace-nowrap select-none pointer-events-none">
+                    {signatureComment}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -418,11 +474,27 @@ export function DocumentSigningOverlay({
           Drag & Drop / Ecke ziehen zum Skalieren
         </div>
         <Input
-          placeholder="Kommentar hinzufügen (z.B. Ort, Datum…) — optional"
+          placeholder="Text hinzufügen (z.B. Ort, Datum…) — optional"
           value={signatureComment}
-          onChange={(e) => setSignatureComment(e.target.value)}
+          onChange={(e) => {
+            setSignatureComment(e.target.value);
+            if (e.target.value.trim() && !showTextAnnotation) {
+              setShowTextAnnotation(true);
+            }
+          }}
           className="max-w-md text-sm"
         />
+        {signatureComment.trim() && (
+          <Button
+            variant={showTextAnnotation ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowTextAnnotation(!showTextAnnotation)}
+            className="shrink-0"
+          >
+            <Type className="h-4 w-4 mr-1" />
+            {showTextAnnotation ? "Text sichtbar" : "Im Dokument platzieren"}
+          </Button>
+        )}
       </div>
     </div>
   );

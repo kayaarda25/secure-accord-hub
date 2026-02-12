@@ -73,6 +73,7 @@ interface DocumentSignature {
   signed_at: string | null;
   signature_image: string | null;
   signature_position?: string | null;
+  signature_comment?: string | null;
   signer?: Profile;
 }
 
@@ -420,12 +421,15 @@ export default function Documents() {
   };
 
   // Execute signing with position from overlay
-  const handleSignWithPosition = async (positionInfo: { xPercent: number; yPercent: number; page: number }, comment?: string) => {
+  const handleSignWithPosition = async (positionInfo: { xPercent: number; yPercent: number; page: number }, comment?: string, commentPosition?: { xPercent: number; yPercent: number }) => {
     if (!user || !pendingSignAction) return;
 
     const signatureImage = await getUserSignatureImage();
     // Store position as a JSON string for more precise placement
-    const positionStr = JSON.stringify(positionInfo);
+    const positionData = commentPosition
+      ? { ...positionInfo, commentXPercent: commentPosition.xPercent, commentYPercent: commentPosition.yPercent }
+      : positionInfo;
+    const positionStr = JSON.stringify(positionData);
 
     try {
       if (pendingSignAction.type === 'self' && pendingSignAction.documentId) {
@@ -1333,6 +1337,7 @@ export default function Documents() {
                                       signatureImage: sig.signature_image && !sig.signature_image.toLowerCase().startsWith("text:") ? sig.signature_image : null,
                                       signatureInitials: sig.signature_image?.toLowerCase().startsWith("text:") ? sig.signature_image.replace(/^text:/i, "") : null,
                                       position: sig.signature_position,
+                                      comment: sig.signature_comment,
                                     })),
                                   });
                                   toast.success("Signiertes PDF wurde generiert");

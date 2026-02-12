@@ -8,6 +8,7 @@ interface SignatureInfo {
   signatureImage?: string | null;
   signatureInitials?: string | null;
   position?: string | null;
+  comment?: string | null;
 }
 
 interface SignedPdfOptions {
@@ -40,7 +41,7 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
-function parsePosition(position?: string | null): { xPercent: number; yPercent: number; page: number } {
+function parsePosition(position?: string | null): { xPercent: number; yPercent: number; page: number; commentXPercent?: number; commentYPercent?: number } {
   if (!position) return { xPercent: 70, yPercent: 90, page: 1 };
   try {
     const parsed = JSON.parse(position);
@@ -48,6 +49,8 @@ function parsePosition(position?: string | null): { xPercent: number; yPercent: 
       xPercent: parsed.xPercent ?? 70,
       yPercent: parsed.yPercent ?? 90,
       page: (parsed.page ?? 1) - 1,
+      commentXPercent: parsed.commentXPercent,
+      commentYPercent: parsed.commentYPercent,
     };
   } catch {
     return { xPercent: 70, yPercent: 90, page: 0 };
@@ -188,12 +191,20 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
   const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
   const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  // Stamp each signature
+  // Stamp each signature and optional comment text
   for (const sig of signatures) {
     const pos = parsePosition(sig.position);
     const pageIndex = Math.min(pos.page, pages.length - 1);
     const page = pages[Math.max(0, pageIndex)];
     await stampSignature(pdfDoc, page, sig, pos, courierFont, helv);
+
+    // Stamp comment text at its own position if available
+    if (sig.comment && pos.commentXPercent != null && pos.commentYPercent != null) {
+      const { width, height } = page.getSize();
+      const cx = Math.max(10, Math.min((pos.commentXPercent / 100) * width - 40, width - 200));
+      const cy = Math.max(15, Math.min(height - (pos.commentYPercent / 100) * height, height - 10));
+      page.drawText(sanitize(sig.comment), { x: cx, y: cy, size: 10, font: helv, color: rgb(0.1, 0.1, 0.1) });
+    }
   }
 
   // Footer on last page

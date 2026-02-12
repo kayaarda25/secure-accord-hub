@@ -242,6 +242,7 @@ export function DocumentDetailDialog({
                           signatureImage: getSignatureImage(sig),
                           signatureInitials: getSignatureInitials(sig),
                           position: sig.signature_position,
+                          comment: (sig as any).signature_comment,
                         })),
                       });
                       toast.success("Signiertes PDF wurde generiert");
