@@ -418,7 +418,7 @@ export default function Documents() {
   };
 
   // Execute signing with position from overlay
-  const handleSignWithPosition = async (positionInfo: { xPercent: number; yPercent: number; page: number }) => {
+  const handleSignWithPosition = async (positionInfo: { xPercent: number; yPercent: number; page: number }, comment?: string) => {
     if (!user || !pendingSignAction) return;
 
     const signatureImage = await getUserSignatureImage();
@@ -435,6 +435,7 @@ export default function Documents() {
           signed_at: new Date().toISOString(),
           signature_image: signatureImage,
           signature_position: positionStr,
+          signature_comment: comment || null,
         });
 
         if (error) throw error;
@@ -447,6 +448,7 @@ export default function Documents() {
             signed_at: new Date().toISOString(),
             signature_image: signatureImage,
             signature_position: positionStr,
+            signature_comment: comment || null,
           })
           .eq("id", pendingSignAction.signatureId)
           .eq("signer_id", user.id);

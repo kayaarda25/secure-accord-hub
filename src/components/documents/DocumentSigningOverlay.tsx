@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { X, Check, Loader2, Move, ZoomIn, ZoomOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,7 +12,7 @@ interface DocumentSigningOverlayProps {
   documentName: string;
   signatureImage?: string | null;
   signatureInitials?: string | null;
-  onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }) => void;
+  onConfirmSign: (position: { xPercent: number; yPercent: number; page: number }, comment?: string) => void;
 }
 
 /**
@@ -41,6 +42,7 @@ export function DocumentSigningOverlay({
   const [sigPos, setSigPos] = useState({ x: 50, y: 80 }); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const [signatureComment, setSignatureComment] = useState("");
 
   // Load document URL
   useEffect(() => {
@@ -142,7 +144,8 @@ export function DocumentSigningOverlay({
       xPercent: sigPos.x,
       yPercent: sigPos.y,
       page: 1,
-    });
+    }, signatureComment.trim() || undefined);
+    setSignatureComment("");
     onOpenChange(false);
   };
 
@@ -271,6 +274,19 @@ export function DocumentSigningOverlay({
                   <p className="text-[9px] text-muted-foreground">
                     Digital signiert
                   </p>
+                </div>
+
+                {/* Comment text field */}
+                <div className="mt-2 border-t border-border pt-2">
+                  <Textarea
+                    placeholder="Kommentar hinzufügen (z.B. Ort, Datum…)"
+                    value={signatureComment}
+                    onChange={(e) => setSignatureComment(e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="text-xs min-h-[50px] resize-none bg-white/80 border-muted"
+                    rows={2}
+                  />
                 </div>
               </div>
             </div>
