@@ -1448,6 +1448,7 @@ export type Database = {
           footer_text: string | null
           id: string
           is_default: boolean | null
+          layout_data: Json | null
           logo_url: string | null
           preset_name: string
           primary_color: string | null
@@ -1463,6 +1464,7 @@ export type Database = {
           footer_text?: string | null
           id?: string
           is_default?: boolean | null
+          layout_data?: Json | null
           logo_url?: string | null
           preset_name?: string
           primary_color?: string | null
@@ -1478,6 +1480,7 @@ export type Database = {
           footer_text?: string | null
           id?: string
           is_default?: boolean | null
+          layout_data?: Json | null
           logo_url?: string | null
           preset_name?: string
           primary_color?: string | null
