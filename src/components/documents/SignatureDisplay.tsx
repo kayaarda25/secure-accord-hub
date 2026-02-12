@@ -11,6 +11,15 @@ interface SignatureDisplayProps {
 }
 
 const getPositionLabel = (position?: SignaturePosition | string | null) => {
+  if (!position) return null;
+  try {
+    const parsed = JSON.parse(position as string);
+    if (parsed.xPercent !== undefined && parsed.yPercent !== undefined) {
+      return `X: ${Math.round(parsed.xPercent)}%, Y: ${Math.round(parsed.yPercent)}%`;
+    }
+  } catch {
+    // Not JSON
+  }
   switch (position) {
     case "top-left": return "Oben Links";
     case "top-center": return "Oben Mitte";
