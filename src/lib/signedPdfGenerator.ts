@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from "pdf-lib";
+import { saveAs } from "file-saver";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SignatureInfo {
@@ -198,17 +199,9 @@ export async function generateSignedPdf(options: SignedPdfOptions): Promise<void
     x: pw / 2 - 80, y: 15, size: 6, font: helv, color: rgb(0.6, 0.6, 0.6),
   });
 
-  // Save and download
+  // Save and download using file-saver (works in sandboxed iframes)
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
   const safeName = documentName.replace(/[^a-zA-Z0-9äöüÄÖÜß\s\-_]/g, "").trim();
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${safeName}_signiert.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Delay revoking so the browser has time to start the download
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  saveAs(blob, `${safeName}_signiert.pdf`);
 }
