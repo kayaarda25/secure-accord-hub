@@ -1329,6 +1329,7 @@ export default function Documents() {
                                   const signedSigs = (doc.signatures || []).filter(s => s.status === "signed");
                                   await generateSignedPdf({
                                     documentName: doc.name,
+                                    documentFilePath: doc.file_path,
                                     signatures: signedSigs.map(sig => ({
                                       signerName: sig.signer ? `${sig.signer.first_name || ""} ${sig.signer.last_name || ""}`.trim() || sig.signer.email : "Unbekannt",
                                       signedAt: sig.signed_at || "",

@@ -1,224 +1,229 @@
-import jsPDF from "jspdf";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SignatureInfo {
   signerName: string;
   signedAt: string;
-  signatureImage?: string | null;
-  signatureInitials?: string | null;
-  position?: string | null;
+  signatureImage?: string | null; // base64 data URL or storage URL
+  signatureInitials?: string | null; // text initials (prefixed with "text:" or plain)
+  position?: string | null; // JSON string with xPercent, yPercent, page
 }
 
 interface SignedPdfOptions {
   documentName: string;
+  documentFilePath: string; // path in the "documents" storage bucket
   signatures: SignatureInfo[];
 }
 
-const getPositionLabel = (position?: string | null) => {
-  if (!position) return "Standard";
-  // Handle new JSON coordinate format
+/**
+ * Fetches the original document as an ArrayBuffer from Supabase storage.
+ */
+async function fetchDocumentBytes(filePath: string): Promise<ArrayBuffer> {
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .download(filePath);
+  if (error) throw new Error(`Could not download document: ${error.message}`);
+  return await data.arrayBuffer();
+}
+
+/**
+ * Fetches an image from a URL and returns it as a Uint8Array.
+ */
+async function fetchImageBytes(url: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
+}
+
+/**
+ * Converts a base64 data URL to a Uint8Array.
+ */
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.split(",")[1];
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Parse position JSON string to get coordinates.
+ */
+function parsePosition(position?: string | null): { xPercent: number; yPercent: number; page: number } {
+  if (!position) return { xPercent: 70, yPercent: 90, page: 1 };
   try {
     const parsed = JSON.parse(position);
-    if (parsed.xPercent !== undefined && parsed.yPercent !== undefined) {
-      return `X: ${Math.round(parsed.xPercent)}%, Y: ${Math.round(parsed.yPercent)}%`;
-    }
+    return {
+      xPercent: parsed.xPercent ?? 70,
+      yPercent: parsed.yPercent ?? 90,
+      page: (parsed.page ?? 1) - 1, // Convert to 0-indexed
+    };
   } catch {
-    // Not JSON, try legacy string values
+    // Legacy string position - default to bottom right
+    return { xPercent: 70, yPercent: 90, page: 0 };
   }
-  switch (position) {
-    case "top-left": return "Oben Links";
-    case "top-center": return "Oben Mitte";
-    case "top-right": return "Oben Rechts";
-    case "bottom-left": return "Unten Links";
-    case "bottom-center": return "Unten Mitte";
-    case "bottom-right": return "Unten Rechts";
-    default: return position;
-  }
-};
+}
 
-const loadImageAsBase64 = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-};
-
+/**
+ * Generates a signed PDF by embedding signatures onto the original document.
+ * - For PDF documents: loads the PDF and stamps signatures directly onto it.
+ * - For non-PDF documents: creates a new PDF with a note and the signatures.
+ */
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
-  const { documentName, signatures } = options;
-  const doc = new jsPDF("p", "mm", "a4");
-  const pageWidth = 210;
-  const margin = 25;
-  const contentWidth = pageWidth - 2 * margin;
-  let y = margin;
+  const { documentName, documentFilePath, signatures } = options;
 
-  // Header
-  doc.setFillColor(26, 26, 46); // Dark header
-  doc.rect(0, 0, pageWidth, 45, "F");
+  const isPdf = documentFilePath.toLowerCase().endsWith(".pdf");
 
-  doc.setTextColor(212, 175, 55); // Gold
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Signaturprotokoll", margin, 22);
+  let pdfDoc: PDFDocument;
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 180, 180);
-  doc.text("Digital Signature Certificate", margin, 30);
+  if (isPdf) {
+    // Load the original PDF
+    const docBytes = await fetchDocumentBytes(documentFilePath);
+    pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
+  } else {
+    // For non-PDF files (Word etc.), create a new PDF with a note
+    pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]); // A4
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  doc.setTextColor(212, 175, 55);
-  doc.setFontSize(8);
-  const dateStr = new Date().toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  doc.text(`Erstellt: ${dateStr}`, margin, 38);
-
-  y = 55;
-
-  // Document Info Box
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(margin, y, contentWidth, 25, 2, 2, "S");
-
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(9);
-  doc.text("Dokument:", margin + 5, y + 8);
-  doc.setTextColor(30, 30, 30);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(documentName, margin + 5, y + 16);
-  doc.setFont("helvetica", "normal");
-
-  y += 35;
-
-  // Signature count
-  const signedCount = signatures.length;
-  doc.setFontSize(12);
-  doc.setTextColor(30, 30, 30);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Signaturen (${signedCount})`, margin, y);
-  y += 3;
-
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.8);
-  doc.line(margin, y, margin + 40, y);
-  y += 10;
-
-  // Signatures
-  for (let i = 0; i < signatures.length; i++) {
-    const sig = signatures[i];
-
-    // Check if we need a new page
-    if (y > 240) {
-      doc.addPage();
-      y = margin;
-    }
-
-    // Signature box
-    doc.setFillColor(248, 249, 250);
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, contentWidth, 45, 2, 2, "FD");
-
-    // Green check indicator
-    doc.setFillColor(34, 197, 94);
-    doc.circle(margin + 8, y + 8, 3, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text("✓", margin + 6.5, y + 9.5);
-
-    // Signer name
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(sig.signerName, margin + 15, y + 10);
-
-    // Signed date
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    // Header
+    page.drawRectangle({
+      x: 0, y: 792, width: 595, height: 50,
+      color: rgb(0.1, 0.1, 0.18),
     });
-    doc.text(`Signiert am: ${signedDate}`, margin + 15, y + 17);
+    page.drawText("Signiertes Dokument", {
+      x: 40, y: 810, size: 16, font: boldFont,
+      color: rgb(0.83, 0.69, 0.33),
+    });
 
-    // Position label
-    if (sig.position) {
-      doc.text(`Position: ${getPositionLabel(sig.position)}`, margin + 15, y + 23);
-    }
+    // Document info
+    page.drawText(`Dokument: ${documentName}`, {
+      x: 40, y: 750, size: 12, font: boldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    page.drawText(
+      "Das Originaldokument ist kein PDF. Die Signaturen sind unten angefügt.",
+      { x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4) }
+    );
+  }
 
-    // Signature rendering
-    const sigX = margin + 15;
-    const sigY = y + 27;
+  const pages = pdfDoc.getPages();
+  const font = await pdfDoc.embedFont(StandardFonts.Courier);
+  const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    if (sig.signatureImage) {
+  // Stamp each signature onto the document
+  for (const sig of signatures) {
+    const pos = parsePosition(sig.position);
+    const pageIndex = Math.min(pos.page, pages.length - 1);
+    const page = pages[Math.max(0, pageIndex)];
+    const { width, height } = page.getSize();
+
+    // Convert percentage to absolute coordinates
+    // Note: PDF coordinate system has origin at bottom-left
+    const x = (pos.xPercent / 100) * width;
+    const y = height - (pos.yPercent / 100) * height; // Flip Y axis
+
+    // Draw a light background box for the signature area
+    const boxWidth = 160;
+    const boxHeight = 60;
+    page.drawRectangle({
+      x: x - 10,
+      y: y - 15,
+      width: boxWidth,
+      height: boxHeight,
+      color: rgb(1, 1, 1),
+      opacity: 0.85,
+      borderColor: rgb(0.83, 0.69, 0.33),
+      borderWidth: 0.5,
+    });
+
+    // Draw signature image or text
+    if (sig.signatureImage && !sig.signatureImage.startsWith("text:")) {
       try {
-        const base64 = await loadImageAsBase64(sig.signatureImage);
-        if (base64) {
-          doc.addImage(base64, "PNG", sigX, sigY, 40, 14);
+        let imageBytes: Uint8Array;
+        if (sig.signatureImage.startsWith("data:image")) {
+          imageBytes = dataUrlToBytes(sig.signatureImage);
+        } else {
+          imageBytes = await fetchImageBytes(sig.signatureImage);
         }
-      } catch {
-        // Fallback to initials
-        doc.setFontSize(18);
-        doc.setTextColor(30, 30, 30);
-        doc.setFont("courier", "italic");
-        doc.text(sig.signerName.split(" ").map(n => n[0]).join("."), sigX, sigY + 10);
+
+        // Try embedding as PNG, fallback to JPEG
+        let embeddedImage;
+        try {
+          embeddedImage = await pdfDoc.embedPng(imageBytes);
+        } catch {
+          embeddedImage = await pdfDoc.embedJpg(imageBytes);
+        }
+
+        const imgDims = embeddedImage.scaleToFit(120, 30);
+        page.drawImage(embeddedImage, {
+          x: x,
+          y: y + 5,
+          width: imgDims.width,
+          height: imgDims.height,
+        });
+      } catch (err) {
+        console.error("Could not embed signature image:", err);
+        // Fallback: draw initials
+        const initials = sig.signerName.split(" ").map(n => n[0]).join(".");
+        page.drawText(initials, {
+          x: x, y: y + 15, size: 18, font, color: rgb(0.1, 0.1, 0.1),
+        });
       }
-    } else if (sig.signatureInitials) {
-      doc.setFontSize(18);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("courier", "italic");
-      doc.text(sig.signatureInitials, sigX, sigY + 10);
     } else {
-      doc.setFontSize(18);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("courier", "italic");
-      doc.text(sig.signerName.split(" ").map(n => n[0]).join("."), sigX, sigY + 10);
+      // Text-based signature (initials)
+      const text = sig.signatureInitials
+        || sig.signatureImage?.replace("text:", "")
+        || sig.signerName.split(" ").map(n => n[0]).join(".");
+      page.drawText(text, {
+        x: x, y: y + 15, size: 18, font, color: rgb(0.1, 0.1, 0.1),
+      });
     }
 
-    // Divider line under signature
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.2);
-    doc.line(sigX, sigY + 14, sigX + 50, sigY + 14);
+    // Draw signature line
+    page.drawLine({
+      start: { x: x, y: y + 2 },
+      end: { x: x + 120, y: y + 2 },
+      thickness: 0.5,
+      color: rgb(0.6, 0.6, 0.6),
+    });
 
-    doc.setFont("helvetica", "normal");
-
-    y += 52;
+    // Draw signer name and date below signature
+    const signedDate = new Date(sig.signedAt).toLocaleDateString("de-DE", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+    });
+    page.drawText(`${sig.signerName} · ${signedDate}`, {
+      x: x, y: y - 10, size: 7, font: helv, color: rgb(0.4, 0.4, 0.4),
+    });
   }
 
-  // Footer
-  y = Math.max(y + 10, 260);
-  if (y > 270) {
-    doc.addPage();
-    y = margin;
-  }
+  // Add a small "digitally signed" footer on the last page
+  const lastPage = pages[pages.length - 1];
+  const { width: pw } = lastPage.getSize();
+  lastPage.drawText(`Digitally signed · ${signatures.length} Signatur(en) · MGI Hub`, {
+    x: pw / 2 - 80,
+    y: 15,
+    size: 6,
+    font: helv,
+    color: rgb(0.6, 0.6, 0.6),
+  });
 
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
+  // Save and download
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
 
-  y += 8;
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
-  doc.text("Dieses Signaturprotokoll wurde digital erstellt und bestätigt die oben aufgeführten Signaturen.", margin, y);
-  doc.text("MGI Hub • Digital Signature Certificate", margin, y + 5);
-
-  // Save
-  const safeName = documentName.replace(/[^a-zA-Z0-9äöüÄÖÜß\s-_]/g, "").trim();
-  doc.save(`${safeName}_signiert.pdf`);
+  const safeName = documentName.replace(/[^a-zA-Z0-9äöüÄÖÜß\s\-_]/g, "").trim();
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName}_signiert.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

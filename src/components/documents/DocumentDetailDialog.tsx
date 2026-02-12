@@ -234,6 +234,7 @@ export function DocumentDetailDialog({
                     try {
                       await generateSignedPdf({
                         documentName: document.name,
+                        documentFilePath: document.file_path,
                         signatures: signedSignatures.map((sig) => ({
                           signerName: getSignerName(sig),
                           signedAt: sig.signed_at || "",
