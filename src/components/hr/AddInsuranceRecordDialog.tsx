@@ -60,10 +60,23 @@ export function AddInsuranceRecordDialog({
 
   useEffect(() => {
     const fetchEmployees = async () => {
+      // Get the current user's organization_id first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!currentProfile?.organization_id) return;
+
       const { data } = await supabase
         .from("profiles")
         .select("user_id, first_name, last_name, email")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("organization_id", currentProfile.organization_id);
       if (data) setEmployees(data);
     };
     if (open) fetchEmployees();
