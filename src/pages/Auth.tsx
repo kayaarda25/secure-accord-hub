@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,6 +11,11 @@ import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
 import { Badge } from "@/components/ui/badge";
+import swissVid1 from "@/assets/swiss-landscape-1.mp4";
+import swissVid2 from "@/assets/swiss-landscape-2.mp4";
+import swissVid3 from "@/assets/swiss-landscape-3.mp4";
+
+const VIDEOS = [swissVid1, swissVid2, swissVid3];
 
 interface InvitationData {
   email: string;
@@ -27,6 +32,22 @@ export default function Auth() {
   const currentLogo = resolvedTheme === "dark" ? mgiLogoWhite : mgiLogo;
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get("invitation");
+
+  // Video background rotation
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [nextVideoIndex, setNextVideoIndex] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
+
+  const handleVideoEnd = useCallback(() => {
+    setIsTransitioning(true);
+    setNextVideoIndex((currentVideoIndex + 1) % VIDEOS.length);
+    setTimeout(() => {
+      setCurrentVideoIndex((prev) => (prev + 1) % VIDEOS.length);
+      setIsTransitioning(false);
+    }, 1000);
+  }, [currentVideoIndex]);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -226,7 +247,7 @@ export default function Auth() {
   if (invitationToken && invitationError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      <div className="w-full max-w-md relative z-10">
           <div className="card-state p-8 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mb-4">
               <AlertTriangle className="h-8 w-8 text-destructive" />
@@ -243,15 +264,38 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Video Background */}
+      <video
+        ref={videoRef}
+        key={`vid-${currentVideoIndex}`}
+        src={VIDEOS[currentVideoIndex]}
+        autoPlay
+        muted
+        playsInline
+        onEnded={handleVideoEnd}
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
+      />
+      <video
+        ref={nextVideoRef}
+        key={`vid-next-${nextVideoIndex}`}
+        src={VIDEOS[nextVideoIndex]}
+        muted
+        playsInline
+        preload="auto"
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
+        onCanPlay={() => { if (isTransitioning) nextVideoRef.current?.play(); }}
+      />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden mb-4 shadow-lg">
             <img src={currentLogo} alt="MGI Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">MGI Hub</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold text-white tracking-tight">MGI Hub</h1>
+          <p className="text-sm text-white/70 mt-1">
             Government Cooperation Platform
           </p>
           {/* Language Switcher */}
@@ -262,8 +306,8 @@ export default function Auth() {
                 onClick={() => setLanguage(lang)}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                   language === lang
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-white text-black"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
                 }`}
               >
                 {lang.toUpperCase()}
@@ -273,7 +317,7 @@ export default function Auth() {
         </div>
 
         {/* Auth Card */}
-        <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
+        <div className="bg-card/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
           {/* Invitation Banner */}
           {invitationData && (
             <div className="mb-6 p-4 rounded-lg bg-accent/10 border border-accent/20">
@@ -551,7 +595,7 @@ export default function Auth() {
           )}
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">
+        <p className="text-center text-xs text-white/60 mt-8">
           {t("auth.securedBy")}
           <br />
           {t("auth.dataStored")}
