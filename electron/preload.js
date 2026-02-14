@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
+  isElectron: true,
   
   // App version
   getVersion: () => ipcRenderer.invoke('get-version'),
@@ -14,9 +15,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
   
-  // File system operations (if needed later)
+  // File system operations
   saveFile: (data, filename) => ipcRenderer.invoke('save-file', data, filename),
   openFile: () => ipcRenderer.invoke('open-file'),
+
+  // Backup folder sync
+  selectBackupFolder: () => ipcRenderer.invoke('select-backup-folder'),
+  getBackupFolder: () => ipcRenderer.invoke('get-backup-folder'),
+  clearBackupFolder: () => ipcRenderer.invoke('clear-backup-folder'),
+  saveBackupToFolder: (arrayBuffer, filename) => ipcRenderer.invoke('save-backup-to-folder', arrayBuffer, filename),
 });
 
 // Log that preload script has loaded
