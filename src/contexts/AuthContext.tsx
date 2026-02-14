@@ -107,7 +107,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const registerSession = async (userId: string) => {
+    // Prevent duplicate session registration on token refresh / page reload
+    const sessionKey = "mgi-session-registered";
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, "true");
+
     try {
+      // Deactivate any previous active sessions for this user first
+      await supabase
+        .from("user_sessions")
+        .update({ is_active: false })
+        .eq("user_id", userId)
+        .eq("is_active", true);
+
       let ipAddress: string | null = null;
       try {
         const res = await fetch("https://api.ipify.org?format=json");

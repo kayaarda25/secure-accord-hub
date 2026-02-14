@@ -180,14 +180,16 @@ export default function Security() {
         variant: "destructive"
       });
     } else {
-      setSessions(sessions.filter(s => s.id !== sessionId));
-      toast({
-        title: "Session beendet",
-        description: "Die Session wurde erfolgreich beendet"
-      });
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
       // If terminating the current session, actually sign out
       if (sessionToTerminate?.is_current) {
+        sessionStorage.removeItem("mgi-session-registered");
         await supabase.auth.signOut();
+      } else {
+        toast({
+          title: "Session beendet",
+          description: "Die Session wurde erfolgreich beendet"
+        });
       }
     }
   };
