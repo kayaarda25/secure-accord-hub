@@ -408,4 +408,10 @@ export const pt: Record<string, string> = {
   "auth.invitationError": "Erro ao carregar o convite",
   "auth.invitationInvalid": "Convite inválido",
   "auth.invitationAcceptError": "Erro ao aceitar o convite",
+  "auth.forgotPassword": "Esqueceu a palavra-passe?",
+  "auth.resetPassword": "Redefinir Palavra-passe",
+  "auth.resetPasswordHint": "Introduza o seu e-mail e enviaremos um link de redefinição.",
+  "auth.sendResetLink": "Enviar link",
+  "auth.resetEmailSent": "Um e-mail de redefinição foi enviado. Verifique a sua caixa de entrada.",
+  "auth.backToLogin": "Voltar ao login",
 };

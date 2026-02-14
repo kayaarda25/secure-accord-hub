@@ -19,7 +19,7 @@ interface InvitationData {
   organizationName: string | null;
 }
 
-type Step = "email" | "password";
+type Step = "email" | "password" | "forgot";
 
 export default function Auth() {
   const { t, language, setLanguage } = useLanguage();
@@ -465,6 +465,18 @@ export default function Auth() {
                 </div>
               )}
 
+              {!invitationData && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setStep("forgot"); setError(null); setSuccess(null); }}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t("auth.forgotPassword")}
+                  </button>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSubmitting || isBlocked}
@@ -472,6 +484,68 @@ export default function Auth() {
               >
                 {isSubmitting && <Loader2 size={18} className="animate-spin" />}
                 {invitationData ? t("auth.createAccount") : t("auth.signIn")}
+              </button>
+            </form>
+          )}
+
+          {/* Step: Forgot Password */}
+          {step === "forgot" && (
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setError(null);
+              setSuccess(null);
+              setIsSubmitting(true);
+              try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                  redirectTo: `${window.location.origin}/auth`,
+                });
+                if (error) {
+                  setError(error.message);
+                } else {
+                  setSuccess(t("auth.resetEmailSent"));
+                }
+              } catch {
+                setError(t("auth.unexpectedError"));
+              } finally {
+                setIsSubmitting(false);
+              }
+            }} className="space-y-6">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => { setStep("password"); setError(null); setSuccess(null); }}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  {t("auth.backToLogin")}
+                </button>
+                <h2 className="text-xl font-semibold text-foreground mb-1">
+                  {t("auth.resetPassword")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t("auth.resetPasswordHint")}
+                </p>
+              </div>
+
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted-foreground text-base"
+                  placeholder={t("auth.emailPlaceholder")}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
+              >
+                {isSubmitting && <Loader2 size={18} className="animate-spin" />}
+                {t("auth.sendResetLink")}
               </button>
             </form>
           )}

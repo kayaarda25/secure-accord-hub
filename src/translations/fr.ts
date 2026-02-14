@@ -408,4 +408,10 @@ export const fr: Record<string, string> = {
   "auth.invitationError": "Erreur lors du chargement de l'invitation",
   "auth.invitationInvalid": "Invitation invalide",
   "auth.invitationAcceptError": "Erreur lors de l'acceptation de l'invitation",
+  "auth.forgotPassword": "Mot de passe oublié ?",
+  "auth.resetPassword": "Réinitialiser le mot de passe",
+  "auth.resetPasswordHint": "Entrez votre adresse e-mail et nous vous enverrons un lien de réinitialisation.",
+  "auth.sendResetLink": "Envoyer le lien",
+  "auth.resetEmailSent": "Un e-mail de réinitialisation a été envoyé. Veuillez vérifier votre boîte de réception.",
+  "auth.backToLogin": "Retour à la connexion",
 };
