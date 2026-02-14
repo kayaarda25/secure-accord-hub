@@ -28,6 +28,7 @@ export const fr: Record<string, string> = {
   "nav.users": "Utilisateurs",
   "nav.security": "Sécurité",
   "nav.settings": "Paramètres",
+  "nav.support": "Support",
   "nav.signOut": "Déconnexion",
 
   // Settings page
@@ -350,4 +351,25 @@ export const fr: Record<string, string> = {
   "category.office": "Fournitures de bureau",
   "category.communication": "Communication",
   "category.other": "Autre",
+
+  // Support
+  "page.support.title": "Support",
+  "page.support.subtitle": "Signaler des bugs, des erreurs ou demander de nouvelles fonctionnalités",
+  "support.newRequest": "Nouvelle demande",
+  "support.newRequestDesc": "Décrivez votre problème et nous nous en occupons",
+  "support.type": "Type",
+  "support.typeBug": "Rapport de bug",
+  "support.typeError": "Rapport d'erreur",
+  "support.typeFeature": "Demande de fonctionnalité",
+  "support.subject": "Sujet",
+  "support.subjectPlaceholder": "Brève description du problème...",
+  "support.description": "Description",
+  "support.descriptionPlaceholder": "Décrivez le problème ou la demande en détail...",
+  "support.send": "Envoyer la demande",
+  "support.sending": "Envoi en cours...",
+  "support.sent": "Demande envoyée avec succès !",
+  "support.sendError": "Erreur lors de l'envoi de la demande",
+  "support.fillRequired": "Veuillez remplir tous les champs obligatoires",
+  "support.thankYou": "Merci !",
+  "support.thankYouDesc": "Votre demande a été soumise avec succès. Nous vous répondrons dans les plus brefs délais.",
 };

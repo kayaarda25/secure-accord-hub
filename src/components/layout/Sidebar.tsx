@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog, FolderKanban } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog, FolderKanban, LifeBuoy } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -230,6 +230,10 @@ export function Sidebar({
             <NavLink to="/settings" onClick={handleNavClick} className={`nav-link ${isActive("/settings") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? t("nav.settings") : undefined}>
               <Settings size={18} className={isActive("/settings") ? "text-primary" : ""} />
               {!collapsed && <span>{t("nav.settings")}</span>}
+            </NavLink>
+            <NavLink to="/support" onClick={handleNavClick} className={`nav-link ${isActive("/support") ? "nav-link-active" : ""} ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? t("nav.support") : undefined}>
+              <LifeBuoy size={18} className={isActive("/support") ? "text-primary" : ""} />
+              {!collapsed && <span>{t("nav.support")}</span>}
             </NavLink>
           </div>
         </div>
