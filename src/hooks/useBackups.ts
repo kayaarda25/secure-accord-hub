@@ -103,22 +103,40 @@ export function useBackups() {
 
   const downloadBackup = async (filePath: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from("backups")
-        .download(filePath);
+      toast({ title: "ZIP wird erstellt", description: "Alle Tabellen und Dateien werden zusammengestellt..." });
 
-      if (error || !data) throw new Error(error?.message || "Download fehlgeschlagen");
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-backup-zip`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ file_path: filePath }),
+        }
+      );
 
-      const url = URL.createObjectURL(data);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `HTTP ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = filePath;
+      // Extract filename from Content-Disposition or generate one
+      const disposition = res.headers.get("Content-Disposition");
+      const filenameMatch = disposition?.match(/filename="?(.+?)"?$/);
+      a.download = filenameMatch?.[1] || `backup-${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast({ title: "Download gestartet", description: filePath });
+      toast({ title: "Download gestartet", description: a.download });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Fehler";
       toast({ title: "Download fehlgeschlagen", description: msg, variant: "destructive" });
@@ -151,6 +169,48 @@ export function useBackups() {
           title: "Wiederherstellung abgeschlossen",
           description: `${result.total_restored} Datensätze${fileInfo} wiederhergestellt.`,
         });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Fehler";
+      toast({ title: "Wiederherstellung fehlgeschlagen", description: msg, variant: "destructive" });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const restoreFromZip = async (file: File) => {
+    if (!user) return;
+    setIsRestoring(true);
+
+    try {
+      toast({ title: "Wiederherstellung läuft", description: "ZIP wird verarbeitet..." });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const arrayBuffer = await file.arrayBuffer();
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/restore-backup-upload`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/zip",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: arrayBuffer,
+        }
+      );
+
+      const result = await res.json();
+
+      if (result.success) {
+        const fileInfo = result.files_restored ? ` + ${result.files_restored} Dateien` : "";
+        toast({
+          title: "Wiederherstellung abgeschlossen",
+          description: `${result.total_restored} Datensätze${fileInfo} wiederhergestellt.`,
+        });
+        await fetchData();
       } else {
         throw new Error(result.error);
       }
@@ -198,6 +258,7 @@ export function useBackups() {
     createBackup,
     downloadBackup,
     restoreBackup,
+    restoreFromZip,
     updateSchedule,
     refetch: fetchData,
   };
