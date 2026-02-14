@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2, RefreshCw, Link } from "lucide-react";
+import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2, RefreshCw, Link, Lock, Eye, PenSquare } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -542,6 +542,10 @@ export default function UsersPage() {
               <Mail className="h-4 w-4" />
               Einladungen ({invitations.filter(i => i.status === "pending").length})
             </TabsTrigger>
+            <TabsTrigger value="permissions" className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              Berechtigungen
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -703,6 +707,90 @@ export default function UsersPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="permissions">
+            <div className="space-y-6">
+              {/* Role descriptions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Rollenbeschreibungen
+                  </CardTitle>
+                  <CardDescription>Übersicht der verfügbaren Rollen und deren Berechtigungen im System</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      { role: "admin" as AppRole, desc: "Vollzugriff auf alle Module. Kann Benutzer verwalten, Rollen zuweisen und Systemeinstellungen ändern." },
+                      { role: "management" as AppRole, desc: "Zugriff auf Berichte, Budgetplanung, Projekte und Mitarbeiterverwaltung. Kann Genehmigungen erteilen." },
+                      { role: "finance" as AppRole, desc: "Zugriff auf Finanzen, Rechnungen, OPEX, Budgetplanung und Sozialversicherung. Kann finanzielle Genehmigungen erteilen." },
+                      { role: "state" as AppRole, desc: "Zugriff auf Berichte, Audit-Logs und Compliance-Übersichten. Lesender Zugriff auf die meisten Module." },
+                      { role: "partner" as AppRole, desc: "Eingeschränkter Zugriff auf Partner-relevante Kommunikation und freigegebene Dokumente." },
+                    ].map(({ role, desc }) => (
+                      <div key={role} className="rounded-lg border p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Per-user role overview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UsersIcon className="h-5 w-5" />
+                    Benutzer-Rollen-Übersicht
+                  </CardTitle>
+                  <CardDescription>Alle Benutzer und ihre zugewiesenen Rollen</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Benutzer</TableHead>
+                        {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
+                          <TableHead key={role} className="text-center">{ROLE_LABELS[role]}</TableHead>
+                        ))}
+                        <TableHead className="text-right">Bearbeiten</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((u) => (
+                        <TableRow key={u.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <div>{u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : u.email}</div>
+                              {(u.first_name || u.last_name) && (
+                                <div className="text-xs text-muted-foreground">{u.email}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
+                            <TableCell key={role} className="text-center">
+                              {u.roles.includes(role) ? (
+                                <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 
