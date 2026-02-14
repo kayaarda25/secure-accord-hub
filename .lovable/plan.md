@@ -1,52 +1,61 @@
 
+# Login-IP-Adressen-Liste auf der Sicherheitsseite
 
-## Native Mobile App mit Capacitor einrichten
+## Zusammenfassung
+Unterhalb der IP-Whitelist wird eine neue Karte angezeigt, die alle IP-Adressen auflistet, von denen Login-Versuche stattgefunden haben. Zusaetzlich wird die IP-Erfassung beim Login aktiviert, da diese aktuell nicht gespeichert wird (alle Werte sind `NULL`).
 
-Deine App wird fuer Apple App Store und Google Play Store vorbereitet. Capacitor wird neben deinem bestehenden Electron-Desktop-Setup eingerichtet.
+## Aenderungen
 
-### Was wird gemacht
+### 1. IP-Adresse beim Login erfassen
+Aktuell ruft `useLoginProtection.ts` die Funktion `log_login_attempt` ohne IP-Adresse auf. Da die Client-IP nur serverseitig zuverlaessig ermittelt werden kann, wird eine kleine Edge Function erstellt, die die IP des Aufrufers erkennt und in `login_attempts` speichert.
 
-1. **Capacitor installieren** - Die notwendigen Pakete werden dem Projekt hinzugefuegt:
-   - `@capacitor/core`
-   - `@capacitor/cli` (Dev-Dependency)
-   - `@capacitor/ios`
-   - `@capacitor/android`
+Alternativ (einfacher): Einen externen Dienst wie `https://api.ipify.org?format=json` vom Client aufrufen und die IP an `log_login_attempt` uebergeben.
 
-2. **Capacitor konfigurieren** - Eine `capacitor.config.ts` Datei wird erstellt mit:
-   - App-ID: `app.lovable.728f860911914046bb71e4a8f2b2313c`
-   - App-Name: `secure-accord-hub`
-   - Hot-Reload Server fuer die Entwicklung
+### 2. Neue Komponente: `LoginIPList`
+Eine neue Komponente `src/components/security/LoginIPList.tsx` wird erstellt:
+- Liest aus der `login_attempts`-Tabelle alle eindeutigen IP-Adressen mit zugehoerigen E-Mails und Zeitstempeln
+- Zeigt eine Tabelle mit: IP-Adresse, E-Mail, Letzter Zugriff, Erfolg/Fehlgeschlagen
+- Nur fuer Admins sichtbar (da `login_attempts` nur via Service-Role zugaenglich ist)
 
-3. **Viewport und Mobile-Meta-Tags** optimieren in `index.html` fuer bessere mobile Darstellung (z.B. `viewport-fit=cover` fuer iPhone-Notch-Support)
+**Problem**: Die `login_attempts`-Tabelle hat eine RLS-Policy `USING (false)` -- kein Benutzer kann sie direkt lesen. Daher wird eine `SECURITY DEFINER`-Funktion benoetigt, die Admins den Lesezugriff erlaubt.
 
-### Was du danach selbst machen musst
+### 3. Datenbank-Aenderungen
+- Neue RPC-Funktion `get_login_attempts_for_admin` (SECURITY DEFINER), die nur fuer Admins die Login-Versuche zurueckgibt
 
-Da Capacitor native Toolchains benoetigt, muessen folgende Schritte lokal auf deinem Computer ausgefuehrt werden:
+### 4. Security-Seite aktualisieren
+- `LoginIPList`-Komponente unterhalb der IP-Whitelist-Karte einbinden
 
-1. **Projekt exportieren**: Ueber "Export to GitHub" das Projekt auf dein GitHub-Konto uebertragen und lokal klonen
-2. **Dependencies installieren**: `npm install`
-3. **Plattformen hinzufuegen**:
-   - iOS: `npx cap add ios` (benoetigt einen Mac mit Xcode)
-   - Android: `npx cap add android` (benoetigt Android Studio)
-4. **Projekt bauen**: `npm run build`
-5. **Sync ausfuehren**: `npx cap sync`
-6. **App starten**:
-   - iOS: `npx cap run ios`
-   - Android: `npx cap run android`
+## Technische Details
 
-### App Store Veroeffentlichung
+**Neue Dateien:**
+- `src/components/security/LoginIPList.tsx` -- Tabelle mit allen Login-IP-Adressen
 
-- **Apple App Store**: Du benoetigst ein Apple Developer Konto (99 USD/Jahr). In Xcode kannst du die App signieren und ueber "Archive" an App Store Connect senden.
-- **Google Play Store**: Du benoetigst ein Google Play Developer Konto (einmalig 25 USD). In Android Studio kannst du ein signiertes APK/AAB erstellen und im Play Console hochladen.
+**Geaenderte Dateien:**
+- `src/hooks/useLoginProtection.ts` -- IP-Adresse via ipify.org ermitteln und an `log_login_attempt` uebergeben
+- `src/pages/Security.tsx` -- `LoginIPList`-Komponente einbinden
 
-Weitere Details findest du in diesem Guide:
+**Datenbank-Migration:**
+- Neue `get_login_attempts_for_admin`-Funktion mit Admin-Rollencheck
 
-https://docs.lovable.dev/tips-tricks/native-mobile-apps
+**Ablauf:**
 
-### Technische Details
+```text
+Login-Versuch
+    |
+    v
+Client ruft ipify.org auf -> bekommt IP
+    |
+    v
+log_login_attempt(_email, _ip_address, _user_agent, _success)
+    |
+    v
+login_attempts Tabelle (mit IP gespeichert)
 
-- Capacitor laeuft parallel zu Electron - beide koennen gleichzeitig existieren
-- Die `capacitor.config.ts` wird im Projekt-Root erstellt
-- Der Hot-Reload-Server zeigt auf deine Lovable-Preview-URL fuer die Entwicklung
-- Fuer den Store-Build wird stattdessen der lokale Build (`dist/`) verwendet
-
+Security-Seite (Admin):
+    |
+    v
+get_login_attempts_for_admin() [SECURITY DEFINER]
+    |
+    v
+LoginIPList-Komponente zeigt Tabelle an
+```
