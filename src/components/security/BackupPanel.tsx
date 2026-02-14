@@ -426,6 +426,7 @@ function BackupJobRow({ job, onDownload, onRestore, onSyncToFolder, isSyncing }:
             {formatDate(job.completed_at || job.started_at || job.created_at)}
             {isSuccess && job.file_size && ` · ${formatBytes(job.file_size)}`}
             {isSuccess && job.tables_count && ` · ${job.tables_count} Tabellen`}
+            {isSuccess && job.documents_count != null && job.documents_count > 0 && ` · ${job.documents_count} Dateien`}
           </p>
         </div>
       </div>
