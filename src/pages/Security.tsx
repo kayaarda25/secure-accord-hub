@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Key, Clock, Lock, Shield, ShieldCheck, AlertTriangle, CheckCircle, Database, Download, HardDrive, Calendar, FileArchive, RefreshCw, CloudOff } from "lucide-react";
+import { Key, Clock, Lock, Shield, ShieldCheck, AlertTriangle, CheckCircle, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +16,7 @@ import { IPWhitelist } from "@/components/security/IPWhitelist";
 import { ActiveSessions } from "@/components/security/ActiveSessions";
 import { LoginProtectionInfo } from "@/components/security/LoginProtectionInfo";
 import { LoginIPList } from "@/components/security/LoginIPList";
+import { BackupPanel } from "@/components/security/BackupPanel";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 interface UserSession {
@@ -258,15 +258,7 @@ export default function Security() {
       });
       (e.target as HTMLFormElement).reset();
     }
-    setIsChangingPassword(false);
   };
-  const placeholderBackups = [
-    { id: "1", name: "Vollständiges Backup", date: "2026-02-14 03:00", size: "2.4 GB", type: "Automatisch", status: "success" },
-    { id: "2", name: "Vollständiges Backup", date: "2026-02-13 03:00", size: "2.3 GB", type: "Automatisch", status: "success" },
-    { id: "3", name: "Manuelles Backup", date: "2026-02-12 14:22", size: "2.3 GB", type: "Manuell", status: "success" },
-    { id: "4", name: "Vollständiges Backup", date: "2026-02-12 03:00", size: "2.2 GB", type: "Automatisch", status: "success" },
-    { id: "5", name: "Vollständiges Backup", date: "2026-02-11 03:00", size: "2.2 GB", type: "Automatisch", status: "failed" },
-  ];
 
   return <Layout title={t("page.security.title")} subtitle={t("page.security.subtitle")}>
       <Tabs defaultValue="security" className="w-full">
@@ -281,7 +273,6 @@ export default function Security() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Security Tab */}
         <TabsContent value="security">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -357,178 +348,8 @@ export default function Security() {
           </div>
         </TabsContent>
 
-        {/* Backup Tab */}
         <TabsContent value="backup">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Backup Status */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <HardDrive className="h-5 w-5" />
-                        Backup-Status
-                      </CardTitle>
-                      <CardDescription>Übersicht über den aktuellen Backup-Zustand</CardDescription>
-                    </div>
-                    <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Aktiv
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Letztes Backup</p>
-                      <p className="text-sm font-semibold">Heute, 03:00</p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Nächstes Backup</p>
-                      <p className="text-sm font-semibold">Morgen, 03:00</p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Speicherverbrauch</p>
-                      <p className="text-sm font-semibold">11.4 GB / 50 GB</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Backup History */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Backup-Verlauf
-                      </CardTitle>
-                      <CardDescription>Letzte Backups und deren Status</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {placeholderBackups.map((backup) => (
-                      <div key={backup.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${backup.status === "success" ? "bg-green-100 dark:bg-green-950/40" : "bg-destructive/10"}`}>
-                            {backup.status === "success" ? (
-                              <FileArchive className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            ) : (
-                              <CloudOff className="h-4 w-4 text-destructive" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{backup.name}</p>
-                            <p className="text-xs text-muted-foreground">{backup.date} · {backup.size}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={backup.type === "Manuell" ? "secondary" : "outline"} className="text-xs">
-                            {backup.type}
-                          </Badge>
-                          {backup.status === "success" ? (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">Fehlgeschlagen</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Backup Sidebar */}
-            <div className="space-y-6">
-              {/* Manual Backup */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <RefreshCw className="h-5 w-5" />
-                    Manuelles Backup
-                  </CardTitle>
-                  <CardDescription>Erstellen Sie jetzt ein sofortiges Backup</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Ein manuelles Backup umfasst alle Daten, Dokumente und Einstellungen.
-                  </p>
-                  <Button className="w-full" disabled>
-                    <Database className="h-4 w-4 mr-2" />
-                    Backup erstellen (Platzhalter)
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Backup Settings */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Backup-Einstellungen
-                  </CardTitle>
-                  <CardDescription>Automatische Backup-Konfiguration</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Häufigkeit</Label>
-                      <p className="text-sm font-medium">Täglich um 03:00 Uhr</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Aufbewahrung</Label>
-                      <p className="text-sm font-medium">30 Tage</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Verschlüsselung</Label>
-                      <p className="text-sm font-medium">AES-256</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Speicherort</Label>
-                      <p className="text-sm font-medium">Schweiz (eu-central)</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Backup Tips */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Backup-Hinweise
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      Backups werden verschlüsselt gespeichert
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      Automatische tägliche Sicherung
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      Wiederherstellung innerhalb von Minuten
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      Daten ausschliesslich in der Schweiz
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <BackupPanel />
         </TabsContent>
       </Tabs>
 
