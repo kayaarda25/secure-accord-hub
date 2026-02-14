@@ -12,24 +12,24 @@ import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
 import { Badge } from "@/components/ui/badge";
-// Verified Swiss landscape videos from Pexels CDN
+// Verified Swiss landscape videos - all HD 1920x1080
 const VIDEOS = [
   // Matterhorn / Swiss Alps snow panorama
   "https://videos.pexels.com/video-files/2110772/2110772-hd_1920_1080_30fps.mp4",
   // Swiss village by lake with mountains
   "https://videos.pexels.com/video-files/3585787/3585787-hd_1920_1080_25fps.mp4",
   // Train in Swiss Alps mountains
-  "https://videos.pexels.com/video-files/3640406/3640406-sd_640_360_25fps.mp4",
+  "https://videos.pexels.com/video-files/3640406/3640406-hd_1920_1080_25fps.mp4",
   // Mountain top of the Alps in Switzerland - clouds
-  "https://videos.pexels.com/video-files/9851047/9851047-sd_640_360_30fps.mp4",
+  "https://videos.pexels.com/video-files/9851047/9851047-hd_1920_1080_30fps.mp4",
   // Swiss lake with boat
-  "https://videos.pexels.com/video-files/7831120/7831120-sd_640_360_30fps.mp4",
+  "https://videos.pexels.com/video-files/7831120/7831120-hd_1920_1080_30fps.mp4",
   // Zurich city timelapse
   "https://videos.pexels.com/video-files/3565974/3565974-hd_1920_1080_25fps.mp4",
   // Aerial Zurich / Swiss lake
-  "https://videos.pexels.com/video-files/3717997/3717997-sd_640_360_30fps.mp4",
+  "https://videos.pexels.com/video-files/3717997/3717997-hd_1920_1080_25fps.mp4",
   // Swiss lake boat trip
-  "https://videos.pexels.com/video-files/7831043/7831043-sd_640_360_30fps.mp4",
+  "https://videos.pexels.com/video-files/7831043/7831043-hd_1920_1080_30fps.mp4",
 ];
 
 interface InvitationData {
