@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -7,6 +8,25 @@ if (require('electron-squirrel-startup')) {
 }
 
 let mainWindow;
+let backupFolderPath = null;
+
+// Persist backup folder path in a simple JSON config
+const configPath = path.join(app.getPath('userData'), 'backup-config.json');
+
+function loadBackupConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      backupFolderPath = data.backupFolder || null;
+    }
+  } catch { /* ignore */ }
+}
+
+function saveBackupConfig() {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify({ backupFolder: backupFolderPath }), 'utf8');
+  } catch { /* ignore */ }
+}
 
 function createWindow() {
   // Create the browser window
@@ -184,8 +204,43 @@ function createWindow() {
   Menu.setApplicationMenu(menu);
 }
 
+// IPC Handlers for backup folder sync
+ipcMain.handle('select-backup-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Backup-Ordner auswählen',
+    properties: ['openDirectory', 'createDirectory'],
+    buttonLabel: 'Ordner auswählen',
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    backupFolderPath = result.filePaths[0];
+    saveBackupConfig();
+    return backupFolderPath;
+  }
+  return null;
+});
+
+ipcMain.handle('get-backup-folder', () => backupFolderPath);
+
+ipcMain.handle('clear-backup-folder', () => {
+  backupFolderPath = null;
+  saveBackupConfig();
+  return true;
+});
+
+ipcMain.handle('save-backup-to-folder', async (_event, arrayBuffer, filename) => {
+  if (!backupFolderPath) return { success: false, error: 'Kein Ordner ausgewählt' };
+  try {
+    const filePath = path.join(backupFolderPath, filename);
+    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+    return { success: true, path: filePath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // App lifecycle
 app.whenReady().then(() => {
+  loadBackupConfig();
   createWindow();
 
   app.on('activate', () => {

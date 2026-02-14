@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +14,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Database, Download, HardDrive, Calendar, FileArchive,
-  RefreshCw, CloudOff, Clock, Shield, CheckCircle, Loader2, Upload, RotateCcw,
+  RefreshCw, CloudOff, Clock, Shield, CheckCircle, Loader2, RotateCcw,
+  FolderOpen, FolderSync, X,
 } from "lucide-react";
 import { useBackups, BackupJob } from "@/hooks/useBackups";
+import { useToast } from "@/hooks/use-toast";
+
+// Detect Electron environment
+const isElectron = !!(window as any).electronAPI?.isElectron;
+const electronAPI = (window as any).electronAPI;
 
 function formatBytes(bytes: number | null): string {
   if (!bytes) return "—";
@@ -43,7 +48,76 @@ export function BackupPanel() {
     jobs, schedule, isLoading, isCreating, isRestoring,
     createBackup, downloadBackup, restoreBackup, updateSchedule,
   } = useBackups();
+  const { toast } = useToast();
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
+  const [backupFolder, setBackupFolder] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Load saved backup folder on mount (Electron only)
+  useEffect(() => {
+    if (isElectron) {
+      electronAPI.getBackupFolder().then((folder: string | null) => {
+        setBackupFolder(folder);
+      });
+    }
+  }, []);
+
+  const handleSelectFolder = async () => {
+    if (!isElectron) return;
+    const folder = await electronAPI.selectBackupFolder();
+    if (folder) {
+      setBackupFolder(folder);
+      toast({ title: "Ordner gewählt", description: folder });
+    }
+  };
+
+  const handleClearFolder = async () => {
+    if (!isElectron) return;
+    await electronAPI.clearBackupFolder();
+    setBackupFolder(null);
+    toast({ title: "Ordner entfernt", description: "Auto-Sync deaktiviert." });
+  };
+
+  const handleSyncToFolder = async (job: BackupJob) => {
+    if (!isElectron || !job.file_path) return;
+    setIsSyncing(true);
+    try {
+      // Download from Supabase storage as ArrayBuffer
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.storage.from("backups").download(job.file_path);
+      if (error || !data) throw new Error(error?.message || "Download fehlgeschlagen");
+
+      const arrayBuffer = await data.arrayBuffer();
+      const filename = job.file_path.split("/").pop() || `backup-${job.id}.json`;
+      const result = await electronAPI.saveBackupToFolder(arrayBuffer, filename);
+
+      if (result.success) {
+        toast({ title: "Backup gespeichert", description: result.path });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Fehler";
+      toast({ title: "Speichern fehlgeschlagen", description: msg, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Auto-sync: when a new completed job appears and folder is set
+  const handleCreateAndSync = async () => {
+    await createBackup();
+    // After backup, if folder is set, sync the latest
+    if (isElectron && backupFolder) {
+      // Small delay to let the job list refresh
+      setTimeout(async () => {
+        const latestJob = jobs.find(j => j.status === "completed" && j.file_path);
+        if (latestJob) {
+          await handleSyncToFolder(latestJob);
+        }
+      }, 2000);
+    }
+  };
 
   const lastSuccessful = jobs.find(j => j.status === "completed");
   const totalSize = jobs
@@ -123,6 +197,8 @@ export function BackupPanel() {
                     job={job}
                     onDownload={downloadBackup}
                     onRestore={(path) => setRestoreTarget(path)}
+                    onSyncToFolder={isElectron && backupFolder ? handleSyncToFolder : undefined}
+                    isSyncing={isSyncing}
                   />
                 ))}
               </div>
@@ -146,15 +222,63 @@ export function BackupPanel() {
             <p className="text-sm text-muted-foreground">
               Ein Backup umfasst alle Daten, Dokumente und Einstellungen.
             </p>
-            <Button className="w-full" onClick={createBackup} disabled={isCreating}>
+            <Button className="w-full" onClick={handleCreateAndSync} disabled={isCreating}>
               {isCreating ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Backup wird erstellt...</>
               ) : (
                 <><Database className="h-4 w-4 mr-2" />Backup erstellen</>
               )}
             </Button>
+            {isElectron && backupFolder && (
+              <p className="text-xs text-muted-foreground text-center">
+                Wird automatisch in den Ordner gespeichert
+              </p>
+            )}
           </CardContent>
         </Card>
+
+        {/* Electron Folder Sync */}
+        {isElectron && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderSync className="h-5 w-5" />
+                Ordner-Sync
+              </CardTitle>
+              <CardDescription>Backups automatisch in einem lokalen Ordner speichern</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {backupFolder ? (
+                <>
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="text-sm font-mono truncate">{backupFolder}</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0" onClick={handleClearFolder} title="Ordner entfernen">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Neue Backups werden automatisch in diesen Ordner gespeichert.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Wählen Sie einen Ordner, in den Backups automatisch gespeichert werden.
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={handleSelectFolder}>
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Ordner auswählen
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Schedule */}
         <Card>
@@ -271,10 +395,12 @@ export function BackupPanel() {
   );
 }
 
-function BackupJobRow({ job, onDownload, onRestore }: {
+function BackupJobRow({ job, onDownload, onRestore, onSyncToFolder, isSyncing }: {
   job: BackupJob;
   onDownload: (path: string) => void;
   onRestore: (path: string) => void;
+  onSyncToFolder?: (job: BackupJob) => void;
+  isSyncing?: boolean;
 }) {
   const isSuccess = job.status === "completed";
   const isRunning = job.status === "running";
@@ -309,6 +435,11 @@ function BackupJobRow({ job, onDownload, onRestore }: {
         </Badge>
         {isSuccess && job.file_path && (
           <>
+            {onSyncToFolder && (
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onSyncToFolder(job)} disabled={isSyncing} title="In Ordner speichern">
+                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderSync className="h-4 w-4" />}
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onDownload(job.file_path!)} title="Herunterladen">
               <Download className="h-4 w-4" />
             </Button>
