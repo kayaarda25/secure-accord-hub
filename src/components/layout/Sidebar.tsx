@@ -1,5 +1,7 @@
 import { useState } from "react";
 import mgiLogo from "@/assets/mgi-media-logo.png";
+import mgiLogoWhite from "@/assets/mgi-media-logo-white.png";
+import { useTheme } from "next-themes";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
@@ -25,6 +27,8 @@ export function Sidebar({
   } = useAuth();
   const { permissions } = useOrganizationPermissions();
   const { t } = useLanguage();
+  const { resolvedTheme } = useTheme();
+  const currentLogo = resolvedTheme === "dark" ? mgiLogoWhite : mgiLogo;
   const toggleGroup = (group: string) => {
     setOpenGroups(prev => prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]);
   };
@@ -51,7 +55,7 @@ export function Sidebar({
       {/* Logo */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-border">
         {!collapsed && <div className="flex items-center gap-3">
-            <img src={mgiLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover" />
+            <img src={currentLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover" />
             <div>
               <h1 className="font-semibold text-foreground text-sm">MGI Hub</h1>
               <p className="text-[10px] text-muted-foreground">
@@ -59,7 +63,7 @@ export function Sidebar({
               </p>
             </div>
           </div>}
-        {collapsed && <img src={mgiLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover mx-auto" />}
+        {collapsed && <img src={currentLogo} alt="MGI Media" className="w-8 h-8 rounded-lg object-cover mx-auto" />}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors hidden lg:block">
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>

@@ -5,6 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, AlertTriangle, Mail, Building2, ArrowLeft } from "lucide-react";
 import mgiLogo from "@/assets/mgi-media-logo.png";
+import mgiLogoWhite from "@/assets/mgi-media-logo-white.png";
+import { useTheme } from "next-themes";
 import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
@@ -21,6 +23,8 @@ type Step = "email" | "password";
 
 export default function Auth() {
   const { t, language, setLanguage } = useLanguage();
+  const { resolvedTheme } = useTheme();
+  const currentLogo = resolvedTheme === "dark" ? mgiLogoWhite : mgiLogo;
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get("invitation");
   const [step, setStep] = useState<Step>("email");
@@ -244,7 +248,7 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden mb-4 shadow-lg">
-            <img src={mgiLogo} alt="MGI Logo" className="w-full h-full object-cover" />
+            <img src={currentLogo} alt="MGI Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">MGI Hub</h1>
           <p className="text-sm text-muted-foreground mt-1">
