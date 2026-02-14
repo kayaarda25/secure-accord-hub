@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useBackups, BackupJob } from "@/hooks/useBackups";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Detect Electron environment
 const isElectron = !!(window as any).electronAPI?.isElectron;
@@ -44,6 +45,7 @@ function formatDate(date: string | null): string {
 }
 
 export function BackupPanel() {
+  const { roles } = useAuth();
   const {
     jobs, schedule, isLoading, isCreating, isRestoring,
     createBackup, downloadBackup, restoreBackup, restoreFromZip, updateSchedule,
@@ -53,6 +55,8 @@ export function BackupPanel() {
   const [backupFolder, setBackupFolder] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [uploadRestoreConfirm, setUploadRestoreConfirm] = useState<File | null>(null);
+
+  const isAdmin = roles.includes("admin");
 
   // Load saved backup folder on mount (Electron only)
   useEffect(() => {
@@ -124,6 +128,19 @@ export function BackupPanel() {
   const totalSize = jobs
     .filter(j => j.status === "completed")
     .reduce((sum, j) => sum + (j.file_size || 0), 0);
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Shield className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+          <p className="text-sm text-muted-foreground">
+            Nur Administratoren können Backups erstellen und verwalten.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

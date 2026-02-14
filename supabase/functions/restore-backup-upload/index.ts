@@ -52,6 +52,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Admin role check
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin");
+
+    if (!roleData || roleData.length === 0) {
+      return new Response(JSON.stringify({ error: "Nur Administratoren können Backups wiederherstellen." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Read ZIP from request body
     const zipBuffer = await req.arrayBuffer();
     if (!zipBuffer || zipBuffer.byteLength === 0) {

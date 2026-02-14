@@ -6,22 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function listAllFiles(supabase: any, bucket: string, prefix = ""): Promise<string[]> {
-  const paths: string[] = [];
-  const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: 10000 });
-  if (error || !data) return paths;
-  for (const item of data) {
-    const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
-    if (item.id) {
-      paths.push(fullPath);
-    } else {
-      const subPaths = await listAllFiles(supabase, bucket, fullPath);
-      paths.push(...subPaths);
-    }
-  }
-  return paths;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,6 +31,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Admin role check
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin");
+
+    if (!roleData || roleData.length === 0) {
+      return new Response(JSON.stringify({ error: "Nur Administratoren können Backups herunterladen." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { file_path } = await req.json();
     if (!file_path) {
       return new Response(JSON.stringify({ error: "file_path required" }), {
@@ -54,7 +51,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`ZIP download requested by ${user.id} for ${file_path}`);
+    console.log(`ZIP download requested by admin ${user.id} for ${file_path}`);
 
     // Download metadata JSON
     const { data: metaFile, error: metaError } = await supabase.storage
@@ -73,7 +70,6 @@ Deno.serve(async (req) => {
     }
 
     const zip = new JSZip();
-    const backupName = backup.metadata.backup_prefix || "backup";
 
     // 1. Add individual table JSON files
     for (const [tableName, tableData] of Object.entries(backup.data)) {
@@ -103,10 +99,7 @@ Deno.serve(async (req) => {
               .from("backups")
               .download(backupFilePath);
 
-            if (dlError || !fileBlob) {
-              console.warn(`Skip ${bucket}/${filePath}: ${dlError?.message || "not found"}`);
-              continue;
-            }
+            if (dlError || !fileBlob) continue;
 
             const arrayBuffer = await fileBlob.arrayBuffer();
             zip.file(`storage/${bucket}/${filePath}`, new Uint8Array(arrayBuffer));
