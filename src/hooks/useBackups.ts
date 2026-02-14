@@ -87,7 +87,8 @@ export function useBackups() {
       const result = await res.json();
 
       if (result.success) {
-        toast({ title: "Backup erstellt", description: `${result.tables} Tabellen mit ${result.rows} Datensätzen gesichert.` });
+        const fileInfo = result.files ? ` und ${result.files} Dateien` : "";
+        toast({ title: "Backup erstellt", description: `${result.tables} Tabellen mit ${result.rows} Datensätzen${fileInfo} gesichert.` });
         await fetchData();
       } else {
         throw new Error(result.error);
@@ -145,9 +146,10 @@ export function useBackups() {
       const result = await res.json();
 
       if (result.success) {
+        const fileInfo = result.files_restored ? ` + ${result.files_restored} Dateien` : "";
         toast({
           title: "Wiederherstellung abgeschlossen",
-          description: `${result.total_restored} Datensätze wiederhergestellt.`,
+          description: `${result.total_restored} Datensätze${fileInfo} wiederhergestellt.`,
         });
       } else {
         throw new Error(result.error);

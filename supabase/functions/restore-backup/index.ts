@@ -19,8 +19,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -28,22 +27,20 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { file_path } = await req.json();
     if (!file_path) {
       return new Response(JSON.stringify({ error: "file_path required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     console.log(`Restore requested by ${user.id} from ${file_path}`);
 
-    // Download backup from storage
+    // Download backup metadata from storage
     const { data: fileData, error: downloadError } = await supabase.storage
       .from("backups")
       .download(file_path);
@@ -59,57 +56,32 @@ Deno.serve(async (req) => {
       throw new Error("Invalid backup format");
     }
 
-    console.log(`Restoring backup v${backup.metadata.version} with ${backup.metadata.tables_count} tables`);
+    const isV3 = backup.metadata.version === "3.0";
+    const backupPrefix = backup.metadata.backup_prefix || null;
 
+    console.log(`Restoring backup v${backup.metadata.version} — ${backup.metadata.tables_count} tables, ${backup.metadata.storage_files_count || 0} files`);
+
+    // ──────────────────────────────
+    // 1. Restore database tables
+    // ──────────────────────────────
     const results: Record<string, { restored: number; errors: string[] }> = {};
 
-    // Restore order matters due to foreign keys
     const restoreOrder = [
-      "organizations",
-      "organization_permissions",
-      "profiles",
-      "user_roles",
-      "security_settings",
-      "letterhead_settings",
-      "user_public_keys",
-      "document_folders",
-      "documents",
-      "document_shares",
-      "document_signatures",
-      "document_tags",
-      "document_tag_assignments",
-      "document_templates",
-      "document_activity",
-      "folder_shares",
-      "contacts",
-      "contracts",
-      "cost_centers",
-      "carrier_rates",
-      "declarations",
-      "creditor_invoices",
-      "creditor_invoice_approvals",
-      "budget_plans",
-      "budget_forecasts",
-      "budget_alerts",
-      "calendar_events",
-      "calendar_event_participants",
-      "communication_threads",
-      "thread_participants",
-      "communication_messages",
-      "communication_documents",
-      "meeting_protocols",
-      "scheduled_meetings",
-      "meeting_participants",
-      "meeting_recordings",
-      "meeting_chat_messages",
-      "tasks",
-      "task_participants",
-      "social_insurance_records",
-      "notifications",
-      "notification_preferences",
-      "bexio_tokens",
-      "backup_schedules",
-      "audit_logs",
+      "organizations", "organization_permissions", "profiles", "user_roles",
+      "security_settings", "letterhead_settings", "user_public_keys",
+      "document_folders", "documents", "document_shares", "document_signatures",
+      "document_tags", "document_tag_assignments", "document_templates", "document_activity",
+      "folder_shares", "contacts", "contracts", "cost_centers", "carrier_rates",
+      "declarations", "creditor_invoices", "creditor_invoice_approvals",
+      "budget_plans", "budget_forecasts", "budget_alerts",
+      "calendar_events", "calendar_event_participants",
+      "communication_threads", "thread_participants",
+      "communication_messages", "communication_documents",
+      "meeting_protocols", "scheduled_meetings", "meeting_participants",
+      "meeting_recordings", "meeting_chat_messages",
+      "tasks", "task_participants",
+      "social_insurance_records", "notifications", "notification_preferences",
+      "bexio_tokens", "backup_schedules", "audit_logs",
     ];
 
     for (const tableName of restoreOrder) {
@@ -121,9 +93,8 @@ Deno.serve(async (req) => {
 
       const tableErrors: string[] = [];
       let restoredCount = 0;
-
-      // Insert in batches of 100
       const batchSize = 100;
+
       for (let i = 0; i < tableData.length; i += batchSize) {
         const batch = tableData.slice(i, i + batchSize);
         const { error } = await supabase
@@ -138,17 +109,71 @@ Deno.serve(async (req) => {
       }
 
       results[tableName] = { restored: restoredCount, errors: tableErrors };
-      console.log(`✓ ${tableName}: ${restoredCount}/${tableData.length} rows restored`);
+      console.log(`✓ DB ${tableName}: ${restoredCount}/${tableData.length} rows`);
+    }
+
+    // ──────────────────────────────
+    // 2. Restore storage files
+    // ──────────────────────────────
+    let filesRestored = 0;
+    let fileErrors = 0;
+    const storageResults: Record<string, { restored: number; errors: number }> = {};
+
+    if (isV3 && backupPrefix && backup.storage_manifest) {
+      for (const [bucket, filePaths] of Object.entries(backup.storage_manifest)) {
+        const paths = filePaths as string[];
+        let bucketRestored = 0;
+        let bucketErrors = 0;
+
+        for (const filePath of paths) {
+          try {
+            // Download from backups bucket
+            const backupFilePath = `${backupPrefix}/storage/${bucket}/${filePath}`;
+            const { data: fileBlob, error: dlError } = await supabase.storage
+              .from("backups")
+              .download(backupFilePath);
+
+            if (dlError || !fileBlob) {
+              bucketErrors++;
+              continue;
+            }
+
+            // Upload back to original bucket
+            const { error: uploadErr } = await supabase.storage
+              .from(bucket)
+              .upload(filePath, fileBlob, {
+                contentType: fileBlob.type || "application/octet-stream",
+                upsert: true,
+              });
+
+            if (uploadErr) {
+              bucketErrors++;
+            } else {
+              bucketRestored++;
+            }
+          } catch {
+            bucketErrors++;
+          }
+        }
+
+        storageResults[bucket] = { restored: bucketRestored, errors: bucketErrors };
+        filesRestored += bucketRestored;
+        fileErrors += bucketErrors;
+        console.log(`✓ Storage ${bucket}: ${bucketRestored}/${paths.length} files restored`);
+      }
     }
 
     const totalRestored = Object.values(results).reduce((s, r) => s + r.restored, 0);
-    const totalErrors = Object.values(results).reduce((s, r) => s + r.errors.length, 0);
+    const totalDbErrors = Object.values(results).reduce((s, r) => s + r.errors.length, 0);
 
     return new Response(JSON.stringify({
       success: true,
       total_restored: totalRestored,
-      total_errors: totalErrors,
-      details: results,
+      total_errors: totalDbErrors,
+      files_restored: filesRestored,
+      file_errors: fileErrors,
+      db_details: results,
+      storage_details: storageResults,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
