@@ -53,14 +53,10 @@ export function BackupPanel() {
   const { toast } = useToast();
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
   const [backupFolder, setBackupFolder] = useState<string | null>(null);
-  const [webFolderHandle, setWebFolderHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [uploadRestoreConfirm, setUploadRestoreConfirm] = useState<File | null>(null);
 
   const isAdmin = roles.includes("admin");
-
-  // Check if File System Access API is available (Chrome/Edge)
-  const hasFileSystemAccess = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
   // Load saved backup folder on mount (Electron only)
   useEffect(() => {
@@ -72,33 +68,18 @@ export function BackupPanel() {
   }, []);
 
   const handleSelectFolder = async () => {
-    if (isElectron) {
-      const folder = await electronAPI.selectBackupFolder();
-      if (folder) {
-        setBackupFolder(folder);
-        toast({ title: "Ordner gewählt", description: folder });
-      }
-    } else if (hasFileSystemAccess) {
-      try {
-        const dirHandle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
-        setWebFolderHandle(dirHandle);
-        setBackupFolder(dirHandle.name);
-        toast({ title: "Ordner gewählt", description: dirHandle.name });
-      } catch (err: unknown) {
-        // User cancelled the picker
-        if (err instanceof Error && err.name !== "AbortError") {
-          toast({ title: "Fehler", description: err.message, variant: "destructive" });
-        }
-      }
+    if (!isElectron) return;
+    const folder = await electronAPI.selectBackupFolder();
+    if (folder) {
+      setBackupFolder(folder);
+      toast({ title: "Ordner gewählt", description: folder });
     }
   };
 
   const handleClearFolder = async () => {
-    if (isElectron) {
-      await electronAPI.clearBackupFolder();
-    }
+    if (!isElectron) return;
+    await electronAPI.clearBackupFolder();
     setBackupFolder(null);
-    setWebFolderHandle(null);
     toast({ title: "Ordner entfernt", description: "Auto-Sync deaktiviert." });
   };
 
@@ -166,39 +147,8 @@ export function BackupPanel() {
       } finally {
         setIsSyncing(false);
       }
-    } else if (webFolderHandle && backupFolder) {
-      // Web: save ZIP to chosen folder via File System Access API
-      try {
-        setIsSyncing(true);
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-backup-zip`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({ file_path: result.filePath }),
-          }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        const filename = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
-        const fileHandle = await webFolderHandle.getFileHandle(filename, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        toast({ title: "Backup gespeichert", description: `${backupFolder}/${filename}` });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Fehler";
-        toast({ title: "Auto-Speichern fehlgeschlagen", description: msg, variant: "destructive" });
-      } finally {
-        setIsSyncing(false);
-      }
     } else {
-      // Web fallback: auto-download ZIP via browser
+      // Web: auto-download ZIP via browser
       await downloadBackup(result.filePath);
     }
   };
@@ -362,8 +312,8 @@ export function BackupPanel() {
           </CardContent>
         </Card>
 
-        {/* Folder Sync - available for Electron AND web browsers with File System Access API */}
-        {(isElectron || hasFileSystemAccess) && (
+        {/* Electron Folder Sync */}
+        {isElectron && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
