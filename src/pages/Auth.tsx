@@ -20,7 +20,7 @@ interface InvitationData {
 type Step = "email" | "password";
 
 export default function Auth() {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get("invitation");
   const [step, setStep] = useState<Step>("email");
@@ -250,6 +250,22 @@ export default function Auth() {
           <p className="text-sm text-muted-foreground mt-1">
             Government Cooperation Platform
           </p>
+          {/* Language Switcher */}
+          <div className="flex items-center justify-center gap-1 mt-3">
+            {(["de", "en", "fr", "pt"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setLanguage(lang)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  language === lang
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Auth Card */}
