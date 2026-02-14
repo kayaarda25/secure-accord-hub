@@ -1,7 +1,7 @@
 import { useState } from "react";
 import mgiLogo from "@/assets/mgi-media-logo.png";
 import mgiLogoWhite from "@/assets/mgi-media-logo-white.png";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
