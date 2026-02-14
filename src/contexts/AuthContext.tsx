@@ -52,6 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTimeout(() => {
             fetchProfileAndRoles(session.user.id);
           }, 0);
+
+          // Register session on sign in
+          if (event === "SIGNED_IN") {
+            setTimeout(() => {
+              registerSession(session.user.id);
+            }, 0);
+          }
         } else {
           setProfile(null);
           setRoles([]);
@@ -96,6 +103,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Error fetching profile/roles:", error);
+    }
+  };
+
+  const registerSession = async (userId: string) => {
+    try {
+      let ipAddress: string | null = null;
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+        ipAddress = data.ip;
+      } catch {
+        // IP fetch failed
+      }
+
+      await supabase.from("user_sessions").insert({
+        user_id: userId,
+        user_agent: navigator.userAgent,
+        ip_address: ipAddress,
+        is_active: true,
+        last_active_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error registering session:", error);
     }
   };
 
