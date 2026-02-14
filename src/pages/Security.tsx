@@ -25,6 +25,7 @@ interface UserSession {
   last_active_at: string;
   created_at: string;
   is_active: boolean;
+  is_current?: boolean;
 }
 
 interface SecuritySettings {
@@ -63,10 +64,16 @@ export default function Security() {
       .from("user_sessions")
       .select("*")
       .eq("user_id", user.id)
+      .eq("is_active", true)
       .order("last_active_at", { ascending: false });
     
     if (sessionsData) {
-      setSessions(sessionsData);
+      // Mark the most recent session as current (the one created during this login)
+      const enriched = sessionsData.map((s, index) => ({
+        ...s,
+        is_current: index === 0,
+      }));
+      setSessions(enriched);
     }
 
     // Fetch or create security settings
@@ -160,6 +167,7 @@ export default function Security() {
     }
   };
   const handleTerminateSession = async (sessionId: string) => {
+    const sessionToTerminate = sessions.find(s => s.id === sessionId);
     const {
       error
     } = await supabase.from("user_sessions").update({
@@ -177,6 +185,10 @@ export default function Security() {
         title: "Session beendet",
         description: "Die Session wurde erfolgreich beendet"
       });
+      // If terminating the current session, actually sign out
+      if (sessionToTerminate?.is_current) {
+        await supabase.auth.signOut();
+      }
     }
   };
   const handleTerminateAllSessions = async () => {
