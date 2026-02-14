@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, AlertTriangle, Mail, Building2, ArrowLeft } from "lucide-react";
 import mgiLogo from "@/assets/mgi-media-logo.png";
@@ -8,20 +9,6 @@ import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
 import { Badge } from "@/components/ui/badge";
-
-const emailSchema = z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein");
-const passwordSchema = z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein");
-
-const signupSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  confirmPassword: z.string()
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"]
-});
 
 interface InvitationData {
   email: string;
@@ -33,6 +20,7 @@ interface InvitationData {
 type Step = "email" | "password";
 
 export default function Auth() {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get("invitation");
   const [step, setStep] = useState<Step>("email");
@@ -57,6 +45,20 @@ export default function Auth() {
   const { signIn, signUp, user, isLoading } = useAuth();
   const navigate = useNavigate();
 
+  const emailSchema = z.string().email(t("auth.invalidEmail"));
+  const passwordSchema = z.string().min(6, t("auth.passwordMinLength"));
+
+  const signupSchema = z.object({
+    email: z.string().email(t("auth.invalidEmail")),
+    password: z.string().min(6, t("auth.passwordMinLength")),
+    firstName: z.string().min(1, t("auth.firstNameRequired")),
+    lastName: z.string().min(1, t("auth.lastNameRequired")),
+    confirmPassword: z.string()
+  }).refine(data => data.password === data.confirmPassword, {
+    message: t("auth.passwordsNoMatch"),
+    path: ["confirmPassword"]
+  });
+
   useEffect(() => {
     if (invitationToken) {
       loadInvitation();
@@ -73,7 +75,7 @@ export default function Auth() {
       });
       const result = await response.json();
       if (!response.ok) {
-        setInvitationError(result.error || "Ungültige Einladung");
+        setInvitationError(result.error || t("auth.invitationInvalid"));
         return;
       }
       setInvitationData(result);
@@ -81,7 +83,7 @@ export default function Auth() {
       setStep("password");
     } catch (err) {
       console.error("Error loading invitation:", err);
-      setInvitationError("Fehler beim Laden der Einladung");
+      setInvitationError(t("auth.invitationError"));
     } finally {
       setIsLoadingInvitation(false);
     }
@@ -139,20 +141,20 @@ export default function Auth() {
         body: { token: invitationToken, password, firstName, lastName }
       });
 
-      if (fnError) { setError(fnError.message || "Fehler beim Akzeptieren der Einladung"); return; }
+      if (fnError) { setError(fnError.message || t("auth.invitationAcceptError")); return; }
       if (data?.error) { setError(data.error); return; }
 
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        setSuccess("Konto erfolgreich erstellt! Bitte melden Sie sich an.");
+        setSuccess(t("auth.accountCreated"));
         navigate("/auth");
         setStep("email");
       } else {
-        setSuccess("Willkommen! Sie werden weitergeleitet...");
+        setSuccess(t("auth.welcomeRedirect"));
         setTimeout(() => navigate("/"), 1500);
       }
     } catch (err) {
-      setError("Ein unerwarteter Fehler ist aufgetreten.");
+      setError(t("auth.unexpectedError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +182,7 @@ export default function Auth() {
       const blockStatus = await checkIfBlocked(email);
       if (blockStatus.isBlocked) {
         setIsBlocked(true);
-        setError(`Zu viele Fehlversuche. Bitte warten Sie ${lockoutMinutes} Minuten.`);
+        setError(t("auth.tooManyAttempts").replace("{minutes}", String(lockoutMinutes)));
         setIsSubmitting(false);
         return;
       }
@@ -193,9 +195,9 @@ export default function Auth() {
         setRemainingAttempts(newStatus.remainingAttempts);
         if (newStatus.isBlocked) {
           setIsBlocked(true);
-          setError(`Konto gesperrt. Bitte warten Sie ${lockoutMinutes} Minuten.`);
+          setError(t("auth.lockedWait").replace("{minutes}", String(lockoutMinutes)));
         } else if (error.message.includes("Invalid login credentials")) {
-          setError(`Ungültige Anmeldedaten. Noch ${newStatus.remainingAttempts} Versuche übrig.`);
+          setError(t("auth.invalidCredentials").replace("{attempts}", String(newStatus.remainingAttempts)));
         } else {
           setError(error.message);
         }
@@ -203,7 +205,7 @@ export default function Auth() {
         await logAttempt(email, true);
       }
     } catch (err) {
-      setError("An unexpected error occurred.");
+      setError(t("auth.unexpectedError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -225,10 +227,10 @@ export default function Auth() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mb-4">
               <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">Ungültige Einladung</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">{t("auth.invalidInvitation")}</h2>
             <p className="text-muted-foreground mb-6">{invitationError}</p>
             <button onClick={() => navigate("/auth")} className="px-6 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors">
-              Zur Anmeldung
+              {t("auth.toLogin")}
             </button>
           </div>
         </div>
@@ -257,7 +259,7 @@ export default function Auth() {
             <div className="mb-6 p-4 rounded-lg bg-accent/10 border border-accent/20">
               <div className="flex items-center gap-2 text-accent font-medium mb-2">
                 <Mail className="h-4 w-4" />
-                Sie wurden eingeladen!
+                {t("auth.youWereInvited")}
               </div>
               <div className="space-y-1 text-sm">
                 <p className="text-muted-foreground">
@@ -281,10 +283,10 @@ export default function Auth() {
             <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm">
               <div className="flex items-center gap-2 text-destructive font-medium">
                 <AlertTriangle className="h-4 w-4" />
-                Konto temporär gesperrt
+                {t("auth.accountLocked")}
               </div>
               <p className="text-muted-foreground mt-1">
-                Zu viele fehlgeschlagene Anmeldeversuche. Bitte warten Sie {lockoutMinutes} Minuten.
+                {t("auth.tooManyAttempts").replace("{minutes}", String(lockoutMinutes))}
               </p>
             </div>
           )}
@@ -306,10 +308,10 @@ export default function Auth() {
             <form onSubmit={handleEmailContinue} className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold text-foreground mb-1">
-                  Wie lautet Ihre E-Mail-Adresse?
+                  {t("auth.emailQuestion")}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Geben Sie Ihre E-Mail-Adresse ein, um sich anzumelden.
+                  {t("auth.emailHint")}
                 </p>
               </div>
 
@@ -319,7 +321,7 @@ export default function Auth() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted-foreground text-base"
-                  placeholder="name@unternehmen.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   required
                   autoFocus
                 />
@@ -329,7 +331,7 @@ export default function Auth() {
                 type="submit"
                 className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity text-base"
               >
-                Weiter
+                {t("auth.continue")}
               </button>
 
               <div className="relative">
@@ -337,12 +339,12 @@ export default function Auth() {
                   <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-3 text-muted-foreground">oder</span>
+                  <span className="bg-card px-3 text-muted-foreground">{t("auth.or")}</span>
                 </div>
               </div>
 
               <p className="text-xs text-center text-muted-foreground">
-                Registrierung ist nur per Einladung möglich.
+                {t("auth.inviteOnly")}
               </p>
             </form>
           )}
@@ -358,10 +360,10 @@ export default function Auth() {
                   disabled={!!invitationData}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Zurück
+                  {t("auth.back")}
                 </button>
                 <h2 className="text-xl font-semibold text-foreground mb-1">
-                  {invitationData ? "Konto erstellen" : "Passwort eingeben"}
+                  {invitationData ? t("auth.createAccount") : t("auth.enterPassword")}
                 </h2>
                 <div className="flex items-center gap-2 mt-2">
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
@@ -376,7 +378,7 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                      Vorname
+                      {t("auth.firstName")}
                     </label>
                     <input
                       type="text"
@@ -389,7 +391,7 @@ export default function Auth() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                      Nachname
+                      {t("auth.lastName")}
                     </label>
                     <input
                       type="text"
@@ -405,7 +407,7 @@ export default function Auth() {
 
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                  Passwort
+                  {t("auth.password")}
                 </label>
                 <div className="relative">
                   <input
@@ -430,7 +432,7 @@ export default function Auth() {
               {invitationData && (
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                    Passwort bestätigen
+                    {t("auth.confirmPassword")}
                   </label>
                   <input
                     type="password"
@@ -449,16 +451,16 @@ export default function Auth() {
                 className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
               >
                 {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-                {invitationData ? "Konto erstellen" : "Anmelden"}
+                {invitationData ? t("auth.createAccount") : t("auth.signIn")}
               </button>
             </form>
           )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Geschützt durch höchste Sicherheitsstandards
+          {t("auth.securedBy")}
           <br />
-          Daten ausschliesslich in der Schweiz gespeichert
+          {t("auth.dataStored")}
         </p>
       </div>
 
