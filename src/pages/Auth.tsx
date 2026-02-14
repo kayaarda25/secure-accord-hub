@@ -286,6 +286,7 @@ export default function Auth() {
         key={`vid-${currentVideoIndex}`}
         src={VIDEOS[currentVideoIndex]}
         autoPlay
+        loop
         muted
         playsInline
         onEnded={handleVideoEnd}
@@ -295,6 +296,7 @@ export default function Auth() {
         ref={nextVideoRef}
         key={`vid-next-${nextVideoIndex}`}
         src={VIDEOS[nextVideoIndex]}
+        loop
         muted
         playsInline
         preload="auto"
