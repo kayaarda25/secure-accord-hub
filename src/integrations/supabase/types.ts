@@ -2796,6 +2796,17 @@ export type Database = {
         Args: { _action: string; _user_id: string }
         Returns: boolean
       }
+      get_login_attempts_for_admin: {
+        Args: never
+        Returns: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string
+          success: boolean
+          user_agent: string
+        }[]
+      }
       get_organization_users_for_sharing: {
         Args: { org_id: string }
         Returns: {

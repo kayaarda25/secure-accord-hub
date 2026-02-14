@@ -51,8 +51,19 @@ export function useLoginProtection() {
 
   const logAttempt = useCallback(async (email: string, success: boolean) => {
     try {
+      let ipAddress: string | null = null;
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+        ipAddress = data.ip;
+      } catch {
+        // IP fetch failed, continue without it
+      }
+
       await supabase.rpc('log_login_attempt', {
         _email: email,
+        _ip_address: ipAddress,
+        _user_agent: navigator.userAgent,
         _success: success
       });
     } catch (error) {
