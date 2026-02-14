@@ -18,7 +18,7 @@ import {
 import {
   Database, Download, HardDrive, Calendar, FileArchive,
   RefreshCw, CloudOff, Clock, Shield, CheckCircle, Loader2, RotateCcw,
-  FolderOpen, FolderSync, X,
+  FolderOpen, FolderSync, X, Upload,
 } from "lucide-react";
 import { useBackups, BackupJob } from "@/hooks/useBackups";
 import { useToast } from "@/hooks/use-toast";
@@ -46,12 +46,13 @@ function formatDate(date: string | null): string {
 export function BackupPanel() {
   const {
     jobs, schedule, isLoading, isCreating, isRestoring,
-    createBackup, downloadBackup, restoreBackup, updateSchedule,
+    createBackup, downloadBackup, restoreBackup, restoreFromZip, updateSchedule,
   } = useBackups();
   const { toast } = useToast();
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
   const [backupFolder, setBackupFolder] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [uploadRestoreConfirm, setUploadRestoreConfirm] = useState<File | null>(null);
 
   // Load saved backup folder on mount (Electron only)
   useEffect(() => {
@@ -234,6 +235,30 @@ export function BackupPanel() {
                 Wird automatisch in den Ordner gespeichert
               </p>
             )}
+
+            <div className="border-t border-border pt-4">
+              <p className="text-xs text-muted-foreground mb-2">
+                Oder aus einer ZIP-Datei wiederherstellen:
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isRestoring}
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".zip";
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) setUploadRestoreConfirm(file);
+                  };
+                  input.click();
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Von ZIP wiederherstellen
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -378,6 +403,37 @@ export function BackupPanel() {
               onClick={() => {
                 if (restoreTarget) restoreBackup(restoreTarget);
                 setRestoreTarget(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isRestoring}
+            >
+              {isRestoring ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird wiederhergestellt...</>
+              ) : (
+                <><RotateCcw className="h-4 w-4 mr-2" />Wiederherstellen</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Upload Restore Confirmation Dialog */}
+      <AlertDialog open={!!uploadRestoreConfirm} onOpenChange={(open) => !open && setUploadRestoreConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Backup aus ZIP wiederherstellen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Datei «{uploadRestoreConfirm?.name}» wird verarbeitet.
+              Bestehende Daten werden mit den Daten aus dem Backup überschrieben.
+              Dieser Vorgang kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (uploadRestoreConfirm) restoreFromZip(uploadRestoreConfirm);
+                setUploadRestoreConfirm(null);
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isRestoring}
