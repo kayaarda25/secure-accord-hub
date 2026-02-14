@@ -58,10 +58,20 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   );
 }
 
+const fallbackTranslations = translations;
+
+const fallbackContext: LanguageContextType = {
+  language: "de",
+  setLanguage: () => {},
+  t: (key: string) => fallbackTranslations.de[key] || key,
+};
+
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    throw new Error("useLanguage must be used within a LanguageProvider");
+    // During HMR or edge cases, return a safe fallback instead of crashing
+    console.warn("useLanguage called outside LanguageProvider – using fallback");
+    return fallbackContext;
   }
   return context;
 }
