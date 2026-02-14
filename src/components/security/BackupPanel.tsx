@@ -109,18 +109,47 @@ export function BackupPanel() {
     }
   };
 
-  // Auto-sync: when a new completed job appears and folder is set
+  // Create backup and auto-download/sync
   const handleCreateAndSync = async () => {
-    await createBackup();
-    // After backup, if folder is set, sync the latest
+    const result = await createBackup();
+    if (!result.success || !result.filePath) return;
+
     if (isElectron && backupFolder) {
-      // Small delay to let the job list refresh
-      setTimeout(async () => {
-        const latestJob = jobs.find(j => j.status === "completed" && j.file_path);
-        if (latestJob) {
-          await handleSyncToFolder(latestJob);
+      // Electron: save ZIP to chosen folder
+      try {
+        setIsSyncing(true);
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-backup-zip`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ file_path: result.filePath }),
+          }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const filename = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
+        const saveResult = await electronAPI.saveBackupToFolder(arrayBuffer, filename);
+        if (saveResult.success) {
+          toast({ title: "Backup gespeichert", description: saveResult.path });
+        } else {
+          throw new Error(saveResult.error);
         }
-      }, 2000);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Fehler";
+        toast({ title: "Auto-Speichern fehlgeschlagen", description: msg, variant: "destructive" });
+      } finally {
+        setIsSyncing(false);
+      }
+    } else {
+      // Web: auto-download ZIP via browser
+      await downloadBackup(result.filePath);
     }
   };
 
@@ -238,18 +267,22 @@ export function BackupPanel() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Ein Backup umfasst alle Daten, Dokumente und Einstellungen.
+              {isElectron && backupFolder
+                ? "Backup wird erstellt und automatisch im gewählten Ordner gespeichert."
+                : "Backup wird erstellt und automatisch als ZIP heruntergeladen."}
             </p>
-            <Button className="w-full" onClick={handleCreateAndSync} disabled={isCreating}>
+            <Button className="w-full" onClick={handleCreateAndSync} disabled={isCreating || isSyncing}>
               {isCreating ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Backup wird erstellt...</>
+              ) : isSyncing ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />ZIP wird gespeichert...</>
               ) : (
-                <><Database className="h-4 w-4 mr-2" />Backup erstellen</>
+                <><Database className="h-4 w-4 mr-2" />Backup erstellen &amp; herunterladen</>
               )}
             </Button>
             {isElectron && backupFolder && (
               <p className="text-xs text-muted-foreground text-center">
-                Wird automatisch in den Ordner gespeichert
+                Auto-Speicherort: {backupFolder}
               </p>
             )}
 

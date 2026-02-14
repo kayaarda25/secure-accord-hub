@@ -66,8 +66,8 @@ export function useBackups() {
     fetchData();
   }, [fetchData]);
 
-  const createBackup = async () => {
-    if (!user) return;
+  const createBackup = async (): Promise<{ success: boolean; filePath?: string }> => {
+    if (!user) return { success: false };
     setIsCreating(true);
 
     try {
@@ -90,12 +90,14 @@ export function useBackups() {
         const fileInfo = result.files ? ` und ${result.files} Dateien` : "";
         toast({ title: "Backup erstellt", description: `${result.tables} Tabellen mit ${result.rows} Datensätzen${fileInfo} gesichert.` });
         await fetchData();
+        return { success: true, filePath: result.filename };
       } else {
         throw new Error(result.error);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
       toast({ title: "Backup fehlgeschlagen", description: msg, variant: "destructive" });
+      return { success: false };
     } finally {
       setIsCreating(false);
     }
