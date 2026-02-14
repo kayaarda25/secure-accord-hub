@@ -433,21 +433,21 @@ function BackupJobRow({ job, onDownload, onRestore, onSyncToFolder, isSyncing }:
         <Badge variant={job.backup_type === "manual" ? "secondary" : "outline"} className="text-xs">
           {job.backup_type === "manual" ? "Manuell" : "Auto"}
         </Badge>
-        {isSuccess && job.file_path && (
-          <>
+          <div className="flex items-center gap-1">
             {onSyncToFolder && (
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onSyncToFolder(job)} disabled={isSyncing} title="In Ordner speichern">
-                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderSync className="h-4 w-4" />}
+              <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => onSyncToFolder(job)} disabled={isSyncing} title="In Ordner speichern">
+                {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderSync className="h-3.5 w-3.5" />}
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onDownload(job.file_path!)} title="Herunterladen">
-              <Download className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => onDownload(job.file_path!)} title="Herunterladen">
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onRestore(job.file_path!)} title="Wiederherstellen">
-              <RotateCcw className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => onRestore(job.file_path!)} title="Wiederherstellen">
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Restore</span>
             </Button>
-          </>
-        )}
+          </div>
         {isRunning && <Badge className="text-xs">Läuft...</Badge>}
         {isFailed && <Badge variant="destructive" className="text-xs">Fehlgeschlagen</Badge>}
       </div>
