@@ -33,6 +33,7 @@ import Vacations from "./pages/hr/Vacations";
 import Payroll from "./pages/hr/Payroll";
 import SocialInsurance from "./pages/hr/SocialInsurance";
 import Projects from "./pages/Projects";
+import Support from "./pages/Support";
 
 const queryClient = new QueryClient();
 
@@ -236,6 +237,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support"
+              element={
+                <ProtectedRoute>
+                  <Support />
                 </ProtectedRoute>
               }
             />

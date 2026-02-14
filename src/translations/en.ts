@@ -28,6 +28,7 @@ export const en: Record<string, string> = {
   "nav.users": "Users",
   "nav.security": "Security",
   "nav.settings": "Settings",
+  "nav.support": "Support",
   "nav.signOut": "Sign Out",
 
   // Settings page
@@ -350,4 +351,25 @@ export const en: Record<string, string> = {
   "category.office": "Office Supplies",
   "category.communication": "Communication",
   "category.other": "Other",
+
+  // Support
+  "page.support.title": "Support",
+  "page.support.subtitle": "Report bugs, errors, or request new features",
+  "support.newRequest": "New Request",
+  "support.newRequestDesc": "Describe your issue and we'll take care of it",
+  "support.type": "Type",
+  "support.typeBug": "Bug Report",
+  "support.typeError": "Error Report",
+  "support.typeFeature": "Feature Request",
+  "support.subject": "Subject",
+  "support.subjectPlaceholder": "Brief description of the issue...",
+  "support.description": "Description",
+  "support.descriptionPlaceholder": "Describe the issue or request in detail...",
+  "support.send": "Send Request",
+  "support.sending": "Sending...",
+  "support.sent": "Request sent successfully!",
+  "support.sendError": "Error sending request",
+  "support.fillRequired": "Please fill in all required fields",
+  "support.thankYou": "Thank you!",
+  "support.thankYouDesc": "Your request has been submitted successfully. We'll get back to you shortly.",
 };
