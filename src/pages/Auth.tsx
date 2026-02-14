@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, AlertTriangle, Mail, Building2, ArrowLeft } from "lucide-react";
 import mgiLogo from "@/assets/mgi-media-logo.png";
 import mgiLogoWhite from "@/assets/mgi-media-logo-white.png";
+import mgiLogoAuth from "@/assets/mgi-logo-auth.png";
 import { useTheme } from "next-themes";
 import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
@@ -18,6 +19,8 @@ const VIDEOS = [
   "/videos/swiss-4.mp4",
   "/videos/swiss-5.mp4",
   "/videos/swiss-6.mp4",
+  "/videos/swiss-7.mp4",
+  "/videos/swiss-8.mp4",
 ];
 
 interface InvitationData {
@@ -295,7 +298,7 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden mb-4 shadow-lg">
-            <img src={currentLogo} alt="MGI Logo" className="w-full h-full object-cover" />
+            <img src={mgiLogoAuth} alt="MGI Logo" className="w-full h-full object-contain p-1" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">MGI Hub</h1>
           <p className="text-sm text-white/70 mt-1">
