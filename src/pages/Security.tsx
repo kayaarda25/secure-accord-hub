@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Key, Clock, Lock, Shield, ShieldCheck, AlertTriangle, CheckCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Key, Clock, Lock, Shield, ShieldCheck, AlertTriangle, CheckCircle, Database, Download, HardDrive, Calendar, FileArchive, RefreshCw, CloudOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -258,162 +260,283 @@ export default function Security() {
     }
     setIsChangingPassword(false);
   };
+  const placeholderBackups = [
+    { id: "1", name: "Vollständiges Backup", date: "2026-02-14 03:00", size: "2.4 GB", type: "Automatisch", status: "success" },
+    { id: "2", name: "Vollständiges Backup", date: "2026-02-13 03:00", size: "2.3 GB", type: "Automatisch", status: "success" },
+    { id: "3", name: "Manuelles Backup", date: "2026-02-12 14:22", size: "2.3 GB", type: "Manuell", status: "success" },
+    { id: "4", name: "Vollständiges Backup", date: "2026-02-12 03:00", size: "2.2 GB", type: "Automatisch", status: "success" },
+    { id: "5", name: "Vollständiges Backup", date: "2026-02-11 03:00", size: "2.2 GB", type: "Automatisch", status: "failed" },
+  ];
+
   return <Layout title={t("page.security.title")} subtitle={t("page.security.subtitle")}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Security Overview */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Two-Factor Authentication */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                
-                <div>
-                  <CardTitle>Zwei-Faktor-Authentifizierung</CardTitle>
-                  <CardDescription>
-                    Erhöhen Sie die Sicherheit Ihres Kontos mit 2FA
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {hasMfaFactor ? <ShieldCheck className="h-5 w-5 text-green-500" /> : <AlertTriangle className="h-5 w-5 text-amber-500" />}
-                  <div>
-                    <p className="font-medium">
-                      {hasMfaFactor ? "Aktiviert" : "Nicht aktiviert"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {hasMfaFactor ? "Ihr Konto ist durch 2FA geschützt" : "Aktivieren Sie 2FA für zusätzliche Sicherheit"}
-                    </p>
+      <Tabs defaultValue="security" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="security" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Sicherheit
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="gap-2">
+            <Database className="h-4 w-4" />
+            Backup
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Security Tab */}
+        <TabsContent value="security">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <CardTitle>Zwei-Faktor-Authentifizierung</CardTitle>
+                      <CardDescription>Erhöhen Sie die Sicherheit Ihres Kontos mit 2FA</CardDescription>
+                    </div>
                   </div>
-                </div>
-                <Button 
-                  variant={hasMfaFactor ? "outline" : "default"}
-                  size="sm"
-                  onClick={handle2FAToggle}
-                >
-                  {hasMfaFactor ? "Deaktivieren" : "Aktivieren"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {hasMfaFactor ? <ShieldCheck className="h-5 w-5 text-green-500" /> : <AlertTriangle className="h-5 w-5 text-amber-500" />}
+                      <div>
+                        <p className="font-medium">{hasMfaFactor ? "Aktiviert" : "Nicht aktiviert"}</p>
+                        <p className="text-sm text-muted-foreground">{hasMfaFactor ? "Ihr Konto ist durch 2FA geschützt" : "Aktivieren Sie 2FA für zusätzliche Sicherheit"}</p>
+                      </div>
+                    </div>
+                    <Button variant={hasMfaFactor ? "outline" : "default"} size="sm" onClick={handle2FAToggle}>
+                      {hasMfaFactor ? "Deaktivieren" : "Aktivieren"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              <ActiveSessions sessions={sessions} isLoading={isLoading} onTerminateSession={handleTerminateSession} onTerminateAllSessions={handleTerminateAllSessions} />
+              <IPWhitelist allowedIps={settings?.allowed_ips || null} onUpdate={handleUpdateAllowedIps} />
+              <LoginIPList />
+            </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Key className="h-5 w-5" />Passwort ändern</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div><Label htmlFor="new_password">Neues Passwort</Label><Input id="new_password" name="new_password" type="password" required minLength={8} /></div>
+                    <div><Label htmlFor="confirm_password">Passwort bestätigen</Label><Input id="confirm_password" name="confirm_password" type="password" required /></div>
+                    <Button type="submit" className="w-full" disabled={isChangingPassword}>{isChangingPassword ? "Ändern..." : "Passwort ändern"}</Button>
+                  </form>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Session-Timeout</CardTitle>
+                  <CardDescription>Automatische Abmeldung bei Inaktivität</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[15, 30, 60, 120].map(minutes => (
+                      <Button key={minutes} variant={settings?.session_timeout_minutes === minutes ? "default" : "outline"} className="w-full justify-start" onClick={() => handleUpdateTimeout(minutes)}>
+                        {minutes} Minuten
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <LoginProtectionInfo maxAttempts={5} lockoutMinutes={15} />
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />Sicherheitstipps</CardTitle></CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />Verwenden Sie ein starkes, einzigartiges Passwort</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />Aktivieren Sie die Zwei-Faktor-Authentifizierung</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />Überprüfen Sie regelmäßig Ihre aktiven Sessions</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />Melden Sie sich auf gemeinsam genutzten Geräten ab</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
 
-          {/* Active Sessions */}
-          <ActiveSessions
-            sessions={sessions}
-            isLoading={isLoading}
-            onTerminateSession={handleTerminateSession}
-            onTerminateAllSessions={handleTerminateAllSessions}
-          />
+        {/* Backup Tab */}
+        <TabsContent value="backup">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Backup Status */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <HardDrive className="h-5 w-5" />
+                        Backup-Status
+                      </CardTitle>
+                      <CardDescription>Übersicht über den aktuellen Backup-Zustand</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Aktiv
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-1">Letztes Backup</p>
+                      <p className="text-sm font-semibold">Heute, 03:00</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-1">Nächstes Backup</p>
+                      <p className="text-sm font-semibold">Morgen, 03:00</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-1">Speicherverbrauch</p>
+                      <p className="text-sm font-semibold">11.4 GB / 50 GB</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* IP Whitelist */}
-          <IPWhitelist
-            allowedIps={settings?.allowed_ips || null}
-            onUpdate={handleUpdateAllowedIps}
-          />
+              {/* Backup History */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Backup-Verlauf
+                      </CardTitle>
+                      <CardDescription>Letzte Backups und deren Status</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {placeholderBackups.map((backup) => (
+                      <div key={backup.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${backup.status === "success" ? "bg-green-100 dark:bg-green-950/40" : "bg-destructive/10"}`}>
+                            {backup.status === "success" ? (
+                              <FileArchive className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            ) : (
+                              <CloudOff className="h-4 w-4 text-destructive" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{backup.name}</p>
+                            <p className="text-xs text-muted-foreground">{backup.date} · {backup.size}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={backup.type === "Manuell" ? "secondary" : "outline"} className="text-xs">
+                            {backup.type}
+                          </Badge>
+                          {backup.status === "success" ? (
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Fehlgeschlagen</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Login IP List */}
-          <LoginIPList />
-        </div>
-
-        {/* Sidebar Settings */}
-        <div className="space-y-6">
-          {/* Change Password */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5" />
-                Passwort ändern
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                <div>
-                  <Label htmlFor="new_password">Neues Passwort</Label>
-                  <Input id="new_password" name="new_password" type="password" required minLength={8} />
-                </div>
-                <div>
-                  <Label htmlFor="confirm_password">Passwort bestätigen</Label>
-                  <Input id="confirm_password" name="confirm_password" type="password" required />
-                </div>
-                <Button type="submit" className="w-full" disabled={isChangingPassword}>
-                  {isChangingPassword ? "Ändern..." : "Passwort ändern"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Session Timeout */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Session-Timeout
-              </CardTitle>
-              <CardDescription>
-                Automatische Abmeldung bei Inaktivität
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[15, 30, 60, 120].map(minutes => (
-                  <Button 
-                    key={minutes} 
-                    variant={settings?.session_timeout_minutes === minutes ? "default" : "outline"} 
-                    className="w-full justify-start" 
-                    onClick={() => handleUpdateTimeout(minutes)}
-                  >
-                    {minutes} Minuten
+            {/* Backup Sidebar */}
+            <div className="space-y-6">
+              {/* Manual Backup */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5" />
+                    Manuelles Backup
+                  </CardTitle>
+                  <CardDescription>Erstellen Sie jetzt ein sofortiges Backup</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Ein manuelles Backup umfasst alle Daten, Dokumente und Einstellungen.
+                  </p>
+                  <Button className="w-full" disabled>
+                    <Database className="h-4 w-4 mr-2" />
+                    Backup erstellen (Platzhalter)
                   </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Login Protection Info */}
-          <LoginProtectionInfo maxAttempts={5} lockoutMinutes={15} />
+              {/* Backup Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Backup-Einstellungen
+                  </CardTitle>
+                  <CardDescription>Automatische Backup-Konfiguration</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Häufigkeit</Label>
+                      <p className="text-sm font-medium">Täglich um 03:00 Uhr</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Aufbewahrung</Label>
+                      <p className="text-sm font-medium">30 Tage</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Verschlüsselung</Label>
+                      <p className="text-sm font-medium">AES-256</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Speicherort</Label>
+                      <p className="text-sm font-medium">Schweiz (eu-central)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Security Tips */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
-                Sicherheitstipps
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Verwenden Sie ein starkes, einzigartiges Passwort
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Aktivieren Sie die Zwei-Faktor-Authentifizierung
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Überprüfen Sie regelmäßig Ihre aktiven Sessions
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Melden Sie sich auf gemeinsam genutzten Geräten ab
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              {/* Backup Tips */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Backup-Hinweise
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      Backups werden verschlüsselt gespeichert
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      Automatische tägliche Sicherung
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      Wiederherstellung innerhalb von Minuten
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      Daten ausschliesslich in der Schweiz
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
-      {/* 2FA Setup Dialog */}
       <TwoFactorSetup 
         open={show2FASetup} 
         onOpenChange={setShow2FASetup}
         onSuccess={handle2FASetupSuccess}
       />
-
-      {/* 2FA Disable Dialog */}
       <DisableTwoFactor
         open={show2FADisable}
         onOpenChange={setShow2FADisable}
