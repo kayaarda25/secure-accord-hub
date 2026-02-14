@@ -11,11 +11,7 @@ import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
 import { Badge } from "@/components/ui/badge";
-import swissVid1 from "@/assets/swiss-landscape-1.mp4";
-import swissVid2 from "@/assets/swiss-landscape-2.mp4";
-import swissVid3 from "@/assets/swiss-landscape-3.mp4";
-
-const VIDEOS = [swissVid1, swissVid2, swissVid3];
+const VIDEOS = ["/videos/swiss-1.mp4", "/videos/swiss-2.mp4", "/videos/swiss-3.mp4"];
 
 interface InvitationData {
   email: string;
@@ -287,8 +283,8 @@ export default function Auth() {
         onCanPlay={() => { if (isTransitioning) nextVideoRef.current?.play(); }}
       />
       {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
-      <div className="w-full max-w-md">
+      <div className="absolute inset-0 bg-black/30" />
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden mb-4 shadow-lg">
