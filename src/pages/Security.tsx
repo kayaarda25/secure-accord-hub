@@ -14,6 +14,7 @@ import { DisableTwoFactor } from "@/components/security/DisableTwoFactor";
 import { IPWhitelist } from "@/components/security/IPWhitelist";
 import { ActiveSessions } from "@/components/security/ActiveSessions";
 import { LoginProtectionInfo } from "@/components/security/LoginProtectionInfo";
+import { LoginIPList } from "@/components/security/LoginIPList";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 interface UserSession {
@@ -297,6 +298,9 @@ export default function Security() {
             allowedIps={settings?.allowed_ips || null}
             onUpdate={handleUpdateAllowedIps}
           />
+
+          {/* Login IP List */}
+          <LoginIPList />
         </div>
 
         {/* Sidebar Settings */}
