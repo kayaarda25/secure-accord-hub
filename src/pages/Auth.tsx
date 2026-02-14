@@ -11,7 +11,14 @@ import { z } from "zod";
 import { TwoFactorVerify } from "@/components/security/TwoFactorVerify";
 import { useLoginProtection } from "@/hooks/useLoginProtection";
 import { Badge } from "@/components/ui/badge";
-const VIDEOS = ["/videos/swiss-1.mp4", "/videos/swiss-2.mp4", "/videos/swiss-3.mp4"];
+const VIDEOS = [
+  "/videos/swiss-1.mp4",
+  "/videos/swiss-2.mp4", 
+  "/videos/swiss-3.mp4",
+  "/videos/swiss-4.mp4",
+  "/videos/swiss-5.mp4",
+  "/videos/swiss-6.mp4",
+];
 
 interface InvitationData {
   email: string;
@@ -313,7 +320,7 @@ export default function Auth() {
         </div>
 
         {/* Auth Card */}
-        <div className="bg-card/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+        <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
           {/* Invitation Banner */}
           {invitationData && (
             <div className="mb-6 p-4 rounded-lg bg-accent/10 border border-accent/20">
@@ -367,10 +374,10 @@ export default function Auth() {
           {step === "email" && (
             <form onSubmit={handleEmailContinue} className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-foreground mb-1">
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">
                   {t("auth.emailQuestion")}
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-500">
                   {t("auth.emailHint")}
                 </p>
               </div>
@@ -380,7 +387,7 @@ export default function Auth() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted-foreground text-base"
+                  className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-gray-400 text-base"
                   placeholder={t("auth.emailPlaceholder")}
                   required
                   autoFocus
@@ -388,22 +395,21 @@ export default function Auth() {
               </div>
 
               <button
-                type="submit"
-                className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity text-base"
+                className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors text-base"
               >
                 {t("auth.continue")}
               </button>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
+                  <span className="w-full border-t border-gray-200" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-3 text-muted-foreground">{t("auth.or")}</span>
+                  <span className="bg-white px-3 text-gray-400">{t("auth.or")}</span>
                 </div>
               </div>
 
-              <p className="text-xs text-center text-muted-foreground">
+              <p className="text-xs text-center text-gray-400">
                 {t("auth.inviteOnly")}
               </p>
             </form>
@@ -416,20 +422,20 @@ export default function Auth() {
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-4"
                   disabled={!!invitationData}
                 >
                   <ArrowLeft className="h-4 w-4" />
                   {t("auth.back")}
                 </button>
-                <h2 className="text-xl font-semibold text-foreground mb-1">
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">
                   {invitationData ? t("auth.createAccount") : t("auth.enterPassword")}
                 </h2>
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-gray-500" />
                   </div>
-                  <span className="text-sm text-muted-foreground">{email}</span>
+                  <span className="text-sm text-gray-500">{email}</span>
                 </div>
               </div>
 
@@ -437,27 +443,27 @@ export default function Auth() {
               {invitationData && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    <label className="block text-sm font-medium text-gray-500 mb-1.5">
                       {t("auth.firstName")}
                     </label>
                     <input
                       type="text"
                       value={firstName}
                       onChange={e => setFirstName(e.target.value)}
-                      className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
                       placeholder="Max"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                    <label className="block text-sm font-medium text-gray-500 mb-1.5">
                       {t("auth.lastName")}
                     </label>
                     <input
                       type="text"
                       value={lastName}
                       onChange={e => setLastName(e.target.value)}
-                      className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent"
                       placeholder="Mustermann"
                       required
                     />
@@ -466,7 +472,7 @@ export default function Auth() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                <label className="block text-sm font-medium text-gray-500 mb-1.5">
                   {t("auth.password")}
                 </label>
                 <div className="relative">
@@ -474,7 +480,7 @@ export default function Auth() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent pr-10 text-base"
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent pr-10 text-base"
                     placeholder="••••••••"
                     required
                     autoFocus
@@ -482,7 +488,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -491,14 +497,14 @@ export default function Auth() {
 
               {invitationData && (
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                  <label className="block text-sm font-medium text-gray-500 mb-1.5">
                     {t("auth.confirmPassword")}
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent text-base"
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent text-base"
                     placeholder="••••••••"
                     required
                   />
@@ -510,7 +516,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => { setStep("forgot"); setError(null); setSuccess(null); }}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
                   >
                     {t("auth.forgotPassword")}
                   </button>
@@ -520,7 +526,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={isSubmitting || isBlocked}
-                className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
+                className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
               >
                 {isSubmitting && <Loader2 size={18} className="animate-spin" />}
                 {invitationData ? t("auth.createAccount") : t("auth.signIn")}
@@ -554,15 +560,15 @@ export default function Auth() {
                 <button
                   type="button"
                   onClick={() => { setStep("password"); setError(null); setSuccess(null); }}
-                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-4"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   {t("auth.backToLogin")}
                 </button>
-                <h2 className="text-xl font-semibold text-foreground mb-1">
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">
                   {t("auth.resetPassword")}
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-500">
                   {t("auth.resetPasswordHint")}
                 </p>
               </div>
@@ -572,7 +578,7 @@ export default function Auth() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted-foreground text-base"
+                  className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-gray-400 text-base"
                   placeholder={t("auth.emailPlaceholder")}
                   required
                   autoFocus
@@ -582,7 +588,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3 bg-foreground text-background rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
+                className="w-full py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
               >
                 {isSubmitting && <Loader2 size={18} className="animate-spin" />}
                 {t("auth.sendResetLink")}
