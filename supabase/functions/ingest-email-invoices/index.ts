@@ -59,7 +59,7 @@ async function getGraphToken(): Promise<string> {
 }
 
 async function getUnreadEmails(token: string, mailbox: string): Promise<GraphMessage[]> {
-  const url = `https://graph.microsoft.com/v1.0/users/${mailbox}/messages?$filter=isRead eq false and hasAttachments eq true&$top=10&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,hasAttachments,isRead`;
+  const url = `https://graph.microsoft.com/v1.0/users/${mailbox}/messages?$filter=isRead eq false&$top=10&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,hasAttachments,isRead`;
 
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
