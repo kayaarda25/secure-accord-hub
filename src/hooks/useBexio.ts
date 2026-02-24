@@ -65,39 +65,7 @@ export function useBexio() {
 
       // Redirect to Bexio OAuth
       if (response.data?.authUrl) {
-        const authUrl: string = response.data.authUrl;
-
-        // Electron: use shell.openExternal via preload bridge
-        const electronAPI = (window as any).electronAPI;
-        if (electronAPI?.openExternal) {
-          electronAPI.openExternal(authUrl);
-          toast({
-            title: "Bexio Login geöffnet",
-            description: "Bitte schliesse die Verknüpfung im Systembrowser ab.",
-          });
-        } else {
-          // In Lovable preview the app runs inside an iframe; external auth pages may be blocked there.
-          let inIframe = false;
-          try {
-            inIframe = window.self !== window.top;
-          } catch {
-            inIframe = true;
-          }
-
-          if (inIframe) {
-            const w = window.open(authUrl, "_blank", "noopener,noreferrer");
-            if (!w) {
-              window.location.assign(authUrl);
-            } else {
-              toast({
-                title: "Bexio Login geöffnet",
-                description: "Bitte schliesse die Verknüpfung im neuen Tab ab.",
-              });
-            }
-          } else {
-            window.location.assign(authUrl);
-          }
-        }
+        window.open(response.data.authUrl, "_blank");
       }
     } catch (error: any) {
       console.error("Error connecting to Bexio:", error);
