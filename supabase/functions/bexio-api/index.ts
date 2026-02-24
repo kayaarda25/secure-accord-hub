@@ -398,8 +398,7 @@ serve(async (req: Request) => {
         };
 
         // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
-        // Note: v4 line_items do NOT support "description" field - Bexio returns 400 if included
-        // Bexio v4: "Nr." field is auto-generated. Include invoice_number in title for reference.
+        // Bexio v4: "Nr." = document_nr, set from invoice_number if available
         const titleWithNr = data.invoice_number 
           ? `${data.invoice_number} - ${data.vendor_name}` 
           : data.title || `Rechnung - ${data.vendor_name}`;
@@ -423,6 +422,9 @@ serve(async (req: Request) => {
           );
         }
 
+        // Line item description: use notes, title, or fallback
+        const lineDescription = (data.notes || data.title || titleWithNr || "Rechnung").slice(0, 200);
+
         const payload: Record<string, any> = {
           supplier_id: supplierId,
           // contact_partner_id = internal contact person (Bexio user)
@@ -433,6 +435,8 @@ serve(async (req: Request) => {
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
           due_date: data.due_date || null,
+          // Set document_nr from invoice_number so Bexio shows the Nr. field
+          ...(data.invoice_number ? { document_nr: data.invoice_number } : {}),
           // CRITICAL: manual_amount=true requires amount_man, NOT amount_calc
           manual_amount: true,
           item_net: false,
@@ -440,6 +444,7 @@ serve(async (req: Request) => {
           line_items: [
             {
               position: 0,
+              title: lineDescription,
               amount: totalAmount,
               booking_account_id: bookingAccountId,
               tax_id: taxId,
@@ -470,29 +475,75 @@ serve(async (req: Request) => {
 
         // IMPORTANT: Bexio generates the "Nr." only when the bill is issued / marked open.
         // We auto-issue it so the UI shows a generated number instead of "null".
+        // The bill MUST be issued to create a payment order in e-banking.
         let issuedBill = createdBill;
-        try {
-          const billId = createdBill?.id;
-          if (billId !== undefined && billId !== null) {
-            console.log("Issuing purchase bill to generate Nr:", billId);
-            const issueResp = await fetch(
-              `${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(String(billId))}/issue`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                },
-                // Some Bexio setups are picky and expect a JSON body even if empty.
-                body: JSON.stringify({}),
-              }
-            );
-            issuedBill = await parseBexioResponse(issueResp, "issue_bill");
+        const billId = createdBill?.id;
+        if (billId !== undefined && billId !== null) {
+          console.log("Issuing purchase bill to mark as open:", billId);
+
+          // First, try to validate the document_nr is available (if we set one)
+          if (data.invoice_number) {
+            try {
+              const validateResp = await fetch(
+                `${BEXIO_API_URL}/4.0/purchase/bills/validate-document-nr?document_nr=${encodeURIComponent(data.invoice_number)}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: "application/json",
+                  },
+                }
+              );
+              const validateResult = await validateResp.text();
+              console.log("Document nr validation:", validateResp.status, validateResult);
+            } catch (e) {
+              console.warn("Document nr validation check failed (non-blocking):", e);
+            }
           }
-        } catch (e) {
-          // Non-blocking: if issuing fails, keep draft bill (still created)
-          console.warn("Failed to issue purchase bill (non-blocking):", e);
+
+          const issueResp = await fetch(
+            `${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(String(billId))}/issue`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({}),
+            }
+          );
+
+          if (issueResp.ok) {
+            issuedBill = await parseBexioResponse(issueResp, "issue_bill");
+            console.log("Purchase bill issued successfully, Nr:", issuedBill?.document_nr);
+          } else {
+            const issueError = await issueResp.text();
+            console.error(`Failed to issue purchase bill (${issueResp.status}):`, issueError);
+            // Try alternative: update status to OPEN
+            try {
+              const statusResp = await fetch(
+                `${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(String(billId))}/status`,
+                {
+                  method: "PUT",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                  },
+                  body: JSON.stringify({ status: "OPEN" }),
+                }
+              );
+              if (statusResp.ok) {
+                issuedBill = await parseBexioResponse(statusResp, "status_update");
+                console.log("Purchase bill status updated to OPEN");
+              } else {
+                const statusError = await statusResp.text();
+                console.error(`Status update also failed (${statusResp.status}):`, statusError);
+              }
+            } catch (statusErr) {
+              console.error("Status update attempt failed:", statusErr);
+            }
+          }
         }
 
         result = issuedBill;
