@@ -110,16 +110,26 @@ export default function Communication() {
 
   const maybeDecryptMessage = useCallback(
     async (msg: Message): Promise<Message> => {
-      if (!msg.encrypted_content || !user?.id || !cryptoReady) return msg;
+      if (!msg.encrypted_content || !user?.id) return msg;
+      if (!cryptoReady) {
+        console.warn("Crypto not ready yet, skipping decrypt for", msg.id);
+        return msg;
+      }
       try {
         const payloads = JSON.parse(msg.encrypted_content) as Record<
           string,
           { iv: string; ciphertext: string }
         >;
         const myPayload = payloads[user.id];
-        if (!myPayload) return msg;
+        if (!myPayload) {
+          console.warn("No payload found for user", user.id, "in message", msg.id);
+          return msg;
+        }
         const decryptedText = await decrypt(myPayload, msg.sender_id);
-        if (!decryptedText) return msg;
+        if (!decryptedText) {
+          console.warn("Decrypt returned null for message", msg.id, "sender:", msg.sender_id);
+          return msg;
+        }
         return { ...msg, content: decryptedText };
       } catch (err) {
         console.error("Decryption failed for message", msg.id, err);
