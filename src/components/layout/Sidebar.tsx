@@ -6,6 +6,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { LayoutDashboard, Receipt, FileText, MessageSquare, Calendar, Shield, Settings, ChevronLeft, ChevronRight, ChevronDown, Building2, Users, LogOut, X, CheckSquare, ClipboardList, BarChart, FolderOpen, Wallet, ScanLine, TrendingUp, Globe, Banknote, Palmtree, BadgeEuro, HeartHandshake, UserCog, FolderKanban, LifeBuoy } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface SidebarProps {
@@ -27,6 +28,7 @@ export function Sidebar({
   } = useAuth();
   const { permissions } = useOrganizationPermissions();
   const { t } = useLanguage();
+  const { unreadCount } = useUnreadMessages();
   const { resolvedTheme } = useTheme();
   const currentLogo = resolvedTheme === "dark" ? mgiLogoWhite : mgiLogo;
   const toggleGroup = (group: string) => {
@@ -168,7 +170,14 @@ export function Sidebar({
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
               <NavLink to="/communication" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/communication") ? "nav-link-active" : ""}`}>
-                <MessageSquare size={16} className={isActive("/communication") ? "text-primary" : ""} />
+                <div className="relative">
+                  <MessageSquare size={16} className={isActive("/communication") ? "text-primary" : ""} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span>{t("nav.communication")}</span>
               </NavLink>
               <NavLink to="/calendar" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/calendar") ? "nav-link-active" : ""}`}>

@@ -2621,6 +2621,7 @@ export type Database = {
           added_at: string
           added_by: string
           id: string
+          last_read_at: string | null
           thread_id: string
           user_id: string
         }
@@ -2628,6 +2629,7 @@ export type Database = {
           added_at?: string
           added_by: string
           id?: string
+          last_read_at?: string | null
           thread_id: string
           user_id: string
         }
@@ -2635,6 +2637,7 @@ export type Database = {
           added_at?: string
           added_by?: string
           id?: string
+          last_read_at?: string | null
           thread_id?: string
           user_id?: string
         }
