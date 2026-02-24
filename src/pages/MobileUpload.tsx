@@ -21,23 +21,35 @@ export default function MobileUpload() {
     }
     // Verify session exists and is not expired
     const verify = async () => {
-      const { data, error } = await supabase
-        .from("receipt_upload_sessions")
-        .select("id, status, expires_at")
-        .eq("session_code", code)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from("receipt_upload_sessions")
+          .select("id, status, expires_at")
+          .eq("session_code", code)
+          .maybeSingle();
 
-      if (error || !data) {
+        if (error) {
+          console.error("Session verify error:", error);
+          setStatus("error");
+          setErrorMsg(`Fehler: ${error.message}`);
+          return;
+        }
+        if (!data) {
+          setStatus("error");
+          setErrorMsg("Session nicht gefunden. Bitte QR-Code erneut scannen.");
+          return;
+        }
+        if (new Date(data.expires_at) < new Date()) {
+          setStatus("expired");
+          return;
+        }
+        if (data.status === "uploaded") {
+          setStatus("done");
+        }
+      } catch (err: any) {
+        console.error("Verify error:", err);
         setStatus("error");
-        setErrorMsg("Ungültiger oder abgelaufener Code.");
-        return;
-      }
-      if (new Date(data.expires_at) < new Date()) {
-        setStatus("expired");
-        return;
-      }
-      if (data.status === "uploaded") {
-        setStatus("done");
+        setErrorMsg(err.message || "Unbekannter Fehler");
       }
     };
     verify();
