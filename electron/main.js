@@ -256,12 +256,21 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Security: Prevent navigation to external URLs
+// Security: Prevent navigation to external URLs – but allow OAuth redirects
 app.on('web-contents-created', (event, contents) => {
   contents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
-    if (parsedUrl.origin !== 'file://') {
+    // Allow Bexio OAuth and other trusted auth redirects
+    const allowedHosts = ['auth.bexio.com', 'login.microsoftonline.com'];
+    if (parsedUrl.origin !== 'file://' && !allowedHosts.includes(parsedUrl.hostname)) {
+      // Open in system browser instead of blocking
+      shell.openExternal(navigationUrl);
       event.preventDefault();
     }
   });
+});
+
+// IPC handler for opening URLs in system browser
+ipcMain.handle('open-external', (_event, url) => {
+  return shell.openExternal(url);
 });
