@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (data, filename) => ipcRenderer.invoke('save-file', data, filename),
   openFile: () => ipcRenderer.invoke('open-file'),
 
+  // Open URL in system browser
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
   // Backup folder sync
   selectBackupFolder: () => ipcRenderer.invoke('select-backup-folder'),
   getBackupFolder: () => ipcRenderer.invoke('get-backup-folder'),

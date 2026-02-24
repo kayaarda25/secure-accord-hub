@@ -67,28 +67,36 @@ export function useBexio() {
       if (response.data?.authUrl) {
         const authUrl: string = response.data.authUrl;
 
-        // In Lovable preview the app runs inside an iframe; external auth pages may be blocked there.
-        // Open a new tab in that case.
-        let inIframe = false;
-        try {
-          inIframe = window.self !== window.top;
-        } catch {
-          inIframe = true;
-        }
-
-        if (inIframe) {
-          const w = window.open(authUrl, "_blank", "noopener,noreferrer");
-          if (!w) {
-            // Popup blocked; fall back to same-tab navigation.
-            window.location.assign(authUrl);
-          } else {
-            toast({
-              title: "Bexio Login geöffnet",
-              description: "Bitte schliesse die Verknüpfung im neuen Tab ab.",
-            });
-          }
+        // Electron: use shell.openExternal via preload bridge
+        const electronAPI = (window as any).electronAPI;
+        if (electronAPI?.openExternal) {
+          electronAPI.openExternal(authUrl);
+          toast({
+            title: "Bexio Login geöffnet",
+            description: "Bitte schliesse die Verknüpfung im Systembrowser ab.",
+          });
         } else {
-          window.location.assign(authUrl);
+          // In Lovable preview the app runs inside an iframe; external auth pages may be blocked there.
+          let inIframe = false;
+          try {
+            inIframe = window.self !== window.top;
+          } catch {
+            inIframe = true;
+          }
+
+          if (inIframe) {
+            const w = window.open(authUrl, "_blank", "noopener,noreferrer");
+            if (!w) {
+              window.location.assign(authUrl);
+            } else {
+              toast({
+                title: "Bexio Login geöffnet",
+                description: "Bitte schliesse die Verknüpfung im neuen Tab ab.",
+              });
+            }
+          } else {
+            window.location.assign(authUrl);
+          }
         }
       }
     } catch (error: any) {
