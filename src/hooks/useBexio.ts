@@ -65,7 +65,12 @@ export function useBexio() {
 
       // Redirect to Bexio OAuth
       if (response.data?.authUrl) {
-        window.open(response.data.authUrl, "_blank");
+        const url = response.data.authUrl;
+        const w = window.open(url, "_blank");
+        if (!w) {
+          // Popup blocked (e.g. iframe) – navigate directly
+          window.location.href = url;
+        }
       }
     } catch (error: any) {
       console.error("Error connecting to Bexio:", error);
