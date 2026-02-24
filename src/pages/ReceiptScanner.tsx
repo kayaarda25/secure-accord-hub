@@ -20,6 +20,7 @@ import {
   X,
   FileImage,
 } from "lucide-react";
+import { QRUploadSection } from "@/components/scanner/QRUploadSection";
 
 interface CostCenter {
   id: string;
@@ -347,6 +348,17 @@ export default function ReceiptScanner() {
                 )}
               </Button>
             )}
+
+            {/* QR Code Section */}
+            <div className="border-t border-border pt-4 mt-2">
+              <QRUploadSection
+                onImageReceived={(imageUrl, file) => {
+                  setSelectedImage(imageUrl);
+                  setImageFile(file);
+                  toast.success("Bild vom Handy empfangen!");
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 
