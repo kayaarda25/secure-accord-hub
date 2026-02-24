@@ -40,8 +40,8 @@ export function QRUploadSection({ onImageReceived }: QRUploadSectionProps) {
       const expires = new Date(Date.now() + 15 * 60 * 1000);
       setExpiresAt(expires);
 
-      // Build the QR URL using the published URL
-      const baseUrl = window.location.origin;
+      // Always use the published URL so mobile users don't land on preview
+      const baseUrl = "https://secure-accord-hub.lovable.app";
       setQrUrl(`${baseUrl}/mobile-upload?code=${code}`);
     } catch (err) {
       console.error("Error creating session:", err);
