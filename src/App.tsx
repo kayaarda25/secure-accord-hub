@@ -34,6 +34,7 @@ import Payroll from "./pages/hr/Payroll";
 import SocialInsurance from "./pages/hr/SocialInsurance";
 import Projects from "./pages/Projects";
 import Support from "./pages/Support";
+import MobileUpload from "./pages/MobileUpload";
 
 const queryClient = new QueryClient();
 
@@ -248,6 +249,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/mobile-upload" element={<MobileUpload />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
