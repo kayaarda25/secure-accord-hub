@@ -108,35 +108,12 @@ export default function Communication() {
     messagesEndRef.current?.scrollIntoView({ block: "end", behavior });
   }, []);
 
+  // E2E decryption disabled – keys are session-bound so old messages can
+  // never be decrypted. Return message as-is; for legacy encrypted messages
+  // show content field (which is the plaintext for new messages).
   const maybeDecryptMessage = useCallback(
-    async (msg: Message): Promise<Message> => {
-      if (!msg.encrypted_content || !user?.id) return msg;
-      if (!cryptoReady) {
-        console.warn("Crypto not ready yet, skipping decrypt for", msg.id);
-        return msg;
-      }
-      try {
-        const payloads = JSON.parse(msg.encrypted_content) as Record<
-          string,
-          { iv: string; ciphertext: string }
-        >;
-        const myPayload = payloads[user.id];
-        if (!myPayload) {
-          console.warn("No payload found for user", user.id, "in message", msg.id);
-          return msg;
-        }
-        const decryptedText = await decrypt(myPayload, msg.sender_id);
-        if (!decryptedText) {
-          console.warn("Decrypt returned null for message", msg.id, "sender:", msg.sender_id);
-          return msg;
-        }
-        return { ...msg, content: decryptedText };
-      } catch (err) {
-        console.error("Decryption failed for message", msg.id, err);
-        return msg;
-      }
-    },
-    [cryptoReady, decrypt, user?.id]
+    async (msg: Message): Promise<Message> => msg,
+    []
   );
 
   // Form state for new thread
@@ -235,13 +212,6 @@ export default function Communication() {
       };
     }
   }, [selectedThread, maybeDecryptMessage, scrollMessagesToBottom]);
-
-  // When crypto becomes ready, re-fetch so existing messages get decrypted.
-  useEffect(() => {
-    if (!selectedThread?.id) return;
-    if (!cryptoReady) return;
-    fetchMessages(selectedThread.id);
-  }, [cryptoReady, selectedThread?.id]);
 
   // When messages change (initial load, decrypt, send), keep the latest visible.
   useEffect(() => {
@@ -412,32 +382,13 @@ export default function Communication() {
     if (!user || !selectedThread || !newMessage.trim()) return;
 
     try {
-      // For direct chats, encrypt for each participant
-      let encryptedContent: string | null = null;
       const plaintext = newMessage;
-
-      if (selectedThread.type === "direct" && cryptoReady && selectedThread.participants) {
-        // Encrypt message for all participants (including self for read-back)
-        const allParticipantIds = selectedThread.participants.map((p) => p.user_id);
-        const encryptedPayloads: Record<string, { iv: string; ciphertext: string }> = {};
-
-        for (const participantId of allParticipantIds) {
-          const payload = await encrypt(plaintext, participantId);
-          if (payload) {
-            encryptedPayloads[participantId] = payload;
-          }
-        }
-
-        if (Object.keys(encryptedPayloads).length > 0) {
-          encryptedContent = JSON.stringify(encryptedPayloads);
-        }
-      }
 
       await supabase.from("communication_messages").insert({
         thread_id: selectedThread.id,
         sender_id: user.id,
-        content: encryptedContent ? "[Verschlüsselte Nachricht]" : plaintext,
-        encrypted_content: encryptedContent,
+        content: plaintext,
+        encrypted_content: null,
         priority: "normal",
       });
 
