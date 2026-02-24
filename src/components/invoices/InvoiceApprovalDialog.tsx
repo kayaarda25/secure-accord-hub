@@ -473,7 +473,7 @@ export function InvoiceApprovalDialog({
     onOpenChange(isOpen);
   };
 
-  const canFirstApprove = invoice.status === "pending_review" && !invoice.first_approver_id;
+  const canFirstApprove = (invoice.status === "pending_review" || invoice.status === "pending") && !invoice.first_approver_id;
   const canSecondApprove = invoice.status === "first_approval" && 
     invoice.first_approver_id && 
     invoice.first_approver_id !== user?.id;
