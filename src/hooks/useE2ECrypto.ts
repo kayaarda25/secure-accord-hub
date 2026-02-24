@@ -86,13 +86,19 @@ export function useE2ECrypto(userId: string | undefined) {
    */
   const decrypt = useCallback(
     async (payload: EncryptedPayload, senderUserId: string): Promise<string | null> => {
-      if (!keyPair) return null;
+      if (!keyPair) {
+        console.warn("E2E decrypt: no keyPair available");
+        return null;
+      }
       const senderPubKey = await fetchPublicKey(senderUserId);
-      if (!senderPubKey) return null;
+      if (!senderPubKey) {
+        console.warn("E2E decrypt: no public key for sender", senderUserId);
+        return null;
+      }
       try {
         return await decryptMessage(payload, keyPair.privateKey, senderPubKey);
       } catch (err) {
-        console.error("Decryption failed:", err);
+        console.error("E2E decryption error:", err);
         return null;
       }
     },
