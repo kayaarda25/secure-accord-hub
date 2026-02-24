@@ -8,6 +8,8 @@ import { useE2ECrypto } from "@/hooks/useE2ECrypto";
 import { VideoMeeting } from "@/components/communication/VideoMeeting";
 import { MeetingScheduler } from "@/components/communication/MeetingScheduler";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import {
   MessageSquare,
   Users,
@@ -73,6 +75,7 @@ interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   department: string | null;
+  avatar_url: string | null;
 }
 
 export default function Communication() {
@@ -80,6 +83,7 @@ export default function Communication() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { ready: cryptoReady, encrypt, decrypt } = useE2ECrypto(user?.id);
+  const { refreshUnread } = useUnreadMessages();
   const [activeTab, setActiveTab] = useState<CommunicationType>("direct");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
@@ -146,7 +150,7 @@ export default function Communication() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, email, first_name, last_name, department")
+        .select("id, user_id, email, first_name, last_name, department, avatar_url")
         .eq("is_active", true)
         .order("first_name");
       
@@ -495,6 +499,33 @@ export default function Communication() {
     return thread.subject || "Kein Betreff";
   };
 
+  // Get avatar info for thread (other participant in direct chats)
+  const getThreadAvatar = (thread: Thread) => {
+    if (thread.type === "direct" && thread.participants) {
+      const other = thread.participants.find(p => p.user_id !== user?.id);
+      if (other?.profile) {
+        return {
+          url: other.profile.avatar_url,
+          initials: `${other.profile.first_name?.[0] || ""}${other.profile.last_name?.[0] || ""}`.toUpperCase() || "?",
+        };
+      }
+    }
+    return { url: null, initials: "?" };
+  };
+
+  // Update last_read_at when selecting a thread
+  const handleSelectThread = async (thread: Thread) => {
+    setSelectedThread(thread);
+    if (user?.id) {
+      await (supabase as any)
+        .from("thread_participants")
+        .update({ last_read_at: new Date().toISOString() })
+        .eq("thread_id", thread.id)
+        .eq("user_id", user.id);
+      refreshUnread();
+    }
+  };
+
   const tabs = [
     { id: "direct" as const, label: "Direkt", visible: true },
     { id: "partner" as const, label: "Partners", visible: false },
@@ -601,28 +632,41 @@ export default function Communication() {
                   {activeTab === "direct" ? "Keine Chats" : "No conversations"}
                 </div>
               ) : (
-                threads.map((thread, index) => (
+                threads.map((thread, index) => {
+                  const avatar = getThreadAvatar(thread);
+                  return (
                   <button
                     key={thread.id}
-                    onClick={() => setSelectedThread(thread)}
+                    onClick={() => handleSelectThread(thread)}
                     className={`w-full p-4 text-left border-b border-border/50 hover:bg-muted/30 transition-colors animate-fade-in ${
                       selectedThread?.id === thread.id ? "bg-muted/50" : ""
                     }`}
                     style={{ animationDelay: `${index * 30}ms` }}
                   >
-                    <div className="flex items-start justify-between mb-1">
-                      <p className="text-sm font-medium text-foreground truncate pr-2">
-                        {getThreadDisplayName(thread)}
-                      </p>
-                      {thread.is_official && (
-                        <Star size={14} className="text-accent flex-shrink-0" />
-                      )}
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 flex-shrink-0">
+                        {avatar.url && <AvatarImage src={avatar.url} />}
+                        <AvatarFallback className="text-xs bg-accent/20 text-accent">
+                          {avatar.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className="text-sm font-medium text-foreground truncate pr-2">
+                            {getThreadDisplayName(thread)}
+                          </p>
+                          {thread.is_official && (
+                            <Star size={14} className="text-accent flex-shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(thread.updated_at)}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(thread.updated_at)}
-                    </p>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -633,16 +677,29 @@ export default function Communication() {
               <>
                 <div className="p-4 border-b border-border">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground">
-                        {getThreadDisplayName(selectedThread)}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedThread.is_official && "Official • "}
-                        {selectedThread.type === "direct" 
-                          ? `${selectedThread.participants?.length || 0} Teilnehmer`
-                          : `Created on ${formatDate(selectedThread.created_at)}`}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const avatar = getThreadAvatar(selectedThread);
+                        return (
+                          <Avatar className="h-10 w-10">
+                            {avatar.url && <AvatarImage src={avatar.url} />}
+                            <AvatarFallback className="bg-accent/20 text-accent text-sm">
+                              {avatar.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                        );
+                      })()}
+                      <div>
+                        <h3 className="font-semibold text-foreground">
+                          {getThreadDisplayName(selectedThread)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedThread.is_official && "Official • "}
+                          {selectedThread.type === "direct" 
+                            ? `${selectedThread.participants?.length || 0} Teilnehmer`
+                            : `Created on ${formatDate(selectedThread.created_at)}`}
+                        </p>
+                      </div>
                     </div>
                     <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground">
                       <MoreHorizontal size={18} />
