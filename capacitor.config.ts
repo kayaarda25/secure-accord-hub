@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.728f860911914046bb71e4a8f2b2313c',
+  appId: 'app.lovable.secureaccordhub',
   appName: 'secure-accord-hub',
   webDir: 'dist',
   server: {
