@@ -376,14 +376,13 @@ export function EditEventDialog({
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <Button
-              variant="outline"
+            <AlertDialogAction
               onClick={() => saveChanges("single")}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
             >
               <CalendarDays size={16} />
               Nur diesen Termin
-            </Button>
+            </AlertDialogAction>
             <AlertDialogAction
               onClick={() => saveChanges("series")}
               className="flex items-center gap-2"
