@@ -10,14 +10,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+interface Profile {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+}
+
 interface CreateProjectTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  profiles: Profile[];
   onCreated: () => void;
 }
 
-export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreated }: CreateProjectTaskDialogProps) {
+export function CreateProjectTaskDialog({ open, onOpenChange, projectId, profiles, onCreated }: CreateProjectTaskDialogProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,10 +34,11 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
     description: "",
     due_date: "",
     priority: "normal",
+    assignee_id: "",
   });
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", due_date: "", priority: "normal" });
+    setFormData({ title: "", description: "", due_date: "", priority: "normal", assignee_id: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,7 +50,7 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("tasks").insert({
+      const { data: taskData, error } = await supabase.from("tasks").insert({
         title: formData.title.trim(),
         description: formData.description || null,
         due_date: formData.due_date || null,
@@ -48,9 +58,22 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
         status: "todo",
         created_by: user.id,
         project_id: projectId,
-      });
+      }).select("id").single();
 
       if (error) throw error;
+
+      // Add assignee as participant if selected
+      if (formData.assignee_id && taskData) {
+        const { error: participantError } = await supabase.from("task_participants").insert({
+          task_id: taskData.id,
+          user_id: formData.assignee_id,
+          status: "pending",
+        });
+        if (participantError) {
+          console.error("Error assigning participant:", participantError);
+        }
+      }
+
       toast.success("Task erstellt");
       resetForm();
       onOpenChange(false);
@@ -61,6 +84,13 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getProfileLabel = (profile: Profile) => {
+    if (profile.first_name || profile.last_name) {
+      return `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+    }
+    return profile.email;
   };
 
   return (
@@ -80,6 +110,36 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
               autoFocus
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>Beschreibung</Label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Was genau soll erledigt werden?"
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Zugewiesen an</Label>
+            <Select
+              value={formData.assignee_id}
+              onValueChange={(v) => setFormData((prev) => ({ ...prev, assignee_id: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Person auswählen..." />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.user_id} value={profile.user_id}>
+                    {getProfileLabel(profile)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Fälligkeitsdatum</Label>
@@ -104,14 +164,7 @@ export function CreateProjectTaskDialog({ open, onOpenChange, projectId, onCreat
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Beschreibung</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Optionale Beschreibung"
-            />
-          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Abbrechen
