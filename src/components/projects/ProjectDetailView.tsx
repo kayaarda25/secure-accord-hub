@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,23 +7,46 @@ import { Layout } from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Loader2, User, Calendar } from "lucide-react";
 import { Project } from "@/hooks/useProjects";
 import { CreateProjectTaskDialog } from "./CreateProjectTaskDialog";
+
+interface TaskParticipant {
+  id: string;
+  user_id: string;
+  status: string;
+}
 
 interface Task {
   id: string;
   title: string;
+  description: string | null;
   status: string;
   priority: string;
   due_date: string | null;
   project_id: string | null;
+  participants: TaskParticipant[];
+}
+
+interface Profile {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
 }
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   todo: "To Do",
   in_progress: "In Arbeit",
   done: "Erledigt",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "bg-muted text-muted-foreground",
+  normal: "bg-accent/20 text-accent",
+  high: "bg-warning/20 text-warning",
+  critical: "bg-destructive/20 text-destructive",
 };
 
 interface ProjectDetailViewProps {
@@ -36,13 +59,23 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
   const { user } = useAuth();
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
   const [unassignedTasks, setUnassignedTasks] = useState<Task[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
   const [isQuickAdding, setIsQuickAdding] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
+  const fetchProfiles = useCallback(async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, user_id, first_name, last_name, email")
+      .eq("is_active", true);
+    setProfiles(data || []);
+  }, []);
+
   useEffect(() => {
     fetchProjectTasks();
+    fetchProfiles();
   }, [project.id]);
 
   const fetchProjectTasks = async () => {
@@ -51,22 +84,30 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
       const [{ data: assigned }, { data: unassigned }] = await Promise.all([
         supabase
           .from("tasks")
-          .select("id, title, status, priority, due_date, project_id")
+          .select("id, title, description, status, priority, due_date, project_id, participants:task_participants(id, user_id, status)")
           .eq("project_id", project.id)
           .order("created_at", { ascending: false }),
         supabase
           .from("tasks")
-          .select("id, title, status, priority, due_date, project_id")
+          .select("id, title, description, status, priority, due_date, project_id, participants:task_participants(id, user_id, status)")
           .is("project_id", null)
           .order("created_at", { ascending: false }),
       ]);
-      setProjectTasks(assigned || []);
-      setUnassignedTasks(unassigned || []);
+      setProjectTasks((assigned || []) as Task[]);
+      setUnassignedTasks((unassigned || []) as Task[]);
     } catch (error) {
       console.error("Error fetching tasks:", error);
     } finally {
       setTasksLoading(false);
     }
+  };
+
+  const getProfileName = (userId: string) => {
+    const profile = profiles.find((p) => p.user_id === userId);
+    if (profile?.first_name || profile?.last_name) {
+      return `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+    }
+    return profile?.email || "Unbekannt";
   };
 
   const handleQuickAdd = async () => {
@@ -102,9 +143,56 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
     fetchProjectTasks();
   };
 
+  const isOverdue = (dueDate: string | null) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date(new Date().toISOString().split("T")[0]);
+  };
+
   const todoTasks = projectTasks.filter((t) => t.status === "todo");
   const inProgressTasks = projectTasks.filter((t) => t.status === "in_progress");
   const doneTasks = projectTasks.filter((t) => t.status === "done");
+
+  const renderTaskCard = (task: Task) => (
+    <Card key={task.id} className="p-3 group">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium truncate">{task.title}</span>
+            {task.priority !== "normal" && (
+              <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${PRIORITY_COLORS[task.priority]}`}>
+                {task.priority === "high" ? "Hoch" : task.priority === "critical" ? "Kritisch" : "Niedrig"}
+              </Badge>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-1.5">{task.description}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {task.due_date && (
+              <div className={`flex items-center gap-1 text-xs ${isOverdue(task.due_date) && task.status !== "done" ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                <Calendar className="h-3 w-3" />
+                {new Date(task.due_date).toLocaleDateString("de-CH")}
+              </div>
+            )}
+            {task.participants && task.participants.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <User className="h-3 w-3" />
+                {task.participants.map((p) => getProfileName(p.user_id)).join(", ")}
+              </div>
+            )}
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs opacity-0 group-hover:opacity-100 shrink-0"
+          onClick={() => handleUnassignTask(task.id)}
+        >
+          Entfernen
+        </Button>
+      </div>
+    </Card>
+  );
 
   return (
     <Layout title={project.name} subtitle="Projektdetails">
@@ -158,26 +246,7 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
               {col.tasks.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">Keine Tasks</p>
               ) : (
-                col.tasks.map((task) => (
-                  <Card key={task.id} className="p-3 group">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{task.title}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs opacity-0 group-hover:opacity-100"
-                        onClick={() => handleUnassignTask(task.id)}
-                      >
-                        Entfernen
-                      </Button>
-                    </div>
-                    {task.due_date && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(task.due_date).toLocaleDateString("de-CH")}
-                      </p>
-                    )}
-                  </Card>
-                ))
+                col.tasks.map(renderTaskCard)
               )}
             </div>
           </div>
@@ -194,9 +263,19 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {unassignedTasks.map((task) => (
                 <div key={task.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
-                  <div>
+                  <div className="flex-1 min-w-0 mr-2">
                     <p className="text-sm font-medium">{task.title}</p>
-                    <p className="text-xs text-muted-foreground">{TASK_STATUS_LABELS[task.status] || task.status}</p>
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{TASK_STATUS_LABELS[task.status] || task.status}</span>
+                      {task.due_date && (
+                        <span className="text-xs text-muted-foreground">
+                          · {new Date(task.due_date).toLocaleDateString("de-CH")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => handleAssignTask(task.id)}>
                     <Plus className="h-3 w-3 mr-1" />
@@ -213,6 +292,7 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         projectId={project.id}
+        profiles={profiles}
         onCreated={fetchProjectTasks}
       />
     </Layout>
