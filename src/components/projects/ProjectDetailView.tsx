@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/layout/Layout";
@@ -62,6 +64,9 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
+  const [quickDescription, setQuickDescription] = useState("");
+  const [quickDueDate, setQuickDueDate] = useState("");
+  const [quickAssignee, setQuickAssignee] = useState("");
   const [isQuickAdding, setIsQuickAdding] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
@@ -114,16 +119,30 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
     if (!user || !quickTitle.trim()) return;
     setIsQuickAdding(true);
     try {
-      const { error } = await supabase.from("tasks").insert({
+      const { data: taskData, error } = await supabase.from("tasks").insert({
         title: quickTitle.trim(),
+        description: quickDescription.trim() || null,
+        due_date: quickDueDate || null,
         status: "todo",
         priority: "normal",
         created_by: user.id,
         project_id: project.id,
-      });
+      }).select("id").single();
       if (error) throw error;
+
+      if (quickAssignee && taskData) {
+        await supabase.from("task_participants").insert({
+          task_id: taskData.id,
+          user_id: quickAssignee,
+          status: "pending",
+        });
+      }
+
       toast.success("Task erstellt");
       setQuickTitle("");
+      setQuickDescription("");
+      setQuickDueDate("");
+      setQuickAssignee("");
       fetchProjectTasks();
     } catch (error) {
       console.error("Error quick-adding task:", error);
@@ -212,23 +231,58 @@ export function ProjectDetailView({ project, onBack, onAssignTask }: ProjectDeta
       )}
 
       {/* Inline Quick Add */}
-      <div className="flex gap-2 mb-6">
-        <Input
-          value={quickTitle}
-          onChange={(e) => setQuickTitle(e.target.value)}
-          placeholder="Neuer Task – Titel eingeben und Enter drücken..."
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleQuickAdd();
-            }
-          }}
-          disabled={isQuickAdding}
-        />
-        <Button onClick={handleQuickAdd} disabled={isQuickAdding || !quickTitle.trim()} size="sm">
-          {isQuickAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-        </Button>
-      </div>
+      <Card className="mb-6 p-4">
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              value={quickTitle}
+              onChange={(e) => setQuickTitle(e.target.value)}
+              placeholder="Neuer Task – Titel eingeben..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleQuickAdd();
+                }
+              }}
+              disabled={isQuickAdding}
+            />
+            <Button onClick={handleQuickAdd} disabled={isQuickAdding || !quickTitle.trim()} size="sm">
+              {isQuickAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            </Button>
+          </div>
+          <Textarea
+            value={quickDescription}
+            onChange={(e) => setQuickDescription(e.target.value)}
+            placeholder="Beschreibung (optional)"
+            rows={2}
+            disabled={isQuickAdding}
+            className="min-h-[60px]"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Select value={quickAssignee} onValueChange={setQuickAssignee}>
+              <SelectTrigger>
+                <SelectValue placeholder="Zugewiesen an..." />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.user_id} value={profile.user_id}>
+                    {profile.first_name || profile.last_name
+                      ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
+                      : profile.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              value={quickDueDate}
+              onChange={(e) => setQuickDueDate(e.target.value)}
+              disabled={isQuickAdding}
+              placeholder="Fälligkeitsdatum"
+            />
+          </div>
+        </div>
+      </Card>
 
       {/* Task Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
