@@ -19,16 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -68,7 +58,7 @@ export function EditEventDialog({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showScopeDialog, setShowScopeDialog] = useState(false);
-  const [editScope, setEditScope] = useState<EditScope>("series");
+  
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -98,7 +88,7 @@ export function EditEventDialog({
         recurrence_type: event.recurrence_type || "",
         recurrence_end_date: event.recurrence_end_date || "",
       });
-      setEditScope("series");
+      
     }
   }, [event]);
 
@@ -118,9 +108,13 @@ export function EditEventDialog({
       return;
     }
 
-    // For recurring events that are occurrences, ask scope
+    // For recurring occurrence events, ask scope unless recurrence is being disabled
     if (isRecurringEvent && event._isOccurrence) {
-      setShowScopeDialog(true);
+      if (!formData.is_recurring) {
+        saveChanges("series");
+      } else {
+        setShowScopeDialog(true);
+      }
       return;
     }
 
@@ -348,51 +342,53 @@ export function EditEventDialog({
               />
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Abbrechen
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Speichern
-              </Button>
-            </DialogFooter>
+            {showScopeDialog ? (
+              <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+                <p className="text-sm font-medium">Terminserie bearbeiten</p>
+                <p className="text-sm text-muted-foreground">
+                  Möchten Sie nur diesen einzelnen Termin oder die gesamte Serie ändern?
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setShowScopeDialog(false)}>
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => saveChanges("single")}
+                    className="flex items-center gap-2"
+                  >
+                    <CalendarDays size={16} />
+                    Nur diesen Termin
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => saveChanges("series")}
+                    className="flex items-center gap-2"
+                  >
+                    <Repeat size={16} />
+                    Gesamte Serie
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Abbrechen
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Speichern
+                </Button>
+              </DialogFooter>
+            )}
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Scope selection for recurring event occurrences */}
-      <AlertDialog open={showScopeDialog} onOpenChange={setShowScopeDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Terminserie bearbeiten</AlertDialogTitle>
-            <AlertDialogDescription>
-              Möchten Sie nur diesen einzelnen Termin oder die gesamte Serie ändern?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => saveChanges("single")}
-              className="flex items-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-            >
-              <CalendarDays size={16} />
-              Nur diesen Termin
-            </AlertDialogAction>
-            <AlertDialogAction
-              onClick={() => saveChanges("series")}
-              className="flex items-center gap-2"
-            >
-              <Repeat size={16} />
-              Gesamte Serie
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
