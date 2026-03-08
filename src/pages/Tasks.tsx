@@ -482,9 +482,9 @@ export default function Tasks() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="daily">{t("tasks.daily")}</SelectItem>
+                          <SelectItem value="weekly">{t("tasks.weekly")}</SelectItem>
+                          <SelectItem value="monthly">{t("tasks.monthly")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
