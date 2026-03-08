@@ -1,10 +1,13 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, Header, Footer, PageNumber, NumberFormat } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, Header, Footer, PageNumber, NumberFormat, TabStopType, TabStopPosition } from "docx";
 import { saveAs } from "file-saver";
+import { LABELS, type DocLanguage, type ContractType } from "./legalTermsLibrary";
 
 export interface ContractData {
   title: string;
   contractNumber?: string;
   date: string;
+  language: DocLanguage;
+  contractType: ContractType;
   partyA: {
     name: string;
     address: string;
@@ -15,6 +18,7 @@ export interface ContractData {
     address: string;
     representative?: string;
   };
+  preamble?: string;
   terms: string[];
   value?: string;
   currency?: string;
@@ -33,6 +37,7 @@ export interface PaymentInstructionData {
   purpose: string;
   dueDate?: string;
   notes?: string;
+  language?: DocLanguage;
 }
 
 export interface EmptyDocumentData {
@@ -41,6 +46,7 @@ export interface EmptyDocumentData {
   location?: string;
   content: string;
   date: string;
+  language?: DocLanguage;
 }
 
 export interface ProtocolTopic {
@@ -69,18 +75,17 @@ const DEFAULT_LETTERHEAD: LetterheadConfig = {
   companyName: "MGI × AFRIKA",
   subtitle: "Government Cooperation Platform",
   address: "Zürich, Switzerland",
-  primaryColor: "C9A227", // Gold color matching original template
+  primaryColor: "000000",
   footerText: "Confidential",
 };
 
-// Global letterhead config that can be set before generating documents
 let currentLetterhead: LetterheadConfig = { ...DEFAULT_LETTERHEAD };
 
 export function setLetterheadConfig(config: Partial<LetterheadConfig>) {
   currentLetterhead = {
     ...DEFAULT_LETTERHEAD,
     ...config,
-    primaryColor: (config.primaryColor || DEFAULT_LETTERHEAD.primaryColor).replace("#", ""),
+    primaryColor: "000000", // Always black for legal documents
   };
 }
 
@@ -88,38 +93,40 @@ export function getLetterheadConfig(): LetterheadConfig {
   return currentLetterhead;
 }
 
+// Classic black & white legal header
 function createHeader(): Header {
   const config = currentLetterhead;
   return new Header({
     children: [
       new Paragraph({
-        alignment: AlignmentType.RIGHT,
+        alignment: AlignmentType.LEFT,
         children: [
           new TextRun({
-            text: config.companyName,
+            text: config.companyName.toUpperCase(),
             bold: true,
-            size: 24,
-            color: config.primaryColor,
+            size: 22,
+            color: "000000",
+            font: "Times New Roman",
           }),
         ],
       }),
       new Paragraph({
-        alignment: AlignmentType.RIGHT,
+        alignment: AlignmentType.LEFT,
         children: [
           new TextRun({
             text: config.subtitle,
             size: 18,
-            color: "666666",
-            italics: true,
+            color: "444444",
+            font: "Times New Roman",
           }),
         ],
       }),
       new Paragraph({
-        alignment: AlignmentType.RIGHT,
+        alignment: AlignmentType.LEFT,
         border: {
           bottom: {
-            color: config.primaryColor,
-            size: 1,
+            color: "000000",
+            size: 6,
             style: BorderStyle.SINGLE,
           },
         },
@@ -127,54 +134,55 @@ function createHeader(): Header {
           new TextRun({
             text: config.address,
             size: 16,
-            color: "888888",
+            color: "666666",
+            font: "Times New Roman",
           }),
         ],
-        spacing: { after: 400 },
+        spacing: { after: 300 },
       }),
     ],
   });
 }
 
-function createFooter(): Footer {
+function createFooter(lang: DocLanguage = "de"): Footer {
   const config = currentLetterhead;
+  const l = LABELS[lang];
   return new Footer({
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
         border: {
           top: {
-            color: "cccccc",
-            size: 1,
+            color: "000000",
+            size: 3,
             style: BorderStyle.SINGLE,
           },
         },
         spacing: { before: 200 },
         children: [
           new TextRun({
-            text: `${config.companyName} | ${config.footerText}`,
-            size: 16,
-            color: "888888",
-          }),
-          new TextRun({
-            text: "  |  Page ",
-            size: 16,
-            color: "888888",
+            text: `${config.companyName}  |  ${l.confidential}  |  ${l.page} `,
+            size: 14,
+            color: "666666",
+            font: "Times New Roman",
           }),
           new TextRun({
             children: [PageNumber.CURRENT],
-            size: 16,
-            color: "888888",
+            size: 14,
+            color: "666666",
+            font: "Times New Roman",
           }),
           new TextRun({
-            text: " of ",
-            size: 16,
-            color: "888888",
+            text: ` ${l.of} `,
+            size: 14,
+            color: "666666",
+            font: "Times New Roman",
           }),
           new TextRun({
             children: [PageNumber.TOTAL_PAGES],
-            size: 16,
-            color: "888888",
+            size: 14,
+            color: "666666",
+            font: "Times New Roman",
           }),
         ],
       }),
@@ -182,143 +190,267 @@ function createFooter(): Footer {
   });
 }
 
+// Helper: create a numbered article paragraph with title and body
+function createArticleParagraph(index: number, text: string, lang: DocLanguage): Paragraph[] {
+  const parts = text.split("\n");
+  const title = parts[0];
+  const body = parts.slice(1).join("\n").trim();
+  
+  const paragraphs: Paragraph[] = [];
+  
+  // Article heading
+  const articleLabel = lang === "de" ? "Artikel" : lang === "en" ? "Article" : lang === "fr" ? "Article" : "Artigo";
+  paragraphs.push(
+    new Paragraph({
+      spacing: { before: 360, after: 120 },
+      children: [
+        new TextRun({
+          text: `${articleLabel} ${index} – ${title}`,
+          bold: true,
+          size: 22,
+          color: "000000",
+          font: "Times New Roman",
+        }),
+      ],
+    })
+  );
+
+  // Article body
+  if (body) {
+    paragraphs.push(
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [
+          new TextRun({
+            text: body,
+            size: 22,
+            color: "000000",
+            font: "Times New Roman",
+          }),
+        ],
+        indent: { left: 0 },
+      })
+    );
+  }
+
+  return paragraphs;
+}
+
 export async function generateContractDocx(data: ContractData): Promise<void> {
+  const lang = data.language || "de";
+  const l = LABELS[lang];
+
   const doc = new Document({
     sections: [
       {
-        headers: {
-          default: createHeader(),
-        },
-        footers: {
-          default: createFooter(),
+        headers: { default: createHeader() },
+        footers: { default: createFooter(lang) },
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
         },
         children: [
           // Title
           new Paragraph({
-            text: data.title,
-            heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: 200 },
+            spacing: { before: 600, after: 120 },
+            children: [
+              new TextRun({
+                text: data.title.toUpperCase(),
+                bold: true,
+                size: 32,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
           }),
-          
+
+          // Decorative line
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+            children: [
+              new TextRun({
+                text: "─".repeat(60),
+                size: 16,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
+          }),
+
           // Contract Number & Date
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
             children: [
               new TextRun({
-                text: `Vertragsnummer: ${data.contractNumber || "---"} | Datum: ${data.date}`,
+                text: data.contractNumber ? `Nr. ${data.contractNumber}  |  ${data.date}` : data.date,
                 size: 20,
-                color: "666666",
+                color: "444444",
+                font: "Times New Roman",
               }),
             ],
           }),
 
+          // Preamble
+          ...(data.preamble ? [
+            new Paragraph({
+              spacing: { before: 200, after: 300 },
+              children: [
+                new TextRun({
+                  text: data.preamble,
+                  size: 22,
+                  color: "000000",
+                  font: "Times New Roman",
+                  italics: true,
+                }),
+              ],
+            }),
+          ] : []),
+
           // Parties Section
           new Paragraph({
-            text: "VERTRAGSPARTEIEN",
-            heading: HeadingLevel.HEADING_2,
             spacing: { before: 300, after: 200 },
+            border: {
+              bottom: { color: "000000", size: 3, style: BorderStyle.SINGLE },
+            },
+            children: [
+              new TextRun({
+                text: l.parties,
+                bold: true,
+                size: 24,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
           }),
 
           // Party A
           new Paragraph({
+            spacing: { before: 200 },
             children: [
-              new TextRun({ text: "Partei A: ", bold: true }),
-              new TextRun({ text: data.partyA.name }),
+              new TextRun({ text: `${l.partyA}: `, bold: true, size: 22, font: "Times New Roman" }),
+              new TextRun({ text: data.partyA.name, size: 22, font: "Times New Roman" }),
             ],
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: "Adresse: ", bold: true }),
-              new TextRun({ text: data.partyA.address }),
+              new TextRun({ text: `${l.address}: `, bold: true, size: 22, font: "Times New Roman" }),
+              new TextRun({ text: data.partyA.address, size: 22, font: "Times New Roman" }),
             ],
           }),
           ...(data.partyA.representative ? [
             new Paragraph({
-              children: [
-                new TextRun({ text: "Vertreter: ", bold: true }),
-                new TextRun({ text: data.partyA.representative }),
-              ],
               spacing: { after: 200 },
+              children: [
+                new TextRun({ text: `${l.representative}: `, bold: true, size: 22, font: "Times New Roman" }),
+                new TextRun({ text: data.partyA.representative, size: 22, font: "Times New Roman" }),
+              ],
             }),
           ] : [new Paragraph({ text: "", spacing: { after: 200 } })]),
 
           // Party B
           new Paragraph({
             children: [
-              new TextRun({ text: "Partei B: ", bold: true }),
-              new TextRun({ text: data.partyB.name }),
+              new TextRun({ text: `${l.partyB}: `, bold: true, size: 22, font: "Times New Roman" }),
+              new TextRun({ text: data.partyB.name, size: 22, font: "Times New Roman" }),
             ],
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: "Adresse: ", bold: true }),
-              new TextRun({ text: data.partyB.address }),
+              new TextRun({ text: `${l.address}: `, bold: true, size: 22, font: "Times New Roman" }),
+              new TextRun({ text: data.partyB.address, size: 22, font: "Times New Roman" }),
             ],
           }),
           ...(data.partyB.representative ? [
             new Paragraph({
-              children: [
-                new TextRun({ text: "Vertreter: ", bold: true }),
-                new TextRun({ text: data.partyB.representative }),
-              ],
               spacing: { after: 300 },
+              children: [
+                new TextRun({ text: `${l.representative}: `, bold: true, size: 22, font: "Times New Roman" }),
+                new TextRun({ text: data.partyB.representative, size: 22, font: "Times New Roman" }),
+              ],
             }),
           ] : [new Paragraph({ text: "", spacing: { after: 300 } })]),
 
           // Contract Terms
           new Paragraph({
-            text: "VERTRAGSBEDINGUNGEN",
-            heading: HeadingLevel.HEADING_2,
             spacing: { before: 300, after: 200 },
+            border: {
+              bottom: { color: "000000", size: 3, style: BorderStyle.SINGLE },
+            },
+            children: [
+              new TextRun({
+                text: l.terms,
+                bold: true,
+                size: 24,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
           }),
 
-          ...data.terms.map((term, index) => 
-            new Paragraph({
-              children: [
-                new TextRun({ text: `${index + 1}. `, bold: true }),
-                new TextRun({ text: term }),
-              ],
-              spacing: { after: 100 },
-            })
+          ...data.terms.flatMap((term, index) => 
+            createArticleParagraph(index + 1, term, lang)
           ),
 
           // Value & Duration
           ...(data.value ? [
             new Paragraph({
-              text: "VERTRAGSWERT",
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 300, after: 200 },
+              spacing: { before: 400, after: 200 },
+              border: {
+                bottom: { color: "000000", size: 3, style: BorderStyle.SINGLE },
+              },
+              children: [
+                new TextRun({
+                  text: l.contractValue,
+                  bold: true,
+                  size: 24,
+                  color: "000000",
+                  font: "Times New Roman",
+                }),
+              ],
             }),
             new Paragraph({
               children: [
-                new TextRun({ text: `Betrag: ${data.value} ${data.currency || "CHF"}` }),
+                new TextRun({ text: `${data.value} ${data.currency || "CHF"}`, size: 22, font: "Times New Roman" }),
               ],
             }),
           ] : []),
 
           ...(data.duration ? [
             new Paragraph({
+              spacing: { before: 200, after: 200 },
               children: [
-                new TextRun({ text: `Laufzeit: ${data.duration}` }),
+                new TextRun({ text: `${l.duration}: `, bold: true, size: 22, font: "Times New Roman" }),
+                new TextRun({ text: data.duration, size: 22, font: "Times New Roman" }),
               ],
-              spacing: { after: 200 },
             }),
           ] : []),
 
           // Special Clauses
           ...(data.specialClauses && data.specialClauses.length > 0 ? [
             new Paragraph({
-              text: "BESONDERE KLAUSELN",
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 300, after: 200 },
+              spacing: { before: 400, after: 200 },
+              border: {
+                bottom: { color: "000000", size: 3, style: BorderStyle.SINGLE },
+              },
+              children: [
+                new TextRun({
+                  text: l.specialClauses,
+                  bold: true,
+                  size: 24,
+                  color: "000000",
+                  font: "Times New Roman",
+                }),
+              ],
             }),
             ...data.specialClauses.map(clause => 
               new Paragraph({
                 children: [
-                  new TextRun({ text: "• ", bold: true }),
-                  new TextRun({ text: clause }),
+                  new TextRun({ text: "— ", size: 22, font: "Times New Roman" }),
+                  new TextRun({ text: clause, size: 22, font: "Times New Roman" }),
                 ],
                 spacing: { after: 100 },
               })
@@ -327,9 +459,19 @@ export async function generateContractDocx(data: ContractData): Promise<void> {
 
           // Signature Section
           new Paragraph({
-            text: "UNTERSCHRIFTEN",
-            heading: HeadingLevel.HEADING_2,
             spacing: { before: 600, after: 300 },
+            border: {
+              bottom: { color: "000000", size: 3, style: BorderStyle.SINGLE },
+            },
+            children: [
+              new TextRun({
+                text: l.signatures,
+                bold: true,
+                size: 24,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
           }),
 
           new Table({
@@ -346,21 +488,15 @@ export async function generateContractDocx(data: ContractData): Promise<void> {
                       right: { style: BorderStyle.NONE },
                     },
                     children: [
-                      new Paragraph({ text: "", spacing: { after: 600 } }),
+                      new Paragraph({ text: "", spacing: { after: 800 } }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: "_".repeat(30) }),
-                        ],
+                        children: [new TextRun({ text: "_".repeat(30), font: "Times New Roman" })],
                       }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: data.partyA.name, bold: true }),
-                        ],
+                        children: [new TextRun({ text: data.partyA.name, bold: true, size: 20, font: "Times New Roman" })],
                       }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: "Datum: ________________", size: 18 }),
-                        ],
+                        children: [new TextRun({ text: `${l.date}: ________________`, size: 18, color: "666666", font: "Times New Roman" })],
                       }),
                     ],
                   }),
@@ -373,21 +509,15 @@ export async function generateContractDocx(data: ContractData): Promise<void> {
                       right: { style: BorderStyle.NONE },
                     },
                     children: [
-                      new Paragraph({ text: "", spacing: { after: 600 } }),
+                      new Paragraph({ text: "", spacing: { after: 800 } }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: "_".repeat(30) }),
-                        ],
+                        children: [new TextRun({ text: "_".repeat(30), font: "Times New Roman" })],
                       }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: data.partyB.name, bold: true }),
-                        ],
+                        children: [new TextRun({ text: data.partyB.name, bold: true, size: 20, font: "Times New Roman" })],
                       }),
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: "Datum: ________________", size: 18 }),
-                        ],
+                        children: [new TextRun({ text: `${l.date}: ________________`, size: 18, color: "666666", font: "Times New Roman" })],
                       }),
                     ],
                   }),
@@ -405,33 +535,43 @@ export async function generateContractDocx(data: ContractData): Promise<void> {
 }
 
 export async function generatePaymentInstructionDocx(data: PaymentInstructionData): Promise<void> {
+  const lang = data.language || "de";
+  const l = LABELS[lang];
+
   const doc = new Document({
     sections: [
       {
-        headers: {
-          default: createHeader(),
-        },
-        footers: {
-          default: createFooter(),
+        headers: { default: createHeader() },
+        footers: { default: createFooter(lang) },
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
         },
         children: [
           new Paragraph({
-            text: "ZAHLUNGSANWEISUNG",
-            heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: 400 },
+            spacing: { before: 600, after: 120 },
+            children: [
+              new TextRun({
+                text: l.paymentInstruction,
+                bold: true,
+                size: 32,
+                color: "000000",
+                font: "Times New Roman",
+              }),
+            ],
           }),
 
           new Paragraph({
-            text: "PAYMENT INSTRUCTION",
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
             children: [
               new TextRun({
-                text: "PAYMENT INSTRUCTION",
-                size: 20,
-                color: "888888",
-                italics: true,
+                text: "─".repeat(60),
+                size: 16,
+                color: "000000",
+                font: "Times New Roman",
               }),
             ],
           }),
@@ -440,7 +580,7 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
           ...(data.notes ? data.notes.split('\n').filter(line => line.trim()).map((line, index, arr) => 
             new Paragraph({
               children: [
-                new TextRun({ text: line, size: 22 }),
+                new TextRun({ text: line, size: 22, font: "Times New Roman" }),
               ],
               spacing: { before: index === 0 ? 200 : 80, after: index === arr.length - 1 ? 300 : 80 },
             })
@@ -449,57 +589,42 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
-              createTableRow("Empfänger / Beneficiary:", data.recipient),
-              createTableRow("IBAN:", data.iban),
-              ...(data.bic ? [createTableRow("BIC/SWIFT:", data.bic)] : []),
-              createTableRow("Bank:", data.bankName),
-              createTableRow("Betrag / Amount:", `${data.amount} ${data.currency}`),
-              createTableRow("Verwendungszweck / Reference:", data.reference),
-              createTableRow("Zweck / Purpose:", data.purpose),
-              ...(data.dueDate ? [createTableRow("Fälligkeitsdatum / Due Date:", data.dueDate)] : []),
+              createLegalTableRow(`${l.beneficiary}:`, data.recipient),
+              createLegalTableRow("IBAN:", data.iban),
+              ...(data.bic ? [createLegalTableRow("BIC/SWIFT:", data.bic)] : []),
+              createLegalTableRow(`${l.bank}:`, data.bankName),
+              createLegalTableRow(`${l.amount}:`, `${data.amount} ${data.currency}`),
+              createLegalTableRow(`${l.reference}:`, data.reference),
+              createLegalTableRow(`${l.purpose}:`, data.purpose),
+              ...(data.dueDate ? [createLegalTableRow(`${l.dueDate}:`, data.dueDate)] : []),
             ],
           }),
 
-          new Paragraph({
-            text: "",
-            spacing: { before: 400, after: 200 },
-          }),
+          new Paragraph({ text: "", spacing: { before: 400 } }),
 
           new Paragraph({
-            alignment: AlignmentType.LEFT,
             children: [
-              new TextRun({
-                text: "Autorisiert durch / Authorized by:",
-                bold: true,
-              }),
+              new TextRun({ text: `${l.authorizedBy}:`, bold: true, size: 22, font: "Times New Roman" }),
             ],
             spacing: { before: 400 },
           }),
 
-          new Paragraph({ text: "", spacing: { after: 400 } }),
+          new Paragraph({ text: "", spacing: { after: 600 } }),
 
           new Paragraph({
-            children: [
-              new TextRun({ text: "_".repeat(40) }),
-            ],
+            children: [new TextRun({ text: "_".repeat(40), font: "Times New Roman" })],
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "Unterschrift / Signature", size: 18, color: "888888" }),
-            ],
+            children: [new TextRun({ text: l.signature, size: 18, color: "666666", font: "Times New Roman" })],
           }),
 
-          new Paragraph({ text: "", spacing: { after: 200 } }),
+          new Paragraph({ text: "", spacing: { after: 300 } }),
 
           new Paragraph({
-            children: [
-              new TextRun({ text: "_".repeat(40) }),
-            ],
+            children: [new TextRun({ text: "_".repeat(40), font: "Times New Roman" })],
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "Datum / Date", size: 18, color: "888888" }),
-            ],
+            children: [new TextRun({ text: l.date, size: 18, color: "666666", font: "Times New Roman" })],
           }),
         ],
       },
@@ -510,20 +635,25 @@ export async function generatePaymentInstructionDocx(data: PaymentInstructionDat
   saveAs(blob, `Payment_Instruction_${data.reference}_${new Date().toISOString().split("T")[0]}.docx`);
 }
 
-function createTableRow(label: string, value: string, isMultiline: boolean = false): TableRow {
-  // Split value by newlines for multiline support
-  const lines = isMultiline ? value.split('\n').filter(line => line.trim()) : [value];
+function createLegalTableRow(label: string, value: string): TableRow {
+  const lines = value.split('\n').filter(line => line.trim());
   
   return new TableRow({
     children: [
       new TableCell({
         width: { size: 35, type: WidthType.PERCENTAGE },
-        shading: { fill: "f5f5f5" },
+        shading: { fill: "f0f0f0" },
         verticalAlign: "top" as const,
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          left: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          right: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+        },
         children: [
           new Paragraph({
             children: [
-              new TextRun({ text: label, bold: true, size: 22 }),
+              new TextRun({ text: label, bold: true, size: 22, font: "Times New Roman" }),
             ],
             spacing: { before: 100, after: 100 },
           }),
@@ -532,10 +662,16 @@ function createTableRow(label: string, value: string, isMultiline: boolean = fal
       new TableCell({
         width: { size: 65, type: WidthType.PERCENTAGE },
         verticalAlign: "top" as const,
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          left: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+          right: { style: BorderStyle.SINGLE, size: 2, color: "cccccc" },
+        },
         children: lines.map((line, index) => 
           new Paragraph({
             children: [
-              new TextRun({ text: line, size: 22 }),
+              new TextRun({ text: line, size: 22, font: "Times New Roman" }),
             ],
             spacing: { before: index === 0 ? 100 : 50, after: index === lines.length - 1 ? 100 : 50 },
           })
@@ -545,14 +681,29 @@ function createTableRow(label: string, value: string, isMultiline: boolean = fal
   });
 }
 
-// PDF generation using browser print
+// PDF generation - Classic black & white legal style
 export function generateContractPdf(data: ContractData): void {
+  const lang = data.language || "de";
+  const l = LABELS[lang];
   const config = currentLetterhead;
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
+    alert("Popup blocked.");
     return;
   }
+
+  const termsHtml = data.terms.map((term, index) => {
+    const parts = term.split("\n");
+    const title = parts[0];
+    const body = parts.slice(1).join("<br>");
+    const articleLabel = lang === "de" ? "Artikel" : lang === "en" ? "Article" : lang === "fr" ? "Article" : "Artigo";
+    return `
+      <div class="article">
+        <h4>${articleLabel} ${index + 1} – ${title}</h4>
+        ${body ? `<p>${body}</p>` : ""}
+      </div>
+    `;
+  }).join("");
 
   const html = `
 <!DOCTYPE html>
@@ -561,108 +712,105 @@ export function generateContractPdf(data: ContractData): void {
   <meta charset="UTF-8">
   <title>${data.title}</title>
   <style>
-    @page { margin: 2cm; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
-    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
-    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
-    .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
-    .title { text-align: center; margin: 2rem 0; }
-    .title h2 { font-size: 1.8rem; margin-bottom: 0.5rem; }
-    .meta { text-align: center; color: #666; margin-bottom: 2rem; }
-    h3 { color: #${config.primaryColor}; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-top: 2rem; }
-    .party { margin-bottom: 1rem; }
-    .party strong { display: inline-block; width: 100px; }
-    .terms ol { margin-left: 1.5rem; }
-    .terms li { margin-bottom: 0.5rem; }
+    @page { margin: 2.5cm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Times New Roman', 'Georgia', serif; line-height: 1.7; color: #000; font-size: 11pt; }
+    .header { border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0; font-size: 12pt; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; }
+    .header p { margin: 0.1rem 0; color: #444; font-size: 9pt; }
+    .title { text-align: center; margin: 2rem 0 0.5rem; }
+    .title h2 { font-size: 16pt; margin: 0; text-transform: uppercase; letter-spacing: 3px; font-weight: bold; }
+    .divider { text-align: center; color: #000; margin-bottom: 0.5rem; font-size: 8pt; letter-spacing: 4px; }
+    .meta { text-align: center; color: #444; margin-bottom: 2rem; font-size: 10pt; }
+    .preamble { font-style: italic; margin-bottom: 2rem; text-align: justify; }
+    .section-title { font-size: 12pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 0.3rem; margin-top: 2rem; margin-bottom: 1rem; letter-spacing: 1px; }
+    .party p { margin: 0.15rem 0; }
+    .party strong { display: inline-block; min-width: 140px; }
+    .article { margin-bottom: 1.2rem; }
+    .article h4 { margin: 0 0 0.3rem; font-size: 11pt; font-weight: bold; }
+    .article p { margin: 0; text-align: justify; }
     .signatures { display: flex; justify-content: space-between; margin-top: 4rem; }
-    .signature-box { width: 45%; text-align: center; }
-    .signature-line { border-top: 1px solid #333; margin-top: 3rem; padding-top: 0.5rem; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 0.5rem; }
+    .sig-box { width: 44%; }
+    .sig-line { border-top: 1px solid #000; margin-top: 4rem; padding-top: 0.3rem; }
+    .sig-line strong { display: block; font-size: 10pt; }
+    .sig-line small { color: #666; font-size: 9pt; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #666; border-top: 1px solid #000; padding-top: 0.3rem; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>${config.companyName}</h1>
-    <p><em>${config.subtitle}</em></p>
+    <p>${config.subtitle}</p>
     <p>${config.address}</p>
   </div>
   
-  <div class="title">
-    <h2>${data.title}</h2>
+  <div class="title"><h2>${data.title}</h2></div>
+  <div class="divider">${"─".repeat(40)}</div>
+  <div class="meta">${data.contractNumber ? `Nr. ${data.contractNumber}  |  ` : ""}${data.date}</div>
+
+  ${data.preamble ? `<div class="preamble">${data.preamble}</div>` : ""}
+
+  <div class="section-title">${l.parties}</div>
+  <div class="party">
+    <p><strong>${l.partyA}:</strong> ${data.partyA.name}</p>
+    <p><strong>${l.address}:</strong> ${data.partyA.address}</p>
+    ${data.partyA.representative ? `<p><strong>${l.representative}:</strong> ${data.partyA.representative}</p>` : ""}
   </div>
-  <div class="meta">
-    Vertragsnummer: ${data.contractNumber || "---"} | Datum: ${data.date}
+  <br>
+  <div class="party">
+    <p><strong>${l.partyB}:</strong> ${data.partyB.name}</p>
+    <p><strong>${l.address}:</strong> ${data.partyB.address}</p>
+    ${data.partyB.representative ? `<p><strong>${l.representative}:</strong> ${data.partyB.representative}</p>` : ""}
   </div>
 
-  <h3>VERTRAGSPARTEIEN</h3>
-  <div class="party">
-    <p><strong>Partei A:</strong> ${data.partyA.name}</p>
-    <p><strong>Adresse:</strong> ${data.partyA.address}</p>
-    ${data.partyA.representative ? `<p><strong>Vertreter:</strong> ${data.partyA.representative}</p>` : ""}
-  </div>
-  <div class="party">
-    <p><strong>Partei B:</strong> ${data.partyB.name}</p>
-    <p><strong>Adresse:</strong> ${data.partyB.address}</p>
-    ${data.partyB.representative ? `<p><strong>Vertreter:</strong> ${data.partyB.representative}</p>` : ""}
-  </div>
-
-  <h3>VERTRAGSBEDINGUNGEN</h3>
-  <div class="terms">
-    <ol>
-      ${data.terms.map(term => `<li>${term}</li>`).join("")}
-    </ol>
-  </div>
+  <div class="section-title">${l.terms}</div>
+  ${termsHtml}
 
   ${data.value ? `
-  <h3>VERTRAGSWERT</h3>
-  <p>Betrag: ${data.value} ${data.currency || "CHF"}</p>
+  <div class="section-title">${l.contractValue}</div>
+  <p>${data.value} ${data.currency || "CHF"}</p>
   ` : ""}
 
-  ${data.duration ? `<p>Laufzeit: ${data.duration}</p>` : ""}
+  ${data.duration ? `<p><strong>${l.duration}:</strong> ${data.duration}</p>` : ""}
 
   ${data.specialClauses && data.specialClauses.length > 0 ? `
-  <h3>BESONDERE KLAUSELN</h3>
-  <ul>
-    ${data.specialClauses.map(c => `<li>${c}</li>`).join("")}
-  </ul>
+  <div class="section-title">${l.specialClauses}</div>
+  ${data.specialClauses.map(c => `<p>— ${c}</p>`).join("")}
   ` : ""}
 
-  <h3>UNTERSCHRIFTEN</h3>
+  <div class="section-title">${l.signatures}</div>
   <div class="signatures">
-    <div class="signature-box">
-      <div class="signature-line">
-        <strong>${data.partyA.name}</strong><br>
-        <small>Datum: ________________</small>
+    <div class="sig-box">
+      <div class="sig-line">
+        <strong>${data.partyA.name}</strong>
+        <small>${l.date}: ________________</small>
       </div>
     </div>
-    <div class="signature-box">
-      <div class="signature-line">
-        <strong>${data.partyB.name}</strong><br>
-        <small>Datum: ________________</small>
+    <div class="sig-box">
+      <div class="sig-line">
+        <strong>${data.partyB.name}</strong>
+        <small>${l.date}: ________________</small>
       </div>
     </div>
   </div>
 
-  <div class="footer">
-    ${config.companyName} | ${config.footerText}
-  </div>
+  <div class="footer">${config.companyName}  |  ${l.confidential}</div>
 
-  <script>
-    window.onload = function() { window.print(); }
-  </script>
+  <script>window.onload = function() { window.print(); }</script>
 </body>
-</html>
-  `;
+</html>`;
 
   printWindow.document.write(html);
   printWindow.document.close();
 }
 
 export function generatePaymentInstructionPdf(data: PaymentInstructionData): void {
+  const lang = data.language || "de";
+  const l = LABELS[lang];
   const config = currentLetterhead;
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
+    alert("Popup blocked.");
     return;
   }
 
@@ -671,169 +819,143 @@ export function generatePaymentInstructionPdf(data: PaymentInstructionData): voi
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Zahlungsanweisung - ${data.reference}</title>
+  <title>${l.paymentInstruction}</title>
   <style>
-    @page { margin: 2cm; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
-    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
-    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
-    .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
-    .title { text-align: center; margin: 2rem 0; }
-    .title h2 { font-size: 1.8rem; margin-bottom: 0.3rem; }
-    .title p { color: #888; font-style: italic; }
-    table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
-    th, td { padding: 0.8rem; text-align: left; border: 1px solid #ddd; }
-    th { background: #f5f5f5; width: 35%; font-weight: 600; }
-    .signature-section { margin-top: 3rem; }
-    .signature-section h4 { margin-bottom: 2rem; }
-    .signature-line { border-top: 1px solid #333; width: 50%; margin-top: 3rem; padding-top: 0.5rem; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 0.5rem; }
+    @page { margin: 2.5cm; }
+    body { font-family: 'Times New Roman', 'Georgia', serif; line-height: 1.7; color: #000; font-size: 11pt; }
+    .header { border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0; font-size: 12pt; letter-spacing: 2px; text-transform: uppercase; }
+    .header p { margin: 0.1rem 0; color: #444; font-size: 9pt; }
+    .title { text-align: center; margin: 2rem 0 0.5rem; }
+    .title h2 { font-size: 16pt; text-transform: uppercase; letter-spacing: 3px; }
+    .divider { text-align: center; margin-bottom: 1.5rem; font-size: 8pt; letter-spacing: 4px; }
+    .notes { margin: 1.5rem 0; white-space: pre-wrap; text-align: justify; }
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+    th, td { padding: 0.6rem 0.8rem; text-align: left; border: 1px solid #ccc; font-size: 11pt; }
+    th { background: #f0f0f0; width: 35%; font-weight: bold; }
+    .sig-section { margin-top: 3rem; }
+    .sig-line { border-top: 1px solid #000; width: 50%; margin-top: 3rem; padding-top: 0.3rem; color: #666; font-size: 9pt; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #666; border-top: 1px solid #000; padding-top: 0.3rem; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>${config.companyName}</h1>
-    <p><em>${config.subtitle}</em></p>
+    <p>${config.subtitle}</p>
     <p>${config.address}</p>
   </div>
   
-  <div class="title">
-    <h2>ZAHLUNGSANWEISUNG</h2>
-    <p>PAYMENT INSTRUCTION</p>
-  </div>
+  <div class="title"><h2>${l.paymentInstruction}</h2></div>
+  <div class="divider">${"─".repeat(40)}</div>
 
-  ${data.notes ? `<div class="notes-section" style="margin: 1.5rem 0; white-space: pre-wrap; line-height: 1.6;">${data.notes}</div>` : ""}
+  ${data.notes ? `<div class="notes">${data.notes}</div>` : ""}
 
   <table>
-    <tr><th>Empfänger / Beneficiary</th><td>${data.recipient}</td></tr>
+    <tr><th>${l.beneficiary}</th><td>${data.recipient}</td></tr>
     <tr><th>IBAN</th><td>${data.iban}</td></tr>
     ${data.bic ? `<tr><th>BIC/SWIFT</th><td>${data.bic}</td></tr>` : ""}
-    <tr><th>Bank</th><td>${data.bankName}</td></tr>
-    <tr><th>Betrag / Amount</th><td><strong>${data.amount} ${data.currency}</strong></td></tr>
-    <tr><th>Verwendungszweck / Reference</th><td>${data.reference}</td></tr>
-    <tr><th>Zweck / Purpose</th><td>${data.purpose}</td></tr>
-    ${data.dueDate ? `<tr><th>Fälligkeitsdatum / Due Date</th><td>${data.dueDate}</td></tr>` : ""}
+    <tr><th>${l.bank}</th><td>${data.bankName}</td></tr>
+    <tr><th>${l.amount}</th><td><strong>${data.amount} ${data.currency}</strong></td></tr>
+    <tr><th>${l.reference}</th><td>${data.reference}</td></tr>
+    <tr><th>${l.purpose}</th><td>${data.purpose}</td></tr>
+    ${data.dueDate ? `<tr><th>${l.dueDate}</th><td>${data.dueDate}</td></tr>` : ""}
   </table>
 
-  <div class="signature-section">
-    <h4>Autorisiert durch / Authorized by:</h4>
-    <div class="signature-line">
-      Unterschrift / Signature
-    </div>
+  <div class="sig-section">
+    <p><strong>${l.authorizedBy}:</strong></p>
+    <div class="sig-line">${l.signature}</div>
     <br><br>
-    <div class="signature-line">
-      Datum / Date
-    </div>
+    <div class="sig-line">${l.date}</div>
   </div>
 
-  <div class="footer">
-    ${config.companyName} | ${config.footerText}
-  </div>
+  <div class="footer">${config.companyName}  |  ${l.confidential}</div>
 
-  <script>
-    window.onload = function() { window.print(); }
-  </script>
+  <script>window.onload = function() { window.print(); }</script>
 </body>
-</html>
-  `;
+</html>`;
 
   printWindow.document.write(html);
   printWindow.document.close();
 }
 
-// Empty document generation
+// Empty document generation - Black & white legal style
 export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promise<void> {
-  // Split content by newlines and create paragraphs
+  const lang = data.language || "de";
   const contentParagraphs = data.content.split('\n').map(line => 
     new Paragraph({
       children: [
-        new TextRun({ text: line || " ", size: 22 }),
+        new TextRun({ text: line || " ", size: 22, font: "Times New Roman" }),
       ],
       spacing: { after: 120 },
     })
   );
 
-  // Recipient address paragraphs
   const recipientParagraphs = data.recipient ? data.recipient.split('\n').map(line => 
     new Paragraph({
       children: [
-        new TextRun({ text: line, size: 22 }),
+        new TextRun({ text: line, size: 22, font: "Times New Roman" }),
       ],
       spacing: { after: 40 },
     })
   ) : [];
 
+  const l = LABELS[lang];
+
   const doc = new Document({
     sections: [
       {
-        headers: {
-          default: createHeader(),
-        },
-        footers: {
-          default: createFooter(),
+        headers: { default: createHeader() },
+        footers: { default: createFooter(lang) },
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
         },
         children: [
-          // Recipient Address (top left, before title)
           ...(recipientParagraphs.length > 0 ? [
             ...recipientParagraphs,
             new Paragraph({ text: "", spacing: { after: 400 } }),
           ] : []),
 
-          // Title (left-aligned, bold)
           new Paragraph({
             children: [
               new TextRun({
                 text: data.title,
                 bold: true,
                 size: 28,
+                font: "Times New Roman",
               }),
             ],
             spacing: { before: 200, after: 80 },
           }),
           
-          // Location and Date (left-aligned, smaller, gray)
           new Paragraph({
             children: [
               new TextRun({
                 text: data.location ? `${data.location}, ${data.date}` : data.date,
                 size: 22,
-                color: "666666",
+                color: "444444",
+                font: "Times New Roman",
               }),
             ],
             spacing: { after: 400 },
           }),
 
-          // Content
           ...contentParagraphs,
 
-          // Signature Section
+          new Paragraph({ text: "", spacing: { before: 600 } }),
           new Paragraph({
-            text: "",
-            spacing: { before: 600 },
-          }),
-
-          new Paragraph({
-            children: [
-              new TextRun({ text: "_".repeat(40) }),
-            ],
+            children: [new TextRun({ text: "_".repeat(40), font: "Times New Roman" })],
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "Unterschrift / Signature", size: 18, color: "888888" }),
-            ],
+            children: [new TextRun({ text: l.signature, size: 18, color: "666666", font: "Times New Roman" })],
           }),
-
           new Paragraph({ text: "", spacing: { after: 200 } }),
-
           new Paragraph({
-            children: [
-              new TextRun({ text: "_".repeat(40) }),
-            ],
+            children: [new TextRun({ text: "_".repeat(40), font: "Times New Roman" })],
           }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "Datum / Date", size: 18, color: "888888" }),
-            ],
+            children: [new TextRun({ text: l.date, size: 18, color: "666666", font: "Times New Roman" })],
           }),
         ],
       },
@@ -845,14 +967,15 @@ export async function generateEmptyDocumentDocx(data: EmptyDocumentData): Promis
 }
 
 export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
+  const lang = data.language || "de";
+  const l = LABELS[lang];
   const config = currentLetterhead;
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Popup blockiert. Bitte erlauben Sie Popups für diese Seite.");
+    alert("Popup blocked.");
     return;
   }
 
-  // Convert newlines to HTML breaks
   const formattedContent = data.content
     .split('\n')
     .map(line => `<p style="margin: 0.3rem 0;">${line || '&nbsp;'}</p>`)
@@ -865,90 +988,60 @@ export function generateEmptyDocumentPdf(data: EmptyDocumentData): void {
   <meta charset="UTF-8">
   <title>${data.title}</title>
   <style>
-    @page { margin: 2cm; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1a1a1a; }
-    .header { text-align: right; border-bottom: 2px solid #${config.primaryColor}; padding-bottom: 1rem; margin-bottom: 2rem; }
-    .header h1 { color: #${config.primaryColor}; margin: 0; font-size: 1.5rem; }
-    .header p { margin: 0.2rem 0; color: #666; font-size: 0.9rem; }
-    .recipient { margin-bottom: 2rem; }
+    @page { margin: 2.5cm; }
+    body { font-family: 'Times New Roman', 'Georgia', serif; line-height: 1.7; color: #000; font-size: 11pt; }
+    .header { border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0; font-size: 12pt; letter-spacing: 2px; text-transform: uppercase; }
+    .header p { margin: 0.1rem 0; color: #444; font-size: 9pt; }
     .recipient p { margin: 0.1rem 0; }
-    .title { margin-bottom: 0.3rem; }
-    .title h2 { font-size: 1.4rem; margin: 0; font-weight: bold; }
-    .meta { color: #666; margin-bottom: 1.5rem; }
-    .content { margin: 1.5rem 0; }
-    .signature-section { margin-top: 3rem; }
-    .signature-line { border-top: 1px solid #333; width: 50%; margin-top: 3rem; padding-top: 0.5rem; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 0.5rem; }
+    .title h2 { font-size: 13pt; margin: 0; font-weight: bold; }
+    .meta { color: #444; margin-bottom: 1.5rem; font-size: 10pt; }
+    .content { margin: 1.5rem 0; text-align: justify; }
+    .sig-line { border-top: 1px solid #000; width: 50%; margin-top: 3rem; padding-top: 0.3rem; color: #666; font-size: 9pt; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #666; border-top: 1px solid #000; padding-top: 0.3rem; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>${config.companyName}</h1>
-    <p><em>${config.subtitle}</em></p>
+    <p>${config.subtitle}</p>
     <p>${config.address}</p>
   </div>
 
-  ${data.recipient ? `
-  <div class="recipient">
-    ${data.recipient.split('\n').map(line => `<p>${line}</p>`).join('')}
-  </div>
-  ` : ''}
+  ${data.recipient ? `<div class="recipient">${data.recipient.split('\n').map(line => `<p>${line}</p>`).join('')}</div><br>` : ''}
   
-  <div class="title">
-    <h2>${data.title}</h2>
-  </div>
-  <div class="meta">
-    ${data.location ? `${data.location}, ${data.date}` : data.date}
-  </div>
+  <div class="title"><h2>${data.title}</h2></div>
+  <div class="meta">${data.location ? `${data.location}, ${data.date}` : data.date}</div>
 
-  <div class="content">
-    ${formattedContent}
-  </div>
+  <div class="content">${formattedContent}</div>
 
-  <div class="signature-section">
-    <div class="signature-line">
-      Unterschrift / Signature
-    </div>
-    <br><br>
-    <div class="signature-line">
-      Datum / Date
-    </div>
-  </div>
+  <div class="sig-line">${l.signature}</div>
+  <br><br>
+  <div class="sig-line">${l.date}</div>
 
-  <div class="footer">
-    ${config.companyName} | ${config.footerText}
-  </div>
+  <div class="footer">${config.companyName}  |  ${l.confidential}</div>
 
-  <script>
-    window.onload = function() { window.print(); }
-  </script>
+  <script>window.onload = function() { window.print(); }</script>
 </body>
-</html>
-  `;
+</html>`;
 
   printWindow.document.write(html);
   printWindow.document.close();
 }
 
-// Meeting Protocol (MoM) Document Generation - Exact template match
+// Meeting Protocol (MoM) - kept as-is (separate styling)
 export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Promise<Blob> {
-  const primaryColor = "1a5276"; // Dark blue matching original template
-  const lineColor = "cccccc"; // Gray for table borders
+  const primaryColor = "000000";
+  const lineColor = "cccccc";
   
-  // Build topic sections - matching original template format exactly
   const topicSections = data.topics.flatMap((topic) => {
     const sections: Paragraph[] = [];
     
     if (topic.topic.trim()) {
-      // Topic heading - underlined, small caps style
       sections.push(
         new Paragraph({
           border: {
-            bottom: {
-              color: lineColor,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
+            bottom: { color: lineColor, style: BorderStyle.SINGLE, size: 6 },
           },
           children: [
             new TextRun({
@@ -957,17 +1050,16 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
               size: 22,
               color: primaryColor,
               smallCaps: true,
+              font: "Times New Roman",
             }),
           ],
           spacing: { before: 400, after: 200 },
         })
       );
       
-      // Notes as bullet points with bold title and description
       if (topic.notes.trim()) {
         const noteLines = topic.notes.split('\n').filter(n => n.trim());
         noteLines.forEach(note => {
-          // Check if note has a colon (title: description format)
           const colonIndex = note.indexOf(':');
           if (colonIndex > 0 && colonIndex < 60) {
             const title = note.substring(0, colonIndex + 1);
@@ -975,17 +1067,10 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
             
             sections.push(
               new Paragraph({
-                indent: { left: 720 }, // Indent bullet points
+                indent: { left: 720 },
                 children: [
-                  new TextRun({
-                    text: "● ",
-                    size: 22,
-                  }),
-                  new TextRun({
-                    text: title,
-                    bold: true,
-                    size: 22,
-                  }),
+                  new TextRun({ text: "● ", size: 22, font: "Times New Roman" }),
+                  new TextRun({ text: title, bold: true, size: 22, font: "Times New Roman" }),
                 ],
                 spacing: { before: 150, after: 50 },
               })
@@ -996,30 +1081,19 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                 new Paragraph({
                   indent: { left: 720 },
                   children: [
-                    new TextRun({
-                      text: description,
-                      size: 22,
-                    }),
+                    new TextRun({ text: description, size: 22, font: "Times New Roman" }),
                   ],
                   spacing: { after: 100 },
                 })
               );
             }
           } else {
-            // Simple bullet point
             sections.push(
               new Paragraph({
                 indent: { left: 720 },
                 children: [
-                  new TextRun({
-                    text: "● ",
-                    size: 22,
-                  }),
-                  new TextRun({
-                    text: note.trim(),
-                    bold: true,
-                    size: 22,
-                  }),
+                  new TextRun({ text: "● ", size: 22, font: "Times New Roman" }),
+                  new TextRun({ text: note.trim(), bold: true, size: 22, font: "Times New Roman" }),
                 ],
                 spacing: { before: 150, after: 100 },
               })
@@ -1037,16 +1111,10 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
       {
         properties: {
           page: {
-            margin: {
-              top: 1134, // 0.79 inch / 2cm
-              right: 1134,
-              bottom: 1134,
-              left: 1134,
-            },
+            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
           },
         },
         children: [
-          // DATE / LOCATION / SUBJECT row with top border
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
@@ -1063,8 +1131,8 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                     children: [
                       new Paragraph({
                         children: [
-                          new TextRun({ text: "Date: ", bold: true, smallCaps: true, size: 20 }),
-                          new TextRun({ text: data.date, size: 20 }),
+                          new TextRun({ text: "Date: ", bold: true, smallCaps: true, size: 20, font: "Times New Roman" }),
+                          new TextRun({ text: data.date, size: 20, font: "Times New Roman" }),
                         ],
                         spacing: { before: 100, after: 100 },
                       }),
@@ -1081,8 +1149,8 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                     children: [
                       new Paragraph({
                         children: [
-                          new TextRun({ text: "Location: ", bold: true, smallCaps: true, size: 20 }),
-                          new TextRun({ text: data.location || "N/A", size: 20 }),
+                          new TextRun({ text: "Location: ", bold: true, smallCaps: true, size: 20, font: "Times New Roman" }),
+                          new TextRun({ text: data.location || "N/A", size: 20, font: "Times New Roman" }),
                         ],
                         spacing: { before: 100, after: 100 },
                       }),
@@ -1099,8 +1167,8 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                     children: [
                       new Paragraph({
                         children: [
-                          new TextRun({ text: "Subject: ", bold: true, smallCaps: true, size: 20 }),
-                          new TextRun({ text: data.title, size: 20 }),
+                          new TextRun({ text: "Subject: ", bold: true, smallCaps: true, size: 20, font: "Times New Roman" }),
+                          new TextRun({ text: data.title, size: 20, font: "Times New Roman" }),
                         ],
                         spacing: { before: 100, after: 100 },
                       }),
@@ -1111,10 +1179,8 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
             ],
           }),
 
-          // Spacing
           new Paragraph({ text: "", spacing: { after: 200 } }),
 
-          // Attendees table with border
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
@@ -1137,15 +1203,14 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                             smallCaps: true,
                             size: 20,
                             color: primaryColor,
+                            font: "Times New Roman",
                           }),
                         ],
                         spacing: { before: 100, after: 50 },
                       }),
                       ...data.attendees.slice(0, Math.ceil(data.attendees.length / 2)).map(attendee =>
                         new Paragraph({
-                          children: [
-                            new TextRun({ text: attendee, size: 20 }),
-                          ],
+                          children: [new TextRun({ text: attendee, size: 20, font: "Times New Roman" })],
                           spacing: { after: 30 },
                         })
                       ),
@@ -1161,16 +1226,12 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                     },
                     children: [
                       new Paragraph({
-                        children: [
-                          new TextRun({ text: "", size: 20 }),
-                        ],
+                        children: [new TextRun({ text: "", size: 20 })],
                         spacing: { before: 100, after: 50 },
                       }),
                       ...data.attendees.slice(Math.ceil(data.attendees.length / 2)).map(attendee =>
                         new Paragraph({
-                          children: [
-                            new TextRun({ text: attendee, size: 20 }),
-                          ],
+                          children: [new TextRun({ text: attendee, size: 20, font: "Times New Roman" })],
                           spacing: { after: 30 },
                         })
                       ),
@@ -1181,21 +1242,14 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
             ],
           }),
 
-          // Spacing before topics
           new Paragraph({ text: "", spacing: { after: 300 } }),
 
-          // Topic Sections
           ...topicSections,
 
-          // Decisions Section (if any)
           ...(data.decisions?.trim() ? [
             new Paragraph({
               border: {
-                bottom: {
-                  color: lineColor,
-                  style: BorderStyle.SINGLE,
-                  size: 6,
-                },
+                bottom: { color: lineColor, style: BorderStyle.SINGLE, size: 6 },
               },
               children: [
                 new TextRun({
@@ -1204,6 +1258,7 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
                   size: 22,
                   color: primaryColor,
                   smallCaps: true,
+                  font: "Times New Roman",
                 }),
               ],
               spacing: { before: 400, after: 200 },
@@ -1212,28 +1267,17 @@ export async function generateMeetingProtocolDocx(data: MeetingProtocolData): Pr
               new Paragraph({
                 indent: { left: 720 },
                 children: [
-                  new TextRun({
-                    text: "● ",
-                    size: 22,
-                  }),
-                  new TextRun({
-                    text: decision.trim(),
-                    size: 22,
-                  }),
+                  new TextRun({ text: "● ", size: 22, font: "Times New Roman" }),
+                  new TextRun({ text: decision.trim(), size: 22, font: "Times New Roman" }),
                 ],
                 spacing: { after: 80 },
               })
             ),
           ] : []),
 
-          // Bottom border line
           new Paragraph({
             border: {
-              bottom: {
-                color: primaryColor,
-                style: BorderStyle.SINGLE,
-                size: 12,
-              },
+              bottom: { color: primaryColor, style: BorderStyle.SINGLE, size: 12 },
             },
             spacing: { before: 400 },
             children: [],
