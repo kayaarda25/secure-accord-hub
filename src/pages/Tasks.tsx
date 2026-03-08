@@ -568,9 +568,9 @@ export default function Tasks() {
           {filteredTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No tasks found</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t("tasks.noTasks")}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Create your first task to get started.
+                {t("tasks.noTasksDesc")}
               </p>
               <Button onClick={() => setCreateDialogOpen(true)} className="glow-gold">
                 <Plus className="mr-2 h-4 w-4" />
