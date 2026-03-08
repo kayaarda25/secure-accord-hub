@@ -436,10 +436,10 @@ export default function Tasks() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="low">{t("tasks.low")}</SelectItem>
+                      <SelectItem value="normal">{t("tasks.normal")}</SelectItem>
+                      <SelectItem value="high">{t("tasks.high")}</SelectItem>
+                      <SelectItem value="critical">{t("tasks.critical")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
