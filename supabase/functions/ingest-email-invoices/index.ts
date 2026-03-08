@@ -217,7 +217,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`[ingest-email-invoices] Starting email ingestion for ${mailbox}`);
+    // Load all active bexio accounts for recipient matching
+    const { data: bexioAccounts } = await supabase
+      .from("bexio_accounts")
+      .select("id, account_name, entity_type, organization_id")
+      .eq("is_active", true);
+
+    console.log(`[ingest-email-invoices] Starting email ingestion for ${mailbox}, ${bexioAccounts?.length || 0} Bexio accounts loaded`);
 
     // 1. Get Microsoft Graph access token
     const graphToken = await getGraphToken();
