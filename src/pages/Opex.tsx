@@ -1266,6 +1266,12 @@ export default function Opex() {
           expenseTitle={selectedExpenseForNotes.title}
         />
       )}
+        </TabsContent>
+
+        <TabsContent value="budgets">
+          <OpexBudgetList costCenters={costCenters} />
+        </TabsContent>
+      </Tabs>
     </Layout>
   );
 }
