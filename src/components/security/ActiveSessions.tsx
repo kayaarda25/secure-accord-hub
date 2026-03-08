@@ -121,6 +121,11 @@ export function ActiveSessions({
                             Diese Session
                           </Badge>
                         )}
+                        {!session.is_active && (
+                          <Badge variant="secondary" className="text-xs">
+                            Beendet
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         {osName && <span>{osName}</span>}
