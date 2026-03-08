@@ -37,8 +37,8 @@ serve(async (req: Request) => {
       throw new Error("Unauthorized");
     }
 
-    // Get the redirect URI from request or use default
-    const { redirectUri } = await req.json().catch(() => ({}));
+    // Get the redirect URI and optional new-account metadata from request
+    const { redirectUri, accountName, entityType } = await req.json().catch(() => ({}));
     const callbackUrl = `${supabaseUrl}/functions/v1/bexio-oauth-callback`;
 
     // Capture caller origin so we can redirect back to the right frontend (preview vs prod)
@@ -50,12 +50,20 @@ serve(async (req: Request) => {
     }
 
     // Generate state parameter with user info for security
-    const state = btoa(JSON.stringify({
+    const statePayload: Record<string, any> = {
       userId: user.id,
       timestamp: Date.now(),
       redirectUri: redirectUri || "/finances/invoices",
-      origin
-    }));
+      origin,
+    };
+
+    // If accountName is provided, this is a "add new bexio account" flow
+    if (accountName) {
+      statePayload.accountName = accountName;
+      statePayload.entityType = entityType || "default";
+    }
+
+    const state = btoa(JSON.stringify(statePayload));
 
     // Build Bexio OAuth URL
     const params = new URLSearchParams({

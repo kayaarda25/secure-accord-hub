@@ -26,7 +26,14 @@ serve(async (req: Request) => {
     }
 
     // Parse state
-    let stateData: { userId: string; timestamp: number; redirectUri: string; origin?: string | null };
+    let stateData: {
+      userId: string;
+      timestamp: number;
+      redirectUri: string;
+      origin?: string | null;
+      accountName?: string;
+      entityType?: string;
+    };
     try {
       stateData = JSON.parse(atob(state));
     } catch {
