@@ -17,10 +17,10 @@ import {
   PlayCircle,
 } from "lucide-react";
 
-const KANBAN_COLUMNS = [
-  { key: "planning", label: "Planung", icon: Circle },
-  { key: "active", label: "Aktiv", icon: PlayCircle },
-  { key: "completed", label: "Abgeschlossen", icon: CheckCircle2 },
+const getKanbanColumns = (t: (key: string) => string) => [
+  { key: "planning", label: t("projects.planning"), icon: Circle },
+  { key: "active", label: t("projects.active"), icon: PlayCircle },
+  { key: "completed", label: t("projects.completed"), icon: CheckCircle2 },
 ];
 
 export default function Projects() {
