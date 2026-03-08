@@ -190,6 +190,7 @@ export default function Invoices() {
           document_path: data.document_path || null,
           document_name: data.document_name || null,
           status: "pending_review",
+          invoice_type: invoiceType,
         })
         .select()
         .single();
