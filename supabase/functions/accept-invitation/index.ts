@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { token, password, firstName, lastName } = await req.json();
+    const { token, password, firstName, lastName, notificationsConsent } = await req.json();
 
     if (!token || !password) {
       return new Response(
