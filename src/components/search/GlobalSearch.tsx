@@ -62,13 +62,14 @@ export function GlobalSearch() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
+  const { t } = useLanguage();
 
   const quickActions = useMemo(() => {
-    if (permissionsLoading) return baseQuickActions.filter((a) => a.href !== "/budget");
-
-    const canSeeBudget = permissions.canViewBudget || permissions.canCreateBudget;
-    return baseQuickActions.filter((a) => (a.href === "/budget" ? canSeeBudget : true));
-  }, [permissions, permissionsLoading]);
+    const filtered = permissionsLoading
+      ? quickActionDefs.filter((a) => a.href !== "/budget")
+      : quickActionDefs.filter((a) => (a.href === "/budget" ? permissions.canViewBudget || permissions.canCreateBudget : true));
+    return filtered.map((a) => ({ ...a, name: t(a.nameKey) }));
+  }, [permissions, permissionsLoading, t]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
