@@ -141,6 +141,7 @@ async function scanInvoiceWithAI(fileBytes: Uint8Array, mimeType: string, fileNa
 - IBAN: Suche im QR-Code-Bereich, in der Fusszeile, oder bei Zahlungsinformationen. Format: CH.. oder LI.. gefolgt von 19 Ziffern
 - UID/MwSt-Nr: Suche in der Kopfzeile, Fusszeile oder bei Firmenangaben. Format: CHE-XXX.XXX.XXX
 - Zahlungsreferenz: Suche die lange Nummer im QR-Einzahlungsschein (26-27 Ziffern)
+- EMPFÄNGER/ADRESSAT: Suche den Namen der Firma, AN DIE die Rechnung adressiert ist (nicht der Rechnungssteller). Das steht oft im Adressfeld oben rechts oder links, z.B. "Firma XY, z.Hd. ..."
 
 Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`,
         },
@@ -168,7 +169,8 @@ Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`,
   "vat_amount": "MwSt-Betrag als Zahl",
   "vat_rate": "MwSt-Satz als Zahl",
   "currency": "CHF/EUR/USD",
-  "notes": "Kurze Beschreibung der Leistungen"
+  "notes": "Kurze Beschreibung der Leistungen",
+  "recipient_name": "Name der Firma/Person AN DIE die Rechnung adressiert ist (der Empfänger/Kunde, NICHT der Rechnungssteller)"
 }
 
 Falls ein Feld nicht gefunden wird, setze null. Antworte NUR mit dem JSON-Objekt.`,
