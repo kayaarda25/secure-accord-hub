@@ -28,6 +28,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SearchResult {
   id: string;
@@ -37,20 +38,20 @@ interface SearchResult {
   link: string;
 }
 
-const baseQuickActions = [
-  { name: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { name: "Dokumente", icon: FileText, href: "/documents" },
-  { name: "Aufgaben", icon: CheckSquare, href: "/tasks" },
-  { name: "Kalender", icon: Calendar, href: "/calendar" },
-  { name: "OPEX", icon: Receipt, href: "/opex" },
-  { name: "Kommunikation", icon: MessageSquare, href: "/communication" },
-  { name: "Budget", icon: TrendingUp, href: "/budget" },
-  { name: "Reports", icon: BarChart, href: "/reports" },
-  { name: "Partner", icon: Building2, href: "/partners" },
-  { name: "Behörden", icon: Globe, href: "/authorities" },
-  { name: "Benutzer", icon: Users, href: "/users" },
-  { name: "Sicherheit", icon: Shield, href: "/security" },
-  { name: "Einstellungen", icon: Settings, href: "/settings" },
+const quickActionDefs = [
+  { nameKey: "nav.dashboard", icon: LayoutDashboard, href: "/" },
+  { nameKey: "nav.documents", icon: FileText, href: "/documents" },
+  { nameKey: "nav.tasks", icon: CheckSquare, href: "/tasks" },
+  { nameKey: "nav.calendar", icon: Calendar, href: "/calendar" },
+  { nameKey: "nav.opex", icon: Receipt, href: "/opex" },
+  { nameKey: "nav.communication", icon: MessageSquare, href: "/communication" },
+  { nameKey: "nav.budget", icon: TrendingUp, href: "/budget" },
+  { nameKey: "nav.reports", icon: BarChart, href: "/reports" },
+  { nameKey: "nav.partners", icon: Building2, href: "/partners" },
+  { nameKey: "nav.authorities", icon: Globe, href: "/authorities" },
+  { nameKey: "nav.users", icon: Users, href: "/users" },
+  { nameKey: "nav.security", icon: Shield, href: "/security" },
+  { nameKey: "nav.settings", icon: Settings, href: "/settings" },
 ];
 
 export function GlobalSearch() {
