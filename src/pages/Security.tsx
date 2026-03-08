@@ -17,7 +17,6 @@ import { ActiveSessions } from "@/components/security/ActiveSessions";
 import { LoginProtectionInfo } from "@/components/security/LoginProtectionInfo";
 import { LoginIPList } from "@/components/security/LoginIPList";
 import { BackupPanel } from "@/components/security/BackupPanel";
-import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 interface UserSession {
   id: string;
