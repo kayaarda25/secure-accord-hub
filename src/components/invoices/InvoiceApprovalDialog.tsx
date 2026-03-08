@@ -334,7 +334,7 @@ export function InvoiceApprovalDialog({
                   recipient_country: "CH",
                   execution_date: invoice.due_date || new Date().toISOString().split("T")[0],
                   message: invoice.payment_reference || invoice.invoice_number || "",
-                });
+                }, bexioAccountId);
 
                 paymentCreated = true;
                 console.log("Created IBAN payment order for", invoice.vendor_name);
