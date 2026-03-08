@@ -440,3 +440,29 @@
     background-clip: text;
   }
 }
+
+/* Sidebar density variants */
+[data-sidebar-density="compact"] .sidebar-nav-item {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.8rem;
+}
+
+[data-sidebar-density="comfortable"] .sidebar-nav-item {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+/* Content width */
+main {
+  max-width: var(--content-max-width, 100%);
+}
+
+/* Reduce motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
