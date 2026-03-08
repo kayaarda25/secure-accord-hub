@@ -36,6 +36,48 @@ import { CarrierRatesSettings } from "@/components/settings/CarrierRatesSettings
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useTheme } from "@/components/theme/ThemeProvider";
 
+function AppearanceSettings() {
+  const { theme, setTheme } = useTheme();
+  const { t } = useLanguage();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.appearance.title")}</CardTitle>
+        <CardDescription>{t("settings.appearance.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <Label>{t("settings.appearance.colorScheme")}</Label>
+          <div className="grid grid-cols-3 gap-4 mt-2">
+            <Button
+              variant={theme === "light" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("light")}
+            >
+              ☀️ {t("settings.appearance.light")}
+            </Button>
+            <Button
+              variant={theme === "dark" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("dark")}
+            >
+              🌙 {t("settings.appearance.dark")}
+            </Button>
+            <Button
+              variant={theme === "system" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("system")}
+            >
+              💻 {t("settings.appearance.system")}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface NotificationPreferences {
   id: string;
   email_enabled: boolean;
