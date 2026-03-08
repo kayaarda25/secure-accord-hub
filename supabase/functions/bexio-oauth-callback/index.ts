@@ -105,26 +105,50 @@ serve(async (req: Request) => {
     // Calculate expiry time
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
-    // Upsert tokens
-    const { error: upsertError } = await supabase
-      .from("bexio_tokens")
-      .upsert({
-        organization_id: profile.organization_id,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: expiresAt.toISOString(),
-        scope: tokens.scope,
-        created_by: stateData.userId,
-      }, {
-        onConflict: "organization_id",
-      });
+    if (stateData.accountName) {
+      // Multi-account flow: create a new bexio_accounts entry with tokens
+      const { error: insertError } = await supabase
+        .from("bexio_accounts")
+        .insert({
+          organization_id: profile.organization_id,
+          account_name: stateData.accountName,
+          entity_type: stateData.entityType || "default",
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt.toISOString(),
+          scope: tokens.scope,
+          created_by: stateData.userId,
+        });
 
-    if (upsertError) {
-      console.error("Token storage error:", upsertError);
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "/finances/invoices?error=storage_failed" },
-      });
+      if (insertError) {
+        console.error("Account token storage error:", insertError);
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "/finances/invoices?error=storage_failed" },
+        });
+      }
+    } else {
+      // Legacy single-account flow: upsert into bexio_tokens
+      const { error: upsertError } = await supabase
+        .from("bexio_tokens")
+        .upsert({
+          organization_id: profile.organization_id,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt.toISOString(),
+          scope: tokens.scope,
+          created_by: stateData.userId,
+        }, {
+          onConflict: "organization_id",
+        });
+
+      if (upsertError) {
+        console.error("Token storage error:", upsertError);
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "/finances/invoices?error=storage_failed" },
+        });
+      }
     }
 
     const defaultAppUrl = Deno.env.get("APP_URL") || "https://secure-accord-hub.lovable.app";
