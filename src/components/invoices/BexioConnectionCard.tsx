@@ -1,12 +1,30 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Link2Off, Loader2, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Link2, Link2Off, Loader2, ExternalLink, Plus, Trash2, Building2 } from "lucide-react";
 import { useBexio } from "@/hooks/useBexio";
+import { useMultiBexio } from "@/hooks/useMultiBexio";
 import bexioLogo from "@/assets/bexio-logo.png";
 
 export function BexioConnectionCard() {
   const { isConnected, isLoading, connect, disconnect } = useBexio();
+  const { accounts, selectedAccountId, setSelectedAccountId, addAccount, removeAccount, isLoading: accountsLoading } = useMultiBexio();
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newEntityType, setNewEntityType] = useState("default");
+
+  const handleAddAccount = async () => {
+    if (!newAccountName.trim()) return;
+    await addAccount(newAccountName.trim(), newEntityType);
+    setNewAccountName("");
+    setNewEntityType("default");
+    setAddDialogOpen(false);
+  };
 
   return (
     <Card>
@@ -41,11 +59,79 @@ export function BexioConnectionCard() {
       </CardHeader>
       <CardContent>
         {isConnected ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Rechnungen werden automatisch nach Freigabe in Bexio als Kreditorenbeleg erfasst.
+              Rechnungen werden nach Freigabe direkt als Zahlungsauftrag in Bexio erstellt.
             </p>
-            <div className="flex gap-2">
+
+            {/* Multi-Account Section */}
+            {accounts.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />
+                  Entity / Konto
+                </Label>
+                <Select value={selectedAccountId || ""} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Konto auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.account_name} ({acc.entity_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Konto hinzufügen
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Bexio-Konto hinzufügen</DialogTitle>
+                    <DialogDescription>
+                      Fügen Sie ein weiteres Bexio-Konto für eine andere Entity hinzu.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Kontoname</Label>
+                      <Input
+                        placeholder="z.B. MGI Media GmbH"
+                        value={newAccountName}
+                        onChange={(e) => setNewAccountName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Entity-Typ</Label>
+                      <Select value={newEntityType} onValueChange={setNewEntityType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Standard</SelectItem>
+                          <SelectItem value="mgi_media">MGI Media</SelectItem>
+                          <SelectItem value="mgi_communications">MGI Communications</SelectItem>
+                          <SelectItem value="gateway">Gateway</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Abbrechen</Button>
+                    <Button onClick={handleAddAccount} disabled={!newAccountName.trim()}>Hinzufügen</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Button variant="outline" size="sm" onClick={disconnect}>
                 <Link2Off className="mr-2 h-4 w-4" />
                 Trennen
@@ -57,11 +143,33 @@ export function BexioConnectionCard() {
                 </a>
               </Button>
             </div>
+
+            {/* Account list */}
+            {accounts.length > 1 && (
+              <div className="space-y-1 pt-2 border-t">
+                <p className="text-xs text-muted-foreground mb-2">Verknüpfte Konten:</p>
+                {accounts.map((acc) => (
+                  <div key={acc.id} className="flex items-center justify-between text-sm py-1">
+                    <span className={acc.id === selectedAccountId ? "font-medium" : "text-muted-foreground"}>
+                      {acc.account_name}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeAccount(acc.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Kreditorenbelege zu erfassen.
+              Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Zahlungsauftrag zu erfassen.
             </p>
             <Button onClick={connect} disabled={isLoading}>
               <Link2 className="mr-2 h-4 w-4" />

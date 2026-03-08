@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BexioConnectionCard } from "@/components/invoices/BexioConnectionCard";
 import { InvoiceApprovalDialog } from "@/components/invoices/InvoiceApprovalDialog";
+import { useMultiBexio } from "@/hooks/useMultiBexio";
 import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
@@ -58,6 +59,7 @@ export default function Invoices() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { accounts, selectedAccountId } = useMultiBexio();
 
   // Form state - extended for AI extraction
   const [formData, setFormData] = useState({
@@ -191,6 +193,7 @@ export default function Invoices() {
           document_name: data.document_name || null,
           status: "pending_review",
           invoice_type: invoiceType,
+          bexio_account_id: selectedAccountId || null,
         })
         .select()
         .single();

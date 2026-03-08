@@ -99,10 +99,14 @@ export function useBexio() {
     }
   };
 
-  const callApi = async (action: string, data?: any) => {
+  const callApi = async (action: string, data?: any, bexioAccountId?: string | null) => {
     try {
+      const body: any = { action, data: { ...data } };
+      if (bexioAccountId) {
+        body.data.bexio_account_id = bexioAccountId;
+      }
       const response = await supabase.functions.invoke("bexio-api", {
-        body: { action, data },
+        body,
       });
 
       if (response.error) {

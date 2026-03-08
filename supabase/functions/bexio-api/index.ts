@@ -15,6 +15,7 @@ function toNumber(value: unknown): number {
 }
 
 interface BexioTokens {
+  id: string;
   access_token: string;
   refresh_token: string;
   expires_at: string;
@@ -26,7 +27,6 @@ async function resolveInternalContactPartnerId(
   accessToken: string,
   userEmail?: string | null
 ): Promise<number | null> {
-  // Prefer "me" endpoint – most reliable as it reflects the user who authorized the OAuth connection.
   try {
     const meResp = await fetch(`${BEXIO_API_URL}/3.0/users/me`, {
       headers: {
@@ -44,7 +44,6 @@ async function resolveInternalContactPartnerId(
     // ignore
   }
 
-  // Fallback: list users and match by email.
   if (userEmail) {
     try {
       const usersResp = await fetch(`${BEXIO_API_URL}/2.0/user`, {
@@ -72,11 +71,98 @@ async function resolveInternalContactPartnerId(
   return null;
 }
 
-// Custom error for expired/invalid tokens that require re-authentication
 class BexioReconnectRequiredError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "BexioReconnectRequiredError";
+  }
+}
+
+/**
+ * Resolve tokens: prefer bexio_accounts (multi-account), fallback to bexio_tokens (legacy).
+ * If bexio_account_id is provided, use that specific account.
+ */
+async function resolveTokens(
+  serviceSupabase: any,
+  organizationId: string,
+  bexioAccountId?: string | null
+): Promise<BexioTokens | null> {
+  // Try bexio_accounts first (multi-account)
+  if (bexioAccountId) {
+    const { data } = await serviceSupabase
+      .from("bexio_accounts")
+      .select("id, access_token, refresh_token, expires_at, organization_id, scope")
+      .eq("id", bexioAccountId)
+      .eq("organization_id", organizationId)
+      .eq("is_active", true)
+      .single();
+    if (data?.access_token) return data as BexioTokens;
+  }
+
+  // Try any active account for this org
+  const { data: accounts } = await serviceSupabase
+    .from("bexio_accounts")
+    .select("id, access_token, refresh_token, expires_at, organization_id, scope")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .not("access_token", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (accounts && accounts.length > 0 && accounts[0].access_token) {
+    return accounts[0] as BexioTokens;
+  }
+
+  // Fallback to legacy bexio_tokens table
+  const { data: legacyTokens } = await serviceSupabase
+    .from("bexio_tokens")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (legacyTokens) {
+    return { ...legacyTokens, id: legacyTokens.id } as BexioTokens;
+  }
+
+  return null;
+}
+
+/**
+ * Persist refreshed tokens back to the correct table.
+ */
+async function persistRefreshedTokens(
+  serviceSupabase: any,
+  tokens: BexioTokens,
+  newAccessToken: string,
+  newRefreshToken: string,
+  expiresAt: string
+) {
+  // Check if this token came from bexio_accounts
+  const { data: account } = await serviceSupabase
+    .from("bexio_accounts")
+    .select("id")
+    .eq("id", tokens.id)
+    .single();
+
+  if (account) {
+    await serviceSupabase
+      .from("bexio_accounts")
+      .update({
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+        expires_at: expiresAt,
+      })
+      .eq("id", tokens.id);
+  } else {
+    // Legacy bexio_tokens
+    await serviceSupabase
+      .from("bexio_tokens")
+      .update({
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+        expires_at: expiresAt,
+      })
+      .eq("organization_id", tokens.organization_id);
   }
 }
 
@@ -104,13 +190,25 @@ async function refreshBexioToken(
     const errorText = await response.text();
     console.error("Token refresh failed:", errorText);
     
-    // Check if the refresh token is invalid/expired - user needs to reconnect
     if (errorText.includes("invalid_grant") || errorText.includes("Token is not active")) {
-      // Delete the invalid tokens so the frontend knows to reconnect
-      await supabase
-        .from("bexio_tokens")
-        .delete()
-        .eq("organization_id", tokens.organization_id);
+      // Check if from bexio_accounts
+      const { data: account } = await supabase
+        .from("bexio_accounts")
+        .select("id")
+        .eq("id", tokens.id)
+        .single();
+
+      if (account) {
+        await supabase
+          .from("bexio_accounts")
+          .update({ access_token: null, refresh_token: null, expires_at: null })
+          .eq("id", tokens.id);
+      } else {
+        await supabase
+          .from("bexio_tokens")
+          .delete()
+          .eq("organization_id", tokens.organization_id);
+      }
       
       throw new BexioReconnectRequiredError("Bexio-Sitzung abgelaufen. Bitte verbinden Sie Bexio erneut.");
     }
@@ -119,17 +217,15 @@ async function refreshBexioToken(
   }
 
   const newTokens = await response.json();
-  const expiresAt = new Date(Date.now() + newTokens.expires_in * 1000);
+  const expiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
 
-  // Update tokens in database
-  await supabase
-    .from("bexio_tokens")
-    .update({
-      access_token: newTokens.access_token,
-      refresh_token: newTokens.refresh_token || tokens.refresh_token,
-      expires_at: expiresAt.toISOString(),
-    })
-    .eq("organization_id", tokens.organization_id);
+  await persistRefreshedTokens(
+    supabase,
+    tokens,
+    newTokens.access_token,
+    newTokens.refresh_token || tokens.refresh_token,
+    expiresAt
+  );
 
   return newTokens.access_token;
 }
@@ -141,7 +237,6 @@ async function getValidAccessToken(
   const expiresAt = new Date(tokens.expires_at);
   const now = new Date();
 
-  // Refresh if token expires in less than 5 minutes
   if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
     return await refreshBexioToken(supabase, tokens);
   }
@@ -149,7 +244,6 @@ async function getValidAccessToken(
   return tokens.access_token;
 }
 
-// Helper to safely parse Bexio response (handles text error responses)
 async function parseBexioResponse(response: Response, action: string): Promise<any> {
   const text = await response.text();
   
@@ -163,7 +257,6 @@ async function parseBexioResponse(response: Response, action: string): Promise<a
   try {
     return JSON.parse(text);
   } catch {
-    // Response is not JSON, return as wrapped object
     return { message: text, raw: true };
   }
 }
@@ -178,7 +271,6 @@ serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify user is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("No authorization header");
@@ -193,7 +285,6 @@ serve(async (req: Request) => {
       throw new Error("Unauthorized");
     }
 
-    // Get user's organization
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")
@@ -204,59 +295,67 @@ serve(async (req: Request) => {
       throw new Error("No organization found");
     }
 
-    // Use service role to get tokens
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: tokens, error: tokensError } = await serviceSupabase
-      .from("bexio_tokens")
-      .select("*")
-      .eq("organization_id", profile.organization_id)
-      .single();
+    // Parse request body
+    const { action, data } = await req.json();
+    console.log(`Bexio API action: ${action}`, data ? JSON.stringify(data).substring(0, 200) : "");
 
-    if (tokensError || !tokens) {
+    // Resolve tokens - support bexio_account_id for multi-account
+    const bexioAccountId = data?.bexio_account_id || null;
+    const tokens = await resolveTokens(serviceSupabase, profile.organization_id, bexioAccountId);
+
+    if (!tokens) {
+      // For check_connection and disconnect, return gracefully
+      if (action === "check_connection") {
+        return new Response(
+          JSON.stringify({ connected: false }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      if (action === "disconnect") {
+        return new Response(
+          JSON.stringify({ disconnected: true }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
       return new Response(
-        JSON.stringify({ connected: false }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
+        JSON.stringify({ connected: false, error: "No Bexio connection found" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     // Get valid access token (refresh if needed)
     const accessToken = await getValidAccessToken(serviceSupabase, tokens);
 
-    // Parse request
-    const { action, data } = await req.json();
-    console.log(`Bexio API action: ${action}`, data ? JSON.stringify(data).substring(0, 200) : "");
-
     let bexioResponse: Response;
     let result: any;
 
     switch (action) {
       case "disconnect":
-        // Delete stored tokens for this organization (forces re-connect)
-        await serviceSupabase
-          .from("bexio_tokens")
-          .delete()
-          .eq("organization_id", profile.organization_id);
+        // For multi-account: if bexio_account_id given, clear that account's tokens
+        if (bexioAccountId) {
+          await serviceSupabase
+            .from("bexio_accounts")
+            .update({ access_token: null, refresh_token: null, expires_at: null })
+            .eq("id", bexioAccountId);
+        } else {
+          // Legacy: delete from bexio_tokens
+          await serviceSupabase
+            .from("bexio_tokens")
+            .delete()
+            .eq("organization_id", profile.organization_id);
+        }
 
         return new Response(
           JSON.stringify({ disconnected: true }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
 
       case "check_connection":
-        // Just check if we have valid tokens
         return new Response(
-          JSON.stringify({ connected: true }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
+          JSON.stringify({ connected: true, account_id: tokens.id }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
 
       case "get_contacts":
@@ -293,12 +392,12 @@ serve(async (req: Request) => {
             Accept: "application/json",
           },
           body: JSON.stringify({
-            contact_type_id: 1, // Company
+            contact_type_id: 1,
             name_1: data.name,
             address: data.address,
             postcode: data.postcode,
             city: data.city,
-            country_id: data.country_id || 1, // Switzerland
+            country_id: data.country_id || 1,
             mail: data.email,
             phone_fixed: data.phone,
           }),
@@ -307,16 +406,6 @@ serve(async (req: Request) => {
         break;
 
       case "create_invoice": {
-        // Bexio v4 Purchase Bills API
-        // Endpoint: POST /4.0/purchase/bills
-        // REQUIRED FIELDS (based on Bexio responses + 400 errors):
-        // - supplier_id: number
-        // - contact_partner_id: number
-        // - address: object (NOT a string)
-        // - manual_amount: boolean
-        // - item_net: boolean
-        // - line_items[].position: number (0-indexed position)
-        
         const supplierId = toNumber(data.vendor_id ?? data.contact_id);
         if (!Number.isFinite(supplierId)) {
           throw new Error("create_invoice: missing/invalid supplier_id (vendor_id/contact_id)");
@@ -331,33 +420,27 @@ serve(async (req: Request) => {
           ? toNumber(data.booking_account_id)
           : (Number.isFinite(toNumber(data.account_id)) ? toNumber(data.account_id) : 99);
 
-        // Tax ID: map vat_rate to correct Bexio tax_id
-        // Bexio tax IDs: 22 = 8.1% (alt), 35 = 7.7% (VM77), 36 = 2.5% (red), null = no VAT
         const vatRate = toNumber(data.vat_rate);
         const hasVat = Number.isFinite(vatRate) && vatRate > 0;
         let taxId: number | null = null;
         if (data?.tax_id !== null && Number.isFinite(toNumber(data.tax_id))) {
           taxId = toNumber(data.tax_id);
         } else if (hasVat) {
-          // Map common Swiss VAT rates to Bexio tax_ids
           if (vatRate >= 7.5 && vatRate <= 8.1) {
-            taxId = 35; // 7.7% (VM77 - Mat/DL Vorsteuer)
+            taxId = 35;
           } else if (vatRate >= 2.4 && vatRate <= 2.6) {
-            taxId = 36; // 2.5% reduced rate
+            taxId = 36;
           } else if (vatRate >= 3.7 && vatRate <= 3.9) {
-            taxId = 37; // 3.8% Sondersatz Beherbergung
+            taxId = 37;
           } else {
-            taxId = 35; // Default to 7.7% if rate is provided but doesn't match
+            taxId = 35;
           }
         }
 
-        // Build address OBJECT as expected by v4 (we verified via GET /4.0/purchase/bills/{id}).
-        // We try to parse Swiss-style addresses like: "Street 1, 8005 Zürich".
         const rawVendorName = typeof data.vendor_name === "string" ? data.vendor_name.trim() : "";
         const rawVendorAddress = typeof data.vendor_address === "string" ? data.vendor_address.trim() : "";
 
-        // Normalize to tokens (split commas/newlines)
-        const tokens = rawVendorAddress
+        const addrTokens = rawVendorAddress
           ? rawVendorAddress
               .split(/\r?\n/)
               .flatMap((line: string) => line.split(","))
@@ -365,20 +448,19 @@ serve(async (req: Request) => {
               .filter(Boolean)
           : [];
 
-        // Heuristic: last token may contain postcode + city
         let postcode: string | null = null;
         let city: string | null = null;
         let addressLine: string | null = null;
 
-        if (tokens.length > 0) {
-          const last = tokens[tokens.length - 1];
+        if (addrTokens.length > 0) {
+          const last = addrTokens[addrTokens.length - 1];
           const m = last.match(/^(\d{4})\s+(.+)$/);
           if (m) {
             postcode = m[1];
             city = m[2];
-            addressLine = tokens.slice(0, -1).join(", ") || null;
+            addressLine = addrTokens.slice(0, -1).join(", ") || null;
           } else {
-            addressLine = tokens.join(", ") || null;
+            addressLine = addrTokens.join(", ") || null;
           }
         }
 
@@ -389,7 +471,6 @@ serve(async (req: Request) => {
           postcode,
           city,
           country_code: (typeof data.country_code === "string" && data.country_code) ? data.country_code : "CH",
-          // keep other fields optional/null
           contact_address_id: null,
           main_contact_id: null,
           firstname_suffix: null,
@@ -397,8 +478,6 @@ serve(async (req: Request) => {
           title: null,
         };
 
-        // Bexio v4 Purchase Bills: when manual_amount=true, provide amount_man (not amount_calc)
-        // Bexio v4: "Nr." = document_nr, set from invoice_number if available
         const titleWithNr = data.invoice_number 
           ? `${data.invoice_number} - ${data.vendor_name}` 
           : data.title || `Rechnung - ${data.vendor_name}`;
@@ -409,9 +488,6 @@ serve(async (req: Request) => {
             ? contactPartnerIdCandidate
             : null;
 
-        // IMPORTANT:
-        // contact_partner_id must be an INTERNAL Bexio user (employee), not the supplier/contact.
-        // Using supplier_id here can make the subsequent /issue call fail and keep the bill in draft.
         if (!contactPartnerId) {
           contactPartnerId = await resolveInternalContactPartnerId(accessToken, user?.email);
         }
@@ -422,12 +498,10 @@ serve(async (req: Request) => {
           );
         }
 
-        // Line item description: use notes, title, or fallback
         const lineDescription = (data.notes || data.title || titleWithNr || "Rechnung").slice(0, 200);
 
         const payload: Record<string, any> = {
           supplier_id: supplierId,
-          // contact_partner_id = internal contact person (Bexio user)
           contact_partner_id: contactPartnerId,
           title: data.title || titleWithNr,
           vendor_ref: data.payment_reference || data.vendor_ref || null,
@@ -435,9 +509,7 @@ serve(async (req: Request) => {
           currency_code: (data.currency || "CHF") as string,
           bill_date: data.bill_date || data.invoice_date || new Date().toISOString().split("T")[0],
           due_date: data.due_date || null,
-          // Set document_nr from invoice_number so Bexio shows the Nr. field
           ...(data.invoice_number ? { document_nr: data.invoice_number } : {}),
-          // CRITICAL: manual_amount=true requires amount_man, NOT amount_calc
           manual_amount: true,
           item_net: false,
           amount_man: totalAmount,
@@ -452,10 +524,8 @@ serve(async (req: Request) => {
           ],
         };
 
-        // Add attachment_ids if provided (file UUIDs from upload_file)
         if (Array.isArray(data.attachment_ids) && data.attachment_ids.length > 0) {
           payload.attachment_ids = data.attachment_ids;
-          console.log("Including attachment_ids in bill creation:", data.attachment_ids);
         }
 
         console.log("Creating purchase bill (v4) with payload:", JSON.stringify(payload));
@@ -470,18 +540,14 @@ serve(async (req: Request) => {
           body: JSON.stringify(payload),
         });
 
-        // Create draft bill
         const createdBill = await parseBexioResponse(bexioResponse, action);
 
-        // IMPORTANT: Bexio generates the "Nr." only when the bill is issued / marked open.
-        // We auto-issue it so the UI shows a generated number instead of "null".
-        // The bill MUST be issued to create a payment order in e-banking.
+        // Auto-issue the bill to create payment order
         let issuedBill = createdBill;
         const billId = createdBill?.id;
         if (billId !== undefined && billId !== null) {
           console.log("Issuing purchase bill to mark as open:", billId);
 
-          // First, try to validate the document_nr is available (if we set one)
           if (data.invoice_number) {
             try {
               const validateResp = await fetch(
@@ -519,7 +585,6 @@ serve(async (req: Request) => {
           } else {
             const issueError = await issueResp.text();
             console.error(`Failed to issue purchase bill (${issueResp.status}):`, issueError);
-            // Try alternative: update status to OPEN
             try {
               const statusResp = await fetch(
                 `${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(String(billId))}/status`,
@@ -564,7 +629,6 @@ serve(async (req: Request) => {
       }
 
       case "get_invoices":
-        // Use v4 purchase bills listing for supplier invoices
         bexioResponse = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -575,7 +639,6 @@ serve(async (req: Request) => {
         break;
       
       case "create_creditor":
-        // Create or get creditor (supplier) contact
         bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/contact`, {
           method: "POST",
           headers: {
@@ -584,7 +647,7 @@ serve(async (req: Request) => {
             Accept: "application/json",
           },
           body: JSON.stringify({
-            contact_type_id: 2, // Supplier/Creditor
+            contact_type_id: 2,
             name_1: data.name,
             address: data.address,
             mail: data.email,
@@ -594,13 +657,10 @@ serve(async (req: Request) => {
         break;
 
       case "upload_file": {
-        // Upload a file to Bexio Files (Inbox)
-        // Expects: data.file_base64 (base64 encoded), data.filename, data.mime_type
         if (!data?.file_base64 || !data?.filename) {
           throw new Error("upload_file: missing file_base64 or filename");
         }
 
-        // If OAuth token was created without file scope, Bexio will return 403 for this endpoint.
         const tokenScope = typeof tokens.scope === "string" ? tokens.scope : "";
         const hasFileScope = tokenScope.split(/\s+/).includes("file");
         if (!hasFileScope) {
@@ -609,7 +669,6 @@ serve(async (req: Request) => {
           );
         }
 
-        // Decode base64 to binary
         const binaryString = atob(data.file_base64);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -637,14 +696,10 @@ serve(async (req: Request) => {
       }
 
       case "attach_file_to_bill": {
-        // Attach file(s) to an existing purchase bill
-        // Expects: data.bill_id (UUID), data.attachment_ids (array of file UUIDs)
-        // Bexio v4 PUT requires ALL mandatory fields, so we must preserve the entire bill and add attachments.
         if (!data?.bill_id || !data?.attachment_ids) {
           throw new Error("attach_file_to_bill: missing bill_id or attachment_ids");
         }
 
-        // First get current bill to preserve existing data
         const getBillResp = await fetch(`${BEXIO_API_URL}/4.0/purchase/bills/${encodeURIComponent(data.bill_id)}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -653,12 +708,9 @@ serve(async (req: Request) => {
         });
         const currentBill = await parseBexioResponse(getBillResp, "get_bill_for_attach");
 
-        // Merge existing attachment_ids with new ones
         const existingAttachments: string[] = currentBill.attachment_ids || [];
         const allAttachments = [...new Set([...existingAttachments, ...data.attachment_ids])];
 
-        // Bexio v4 PUT requires ALL mandatory fields including split_into_line_items
-        // Ensure we don't accidentally write an invalid contact_partner_id.
         const currentContactPartnerId = toNumber(currentBill.contact_partner_id);
         let safeContactPartnerId =
           Number.isFinite(currentContactPartnerId) && currentContactPartnerId > 0
@@ -706,8 +758,6 @@ serve(async (req: Request) => {
       }
 
       case "get_bank_accounts": {
-        // List all bank accounts configured in Bexio
-        // Try v2 endpoint first (more common), fallback to empty if Banking module not available
         bexioResponse = await fetch(`${BEXIO_API_URL}/2.0/bank_account`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -715,9 +765,8 @@ serve(async (req: Request) => {
           },
         });
         
-        // If 404, the Banking module may not be enabled - return empty array gracefully
         if (bexioResponse.status === 404) {
-          console.log("Bexio bank accounts not available (404) - Banking module may not be enabled");
+          console.log("Bexio bank accounts not available (404)");
           result = [];
           break;
         }
@@ -727,9 +776,6 @@ serve(async (req: Request) => {
       }
 
       case "create_iban_payment": {
-        // Create an IBAN payment order on a specific bank account
-        // Endpoint: POST /3.0/banking/bank_accounts/{bank_account_id}/payments/iban
-        // Required: bank_account_id, iban, amount, currency, recipient (name, street, zip, city, country_code), execution_date
         const bankAccountId = toNumber(data.bank_account_id);
         if (!Number.isFinite(bankAccountId)) {
           throw new Error("create_iban_payment: missing/invalid bank_account_id");
@@ -744,7 +790,6 @@ serve(async (req: Request) => {
           throw new Error("create_iban_payment: missing/invalid amount");
         }
 
-        // Build recipient address
         const recipientName = data.recipient_name || data.vendor_name || "Lieferant";
         const recipientStreet = data.recipient_street || data.vendor_address || "-";
         const recipientZip = data.recipient_zip || "";
@@ -800,7 +845,6 @@ serve(async (req: Request) => {
   } catch (error: any) {
     console.error("Bexio API error:", error);
     
-    // Handle reconnect-required errors gracefully
     if (error instanceof BexioReconnectRequiredError || error.name === "BexioReconnectRequiredError") {
       return new Response(
         JSON.stringify({ 
@@ -809,7 +853,7 @@ serve(async (req: Request) => {
           error: error.message 
         }),
         {
-          status: 200, // Return 200 so frontend can handle gracefully
+          status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBexio } from "@/hooks/useBexio";
+import { useMultiBexio } from "@/hooks/useMultiBexio";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -72,6 +73,7 @@ export function InvoiceApprovalDialog({
 }: InvoiceApprovalDialogProps) {
   const { user } = useAuth();
   const { isConnected: bexioConnected, callApi: callBexioApi } = useBexio();
+  const { selectedAccountId: bexioAccountId } = useMultiBexio();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");
@@ -158,7 +160,7 @@ export function InvoiceApprovalDialog({
           // Step 1: Search for existing supplier contact
           const contactResult = await callBexioApi("search_contact", { 
             name: invoice.vendor_name 
-          });
+          }, bexioAccountId);
           
           let vendorId: number;
           if (contactResult && contactResult.length > 0) {
@@ -170,7 +172,7 @@ export function InvoiceApprovalDialog({
             const newContact = await callBexioApi("create_creditor", {
               name: invoice.vendor_name,
               address: invoice.vendor_address,
-            });
+            }, bexioAccountId);
             vendorId = newContact.id;
             console.log("Created new Bexio creditor:", vendorId);
           }
@@ -203,7 +205,7 @@ export function InvoiceApprovalDialog({
                   file_base64: base64,
                   filename: filename,
                   mime_type: "application/pdf",
-                });
+                }, bexioAccountId);
 
                  // Bexio returns an array: [{ id: number, uuid: string, ... }]
                  const uploadedUuid = Array.isArray(uploadResult)
@@ -228,7 +230,7 @@ export function InvoiceApprovalDialog({
           try {
             const internalContactResult = await callBexioApi("search_contact", {
               name: "Hasan Arda Kaya"
-            });
+            }, bexioAccountId);
             if (internalContactResult && internalContactResult.length > 0) {
               internalContactId = internalContactResult[0].id;
               console.log("Found internal contact Hasan Arda Kaya:", internalContactId);
@@ -270,7 +272,7 @@ export function InvoiceApprovalDialog({
             notes: normalizedNotes,
             contact_partner_id: internalContactId,
             attachment_ids: bexioFileId ? [bexioFileId] : [],
-          });
+          }, bexioAccountId);
 
           // Fallback: ensure attachment is linked even if create endpoint ignored it
           if (bexioFileId && bexioInvoice?.id) {
@@ -278,7 +280,7 @@ export function InvoiceApprovalDialog({
               await callBexioApi("attach_file_to_bill", {
                 bill_id: bexioInvoice.id,
                 attachment_ids: [bexioFileId],
-              });
+              }, bexioAccountId);
             } catch (e) {
               console.warn("Bexio attach_file_to_bill failed (non-blocking):", e);
             }
@@ -291,7 +293,7 @@ export function InvoiceApprovalDialog({
           if (invoice.vendor_iban) {
             try {
               // Get bank accounts to find "Valiant" CHF account
-              const bankAccounts = await callBexioApi("get_bank_accounts", {});
+              const bankAccounts = await callBexioApi("get_bank_accounts", {}, bexioAccountId);
               console.log("Available bank accounts:", bankAccounts?.length);
 
               // Find Valiant CHF account (case-insensitive match on name containing "valiant" and currency CHF)
@@ -332,7 +334,7 @@ export function InvoiceApprovalDialog({
                   recipient_country: "CH",
                   execution_date: invoice.due_date || new Date().toISOString().split("T")[0],
                   message: invoice.payment_reference || invoice.invoice_number || "",
-                });
+                }, bexioAccountId);
 
                 paymentCreated = true;
                 console.log("Created IBAN payment order for", invoice.vendor_name);
