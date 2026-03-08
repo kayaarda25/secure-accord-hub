@@ -272,7 +272,7 @@ export function GlobalSearch() {
           {query.length < 2 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Schnellzugriff">
+              <CommandGroup heading={t("search.quickAccess")}>
                 {quickActions.map((action) => (
                   <CommandItem
                     key={action.href}
