@@ -134,10 +134,10 @@ export default function Settings() {
       if (updateError) throw updateError;
 
       setAvatarUrl(urlWithCacheBust);
-      toast({ title: "Erfolg", description: "Profilbild wurde aktualisiert" });
+      toast({ title: t("common.success"), description: t("settings.profile.avatarUpdated") });
     } catch (error) {
       console.error("Avatar upload error:", error);
-      toast({ title: "Fehler", description: "Profilbild konnte nicht hochgeladen werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.avatarError"), variant: "destructive" });
     } finally {
       setIsUploadingAvatar(false);
     }
