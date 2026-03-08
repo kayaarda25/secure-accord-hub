@@ -44,13 +44,6 @@ export default function Payroll() {
     if (!record) return;
 
     try {
-      // Fetch employee details
-      const { data: empRecord } = await supabase
-        .from("employee_records")
-        .select("*")
-        .eq("profile_id", record.profiles?.user_id ? undefined : null)
-        .limit(1);
-
       const { data: prof } = await supabase
         .from("profiles")
         .select("first_name, last_name, email")
