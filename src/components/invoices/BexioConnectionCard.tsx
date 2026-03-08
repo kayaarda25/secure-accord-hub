@@ -172,7 +172,7 @@ export function BexioConnectionCard() {
             <p className="text-sm text-muted-foreground">
               Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Zahlungsauftrag zu erfassen.
             </p>
-            <Button onClick={connect} disabled={isLoading}>
+            <Button onClick={() => connect()} disabled={isLoading}>
               <Link2 className="mr-2 h-4 w-4" />
               Mit Bexio verbinden
             </Button>
