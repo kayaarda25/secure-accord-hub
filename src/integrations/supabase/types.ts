@@ -1736,6 +1736,87 @@ export type Database = {
           },
         ]
       }
+      hr_expenses: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          category: string
+          created_at: string
+          currency: string
+          description: string
+          employee_id: string
+          expense_date: string
+          id: string
+          notes: string | null
+          organization_id: string | null
+          receipt_path: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description: string
+          employee_id: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          receipt_path?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string
+          employee_id?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          receipt_path?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_expenses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       letterhead_settings: {
         Row: {
           address: string | null

@@ -32,6 +32,7 @@ import Employees from "./pages/Employees";
 import Vacations from "./pages/hr/Vacations";
 import Payroll from "./pages/hr/Payroll";
 import SocialInsurance from "./pages/hr/SocialInsurance";
+import Expenses from "./pages/hr/Expenses";
 import Projects from "./pages/Projects";
 import Support from "./pages/Support";
 import MobileUpload from "./pages/MobileUpload";
@@ -182,6 +183,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <SocialInsurance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hr/expenses"
+              element={
+                <ProtectedRoute>
+                  <Expenses />
                 </ProtectedRoute>
               }
             />

@@ -23,6 +23,7 @@ export const de: Record<string, string> = {
   "nav.vacations": "Ferienmanagement",
   "nav.payroll": "Lohnbuchhaltung",
   "nav.socialInsurance": "Sozialversicherungen",
+  "nav.expenses": "Spesen",
   "nav.partners": "Partner",
   "nav.authorities": "Behörden",
   "nav.users": "Benutzer",
