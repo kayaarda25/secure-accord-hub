@@ -345,7 +345,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">To Do</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.todo")}</p>
                 <p className="text-2xl font-bold text-primary">{todoCount}</p>
               </div>
               <Circle className="h-8 w-8 text-primary" />
