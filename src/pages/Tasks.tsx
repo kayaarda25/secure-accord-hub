@@ -637,7 +637,7 @@ export default function Tasks() {
                               <span className={`flex items-center gap-1 ${overdue ? "text-destructive font-medium" : ""}`}>
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(task.due_date)}
-                                {overdue && " (Overdue)"}
+                                {overdue && ` (${t("tasks.overdue")})`}
                               </span>
                             )}
                             {task.participants && task.participants.length > 0 && (
