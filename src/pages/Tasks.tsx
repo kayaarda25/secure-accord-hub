@@ -401,9 +401,9 @@ export default function Tasks() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
+              <DialogTitle>{t("tasks.create")}</DialogTitle>
               <DialogDescription>
-                Add a new task to your list
+                {t("tasks.createDesc")}
               </DialogDescription>
             </DialogHeader>
             
