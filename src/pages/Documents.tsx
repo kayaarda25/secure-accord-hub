@@ -890,8 +890,9 @@ export default function Documents() {
                         const myPending = (doc.signatures || []).find(
                           (s) => s.signer_id === user?.id && s.status === "pending"
                         );
+                        const isPdf = doc.file_path?.toLowerCase().endsWith(".pdf");
                         const canSelfSign =
-                          doc.uploaded_by === user?.id && (!doc.signatures || doc.signatures.length === 0);
+                          isPdf && doc.uploaded_by === user?.id && (!doc.signatures || doc.signatures.length === 0);
 
                         if (myPending) {
                           return (
@@ -969,7 +970,7 @@ export default function Documents() {
                 <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
                   <input
                     type="file"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    accept=".pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {

@@ -69,40 +69,6 @@ function sanitize(text: string): string {
     .replace(/\u00A0/g, " ");
 }
 
-/**
- * Convert a Word document to PDF via the backend edge function (ConvertAPI).
- */
-async function convertWordToPdf(filePath: string): Promise<ArrayBuffer> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not authenticated");
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/convert-docx-to-pdf`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({ filePath }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(`Conversion failed: ${err.error || response.statusText}`);
-  }
-
-  const result = await response.json();
-  if (!result.pdfBase64) throw new Error("No PDF data returned");
-
-  // Decode base64 to ArrayBuffer
-  const binaryString = atob(result.pdfBase64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
 
 async function stampSignature(
   pdfDoc: PDFDocument,
@@ -150,28 +116,12 @@ async function stampSignature(
 
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
   const { documentName, documentFilePath, signatures } = options;
-  const isPdf = documentFilePath.toLowerCase().endsWith(".pdf");
-  const isWord = /\.(docx?)$/i.test(documentFilePath);
-
-  let pdfDoc: PDFDocument;
-
-  if (isPdf) {
-    // Load existing PDF directly
-    const docBytes = await fetchDocumentBytes(documentFilePath);
-    pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
-  } else if (isWord) {
-    // Convert Word → PDF via ConvertAPI (pixel-perfect conversion)
-    const pdfBytes = await convertWordToPdf(documentFilePath);
-    pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  } else {
-    // Unsupported format fallback
-    pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]);
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    page.drawText(sanitize(`Dokument: ${documentName}`), { x: 40, y: 750, size: 14, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText("Dateiformat wird nicht direkt unterstuetzt.", { x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4) });
+  if (!documentFilePath.toLowerCase().endsWith(".pdf")) {
+    throw new Error("Nur PDF-Dateien können signiert werden.");
   }
+
+  const docBytes = await fetchDocumentBytes(documentFilePath);
+  const pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
 
   const pages = pdfDoc.getPages();
   const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
