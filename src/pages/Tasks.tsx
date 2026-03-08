@@ -58,18 +58,18 @@ interface Profile {
   email: string;
 }
 
-const PRIORITY_CONFIG: Record<string, { label: string; color: string; icon: typeof AlertTriangle }> = {
-  low: { label: "Low", color: "text-muted-foreground", icon: Circle },
-  normal: { label: "Normal", color: "text-primary", icon: Circle },
-  high: { label: "High", color: "text-warning", icon: AlertTriangle },
-  critical: { label: "Critical", color: "text-destructive", icon: AlertTriangle },
-};
+const getPriorityConfig = (t: (key: string) => string) => ({
+  low: { label: t("tasks.low"), color: "text-muted-foreground", icon: Circle },
+  normal: { label: t("tasks.normal"), color: "text-primary", icon: Circle },
+  high: { label: t("tasks.high"), color: "text-warning", icon: AlertTriangle },
+  critical: { label: t("tasks.critical"), color: "text-destructive", icon: AlertTriangle },
+});
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof Circle }> = {
-  todo: { label: "To Do", icon: Circle },
-  in_progress: { label: "In Progress", icon: PlayCircle },
-  done: { label: "Done", icon: CheckCircle2 },
-};
+const getStatusConfig = (t: (key: string) => string) => ({
+  todo: { label: t("tasks.todo"), icon: Circle },
+  in_progress: { label: t("tasks.inProgress"), icon: PlayCircle },
+  done: { label: t("tasks.completed"), icon: CheckCircle2 },
+});
 
 export default function Tasks() {
   const { user } = useAuth();
