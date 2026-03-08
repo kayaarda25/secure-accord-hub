@@ -540,7 +540,7 @@ export default function Tasks() {
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
+                  {t("tasks.cancel")}
                 </Button>
                 <Button type="submit" disabled={isSubmitting} className="glow-gold">
                   {isSubmitting ? (
