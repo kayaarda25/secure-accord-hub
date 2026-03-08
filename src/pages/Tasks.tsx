@@ -427,7 +427,7 @@ export default function Tasks() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label>{t("tasks.priority")}</Label>
                   <Select 
                     value={formData.priority} 
                     onValueChange={(v) => setFormData(prev => ({ ...prev, priority: v }))}
