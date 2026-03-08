@@ -28,9 +28,9 @@ export interface HrExpense {
 }
 
 export function useExpenses() {
-  const { user, hasAnyRole } = useAuth();
+  const { user, hasAnyPermission } = useAuth();
   const queryClient = useQueryClient();
-  const isManager = hasAnyRole(["admin", "management", "finance"]);
+  const isManager = hasAnyPermission(["expenses.approve", "admin.full_access"]);
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["hr-expenses"],
