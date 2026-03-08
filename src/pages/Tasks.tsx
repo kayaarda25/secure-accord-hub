@@ -356,7 +356,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">In Progress</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.inProgress")}</p>
                 <p className="text-2xl font-bold text-warning">{inProgressCount}</p>
               </div>
               <PlayCircle className="h-8 w-8 text-warning" />
