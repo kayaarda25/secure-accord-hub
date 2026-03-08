@@ -43,13 +43,12 @@ export function Sidebar({
       onMobileClose();
     }
   };
-  const getRoleBadge = () => {
-    if (roles.includes("admin")) return "Admin";
-    if (roles.includes("state")) return "State";
-    if (roles.includes("management")) return "Management";
-    if (roles.includes("finance")) return "Finance";
-    if (roles.includes("partner")) return "Partner";
-    return "User";
+  const getPermissionBadge = () => {
+    if (permissions.includes("admin.full_access")) return "Admin";
+    const count = permissions.length;
+    if (count > 10) return "Erweitert";
+    if (count > 0) return `${count} Rechte`;
+    return "Basis";
   };
   const isActive = (path: string) => location.pathname === path;
   const isGroupActive = (paths: string[]) => paths.some(p => location.pathname === p);
