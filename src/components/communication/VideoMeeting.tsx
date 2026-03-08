@@ -19,6 +19,7 @@ import {
   Circle,
   Square,
   Download,
+  ExternalLink,
 } from "lucide-react";
 
 interface Participant {
@@ -40,6 +41,28 @@ interface VideoMeetingProps {
   initialRoomCode?: string;
 }
 
+/** Pick the best supported recording MIME type. Prefer MP4 then WebM. */
+function getRecordingMimeType(): string {
+  const candidates = [
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4;codecs=avc1",
+    "video/mp4",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+  ];
+  for (const mime of candidates) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return "";
+}
+
+function mimeToExtension(mime: string): string {
+  if (mime.startsWith("video/mp4")) return "mp4";
+  return "webm";
+}
+
 export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   const { user, profile } = useAuth();
   const [roomId, setRoomId] = useState<string>(initialRoomCode || "");
@@ -51,6 +74,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingZoom, setIsCreatingZoom] = useState(false);
 
   // Chat state
   const [showChat, setShowChat] = useState(false);
@@ -63,6 +87,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordingMime, setRecordingMime] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -106,7 +131,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
 
     pc.onicecandidate = (event) => {
       if (event.candidate && channelRef.current) {
-        console.log("Sending ICE candidate to:", peerId);
         channelRef.current.send({
           type: "broadcast",
           event: "ice-candidate",
@@ -139,10 +163,11 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       }
     };
 
-    // Add local tracks
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current!);
+    // Add local tracks – prefer screen share track if active
+    const activeStream = screenStreamRef.current || localStreamRef.current;
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => {
+        pc.addTrack(track, activeStream);
       });
     }
 
@@ -151,7 +176,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   }, [user?.id]);
 
   const handlePeerDisconnect = (peerId: string) => {
-    console.log("Peer disconnected:", peerId);
     const pc = peerConnectionsRef.current.get(peerId);
     if (pc) {
       pc.close();
@@ -163,8 +187,16 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   const initializeMedia = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       localStreamRef.current = stream;
       if (localVideoRef.current) {
@@ -173,7 +205,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       return true;
     } catch (err) {
       console.error("Error accessing media devices:", err);
-      setError("Kamera/Mikrofon-Zugriff verweigert. Bitte erlauben Sie den Zugriff.");
+      setError("Kamera/Mikrofon-Zugriff verweigert. Bitte erlauben Sie den Zugriff in den Browser-Einstellungen.");
       return false;
     }
   };
@@ -185,10 +217,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
         .select("*")
         .eq("room_code", roomCode)
         .order("created_at", { ascending: true });
-
-      if (data) {
-        setChatMessages(data);
-      }
+      if (data) setChatMessages(data);
     } catch (error) {
       console.error("Error fetching chat history:", error);
     }
@@ -205,13 +234,10 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       return;
     }
 
-    console.log("Joining room:", roomToJoin);
-
-    // Fetch chat history
     await fetchChatHistory(roomToJoin);
 
     // Subscribe to chat messages
-    const chatChannel = supabase
+    supabase
       .channel(`chat:${roomToJoin}`)
       .on(
         "postgres_changes",
@@ -233,30 +259,27 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
 
     // Subscribe to the room channel for WebRTC
     const channel = supabase.channel(`meeting:${roomToJoin}`, {
-      config: {
-        presence: { key: user.id },
-      },
+      config: { presence: { key: user.id } },
     });
 
     channel
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-        console.log("Presence sync:", state);
-        
-        const presentUsers = Object.entries(state).map(([key, value]) => ({
-          id: key,
-          name: (value as any)[0]?.name || "Unbekannt",
-        })).filter((p) => p.id !== user.id);
+        const presentUsers = Object.entries(state)
+          .map(([key, value]) => ({
+            id: key,
+            name: (value as any)[0]?.name || "Unbekannt",
+          }))
+          .filter((p) => p.id !== user.id);
 
-        setParticipants((prev) => {
-          return presentUsers.map((newP) => {
+        setParticipants((prev) =>
+          presentUsers.map((newP) => {
             const existing = prev.find((p) => p.id === newP.id);
             return existing ? { ...newP, stream: existing.stream } : newP;
-          });
-        });
+          })
+        );
       })
-      .on("presence", { event: "join" }, async ({ key, newPresences }) => {
-        console.log("User joined:", key, newPresences);
+      .on("presence", { event: "join" }, async ({ key }) => {
         if (key !== user.id) {
           const pc = createPeerConnection(key);
           try {
@@ -278,13 +301,10 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
         }
       })
       .on("presence", { event: "leave" }, ({ key }) => {
-        console.log("User left:", key);
         handlePeerDisconnect(key);
       })
       .on("broadcast", { event: "offer" }, async ({ payload }) => {
         if (payload.to !== user.id) return;
-        console.log("Received offer from:", payload.from);
-        
         const pc = createPeerConnection(payload.from);
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
@@ -306,8 +326,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       })
       .on("broadcast", { event: "answer" }, async ({ payload }) => {
         if (payload.to !== user.id) return;
-        console.log("Received answer from:", payload.from);
-        
         const pc = peerConnectionsRef.current.get(payload.from);
         if (pc) {
           try {
@@ -319,8 +337,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       })
       .on("broadcast", { event: "ice-candidate" }, async ({ payload }) => {
         if (payload.to !== user.id) return;
-        console.log("Received ICE candidate from:", payload.from);
-        
         const pc = peerConnectionsRef.current.get(payload.from);
         if (pc) {
           try {
@@ -334,7 +350,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
     await channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         await channel.track({ name: userName });
-        console.log("Subscribed to channel and tracking presence");
       }
     });
 
@@ -349,10 +364,39 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
     await joinRoom(newRoomId);
   };
 
+  // ─── Zoom instant meeting ───
+  const createZoomInstant = async () => {
+    if (!user) return;
+    setIsCreatingZoom(true);
+    setError(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("create-zoom-meeting", {
+        body: {
+          meeting: {
+            title: `Instant Meeting – ${userName}`,
+            date: new Date().toISOString(),
+            duration: 60,
+          },
+          participants: [],
+        },
+      });
+      if (fnError) throw fnError;
+      if (data?.zoomMeeting?.joinUrl) {
+        window.open(data.zoomMeeting.joinUrl, "_blank");
+      } else {
+        throw new Error("Keine Zoom-URL erhalten");
+      }
+    } catch (err: any) {
+      console.error("Zoom instant meeting error:", err);
+      setError("Zoom-Meeting konnte nicht erstellt werden. Bitte prüfen Sie die Zoom-Konfiguration.");
+    } finally {
+      setIsCreatingZoom(false);
+    }
+  };
+
   const sendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChatMessage.trim() || !user) return;
-
     try {
       await supabase.from("meeting_chat_messages").insert({
         room_code: roomId,
@@ -366,31 +410,33 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
     }
   };
 
+  // ─── Recording (prefer MP4) ───
   const startRecording = async () => {
     if (!localStreamRef.current) return;
-
     try {
-      // Create a combined stream with all participants
-      const canvas = document.createElement("canvas");
-      canvas.width = 1920;
-      canvas.height = 1080;
-      const ctx = canvas.getContext("2d");
-      
-      // For simplicity, record local stream only
-      const mediaRecorder = new MediaRecorder(localStreamRef.current, {
-        mimeType: "video/webm;codecs=vp9",
-      });
+      const mime = getRecordingMimeType();
+      setRecordingMime(mime);
 
+      const options: MediaRecorderOptions = {};
+      if (mime) options.mimeType = mime;
+
+      // Combine all available tracks (camera + audio, or screen + audio)
+      const activeVideoStream = screenStreamRef.current || localStreamRef.current;
+      const combinedStream = new MediaStream();
+      activeVideoStream.getVideoTracks().forEach((t) => combinedStream.addTrack(t));
+      localStreamRef.current.getAudioTracks().forEach((t) => combinedStream.addTrack(t));
+
+      const mediaRecorder = new MediaRecorder(combinedStream, options);
       recordedChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+        const ext = mimeToExtension(mime);
+        const blobType = ext === "mp4" ? "video/mp4" : "video/webm";
+        const blob = new Blob(recordedChunksRef.current, { type: blobType });
         setRecordedBlob(blob);
       };
 
@@ -398,7 +444,6 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
       setRecordingTime(0);
-
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
@@ -411,27 +456,22 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
     }
   };
 
   const saveRecording = async () => {
     if (!recordedBlob || !user) return;
-
     try {
-      const fileName = `recording_${roomId}_${Date.now()}.webm`;
+      const ext = mimeToExtension(recordingMime);
+      const fileName = `recording_${roomId}_${Date.now()}.${ext}`;
       const filePath = `${user.id}/${fileName}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("meeting-recordings")
         .upload(filePath, recordedBlob);
-
       if (uploadError) throw uploadError;
 
-      // Save record to database
       await supabase.from("meeting_recordings").insert({
         room_code: roomId,
         file_path: filePath,
@@ -441,7 +481,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
         recorded_by: user.id,
       });
 
-      // Download locally too
+      // Download locally
       const url = URL.createObjectURL(recordedBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -463,11 +503,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
   };
 
   const leaveRoom = () => {
-    console.log("Leaving room");
-    
-    if (isRecording) {
-      stopRecording();
-    }
+    if (isRecording) stopRecording();
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -516,43 +552,59 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
+      // Stop screen sharing → restore camera
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
       }
-      if (localStreamRef.current) {
-        const videoTrack = localStreamRef.current.getVideoTracks()[0];
-        peerConnectionsRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-          if (sender && videoTrack) {
-            sender.replaceTrack(videoTrack);
-          }
-        });
+      // Restore camera video to local preview and all peers
+      if (localStreamRef.current && localVideoRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        const cameraTrack = localStreamRef.current.getVideoTracks()[0];
+        if (cameraTrack) {
+          peerConnectionsRef.current.forEach((pc) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+            if (sender) sender.replaceTrack(cameraTrack);
+          });
+        }
       }
       setIsScreenSharing(false);
     } else {
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: { cursor: "always" } as any,
+          audio: true,
         });
         screenStreamRef.current = screenStream;
-        
+
         const screenTrack = screenStream.getVideoTracks()[0];
         screenTrack.onended = () => {
+          // User clicked "Stop Sharing" in browser UI
+          if (localStreamRef.current && localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+            const cameraTrack = localStreamRef.current.getVideoTracks()[0];
+            if (cameraTrack) {
+              peerConnectionsRef.current.forEach((pc) => {
+                const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+                if (sender) sender.replaceTrack(cameraTrack);
+              });
+            }
+          }
+          screenStreamRef.current = null;
           setIsScreenSharing(false);
         };
 
+        // Replace video track for all peers
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-          if (sender) {
-            sender.replaceTrack(screenTrack);
-          }
+          if (sender) sender.replaceTrack(screenTrack);
         });
 
+        // Show screen share in local preview
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = screenStream;
         }
-        
+
         setIsScreenSharing(true);
       } catch (err) {
         console.error("Error sharing screen:", err);
@@ -607,9 +659,10 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
           )}
 
           <div className="space-y-4">
+            {/* Internal instant meeting */}
             <button
               onClick={createRoom}
-              disabled={isJoining}
+              disabled={isJoining || isCreatingZoom}
               className="w-full py-3 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors flex items-center justify-center gap-2"
             >
               {isJoining ? (
@@ -618,6 +671,22 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 <>
                   <Video size={20} />
                   Neue Sitzung erstellen
+                </>
+              )}
+            </button>
+
+            {/* Zoom instant meeting */}
+            <button
+              onClick={createZoomInstant}
+              disabled={isJoining || isCreatingZoom}
+              className="w-full py-3 bg-[#2D8CFF] text-white rounded-lg font-medium hover:bg-[#2D8CFF]/90 transition-colors flex items-center justify-center gap-2"
+            >
+              {isCreatingZoom ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <ExternalLink size={20} />
+                  Zoom-Meeting starten
                 </>
               )}
             </button>
@@ -719,12 +788,12 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover ${!isScreenSharing ? "-scale-x-100" : ""}`}
               />
               <div className="absolute bottom-3 left-3 px-2 py-1 bg-background/80 rounded text-sm text-foreground">
-                {userName} (Sie)
+                {userName} (Sie){isScreenSharing ? " – Bildschirm" : ""}
               </div>
-              {!isVideoEnabled && (
+              {!isVideoEnabled && !isScreenSharing && (
                 <div className="absolute inset-0 bg-muted flex items-center justify-center">
                   <VideoOff size={48} className="text-muted-foreground" />
                 </div>
@@ -840,6 +909,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 ? "bg-muted hover:bg-muted/80 text-foreground"
                 : "bg-destructive text-destructive-foreground"
             }`}
+            title={isAudioEnabled ? "Mikrofon stumm" : "Mikrofon an"}
           >
             {isAudioEnabled ? <Mic size={24} /> : <MicOff size={24} />}
           </button>
@@ -850,6 +920,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 ? "bg-muted hover:bg-muted/80 text-foreground"
                 : "bg-destructive text-destructive-foreground"
             }`}
+            title={isVideoEnabled ? "Kamera aus" : "Kamera an"}
           >
             {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
           </button>
@@ -860,6 +931,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 ? "bg-accent text-accent-foreground"
                 : "bg-muted hover:bg-muted/80 text-foreground"
             }`}
+            title={isScreenSharing ? "Teilen beenden" : "Bildschirm teilen"}
           >
             <Monitor size={24} />
           </button>
@@ -870,6 +942,7 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 ? "bg-accent text-accent-foreground"
                 : "bg-muted hover:bg-muted/80 text-foreground"
             }`}
+            title="Chat"
           >
             <MessageSquare size={24} />
             {unreadCount > 0 && (
@@ -885,12 +958,14 @@ export function VideoMeeting({ onClose, initialRoomCode }: VideoMeetingProps) {
                 ? "bg-destructive text-destructive-foreground animate-pulse"
                 : "bg-muted hover:bg-muted/80 text-foreground"
             }`}
+            title={isRecording ? "Aufnahme stoppen" : "Aufnahme starten"}
           >
             {isRecording ? <Square size={24} /> : <Circle size={24} />}
           </button>
           <button
             onClick={leaveRoom}
             className="p-4 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            title="Sitzung verlassen"
           >
             <PhoneOff size={24} />
           </button>
