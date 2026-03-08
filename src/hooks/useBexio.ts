@@ -42,7 +42,7 @@ export function useBexio() {
     }
   };
 
-  const connect = async () => {
+  const connect = async (accountName?: string, entityType?: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -55,8 +55,14 @@ export function useBexio() {
         return;
       }
 
+      const body: Record<string, any> = { redirectUri: "/finances/invoices" };
+      if (accountName) {
+        body.accountName = accountName;
+        body.entityType = entityType || "default";
+      }
+
       const response = await supabase.functions.invoke("bexio-auth", {
-        body: { redirectUri: "/finances/invoices" },
+        body,
       });
 
       if (response.error) {

@@ -13,14 +13,15 @@ import bexioLogo from "@/assets/bexio-logo.png";
 
 export function BexioConnectionCard() {
   const { isConnected, isLoading, connect, disconnect } = useBexio();
-  const { accounts, selectedAccountId, setSelectedAccountId, addAccount, removeAccount, isLoading: accountsLoading } = useMultiBexio();
+  const { accounts, selectedAccountId, setSelectedAccountId, removeAccount, isLoading: accountsLoading, refetch } = useMultiBexio();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newEntityType, setNewEntityType] = useState("default");
 
   const handleAddAccount = async () => {
     if (!newAccountName.trim()) return;
-    await addAccount(newAccountName.trim(), newEntityType);
+    // Trigger Bexio OAuth with account metadata – user logs in with a different Bexio account
+    await connect(newAccountName.trim(), newEntityType);
     setNewAccountName("");
     setNewEntityType("default");
     setAddDialogOpen(false);
@@ -171,7 +172,7 @@ export function BexioConnectionCard() {
             <p className="text-sm text-muted-foreground">
               Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Zahlungsauftrag zu erfassen.
             </p>
-            <Button onClick={connect} disabled={isLoading}>
+            <Button onClick={() => connect()} disabled={isLoading}>
               <Link2 className="mr-2 h-4 w-4" />
               Mit Bexio verbinden
             </Button>
