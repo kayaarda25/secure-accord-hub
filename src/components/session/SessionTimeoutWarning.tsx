@@ -14,36 +14,42 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
   const { t } = useLanguage();
   const [showWarning, setShowWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const showWarningRef = useRef(false);
 
-  const WARNING_SECONDS = 120; // 2 minutes before timeout
-
-  const logout = useCallback(async () => {
-    clearAllTimers();
-    setShowWarning(false);
-    sessionStorage.removeItem("mgi-session-start");
-    sessionStorage.removeItem("mgi-session-registered");
-    await supabase.auth.signOut();
-  }, []);
+  const WARNING_SECONDS = 120;
 
   const clearAllTimers = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningRef.current) clearTimeout(warningRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
+    timeoutRef.current = null;
+    warningRef.current = null;
+    countdownRef.current = null;
   }, []);
+
+  const logout = useCallback(async () => {
+    clearAllTimers();
+    setShowWarning(false);
+    showWarningRef.current = false;
+    sessionStorage.removeItem("mgi-session-start");
+    sessionStorage.removeItem("mgi-session-registered");
+    await supabase.auth.signOut();
+  }, [clearAllTimers]);
 
   const startCountdown = useCallback(() => {
     setShowWarning(true);
+    showWarningRef.current = true;
     setSecondsLeft(WARNING_SECONDS);
 
     if (countdownRef.current) clearInterval(countdownRef.current);
     countdownRef.current = setInterval(() => {
       setSecondsLeft(prev => {
         if (prev <= 1) {
-          clearInterval(countdownRef.current!);
+          if (countdownRef.current) clearInterval(countdownRef.current);
           return 0;
         }
         return prev - 1;
@@ -56,6 +62,7 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
 
     lastActivityRef.current = Date.now();
     setShowWarning(false);
+    showWarningRef.current = false;
     clearAllTimers();
 
     const timeoutMs = timeoutMinutes * 60 * 1000;
@@ -69,7 +76,6 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
 
   const handleStayActive = useCallback(() => {
     resetTimeout();
-    // Update session activity
     if (user) {
       supabase
         .from("user_sessions")
@@ -85,11 +91,11 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
 
     const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click"];
 
-    // Throttled activity handler - only reset if warning is NOT showing
     const handleActivity = () => {
-      if (showWarning) return; // Don't reset during warning countdown
+      // Don't reset during warning countdown
+      if (showWarningRef.current) return;
       const now = Date.now();
-      if (now - lastActivityRef.current < 30000) return; // Throttle to 30s
+      if (now - lastActivityRef.current < 10000) return; // Throttle 10s
       resetTimeout();
     };
 
@@ -105,7 +111,7 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
       });
       clearAllTimers();
     };
-  }, [user, resetTimeout, clearAllTimers, showWarning]);
+  }, [user, resetTimeout, clearAllTimers]);
 
   if (!showWarning || !user) return null;
 
@@ -120,8 +126,8 @@ export function SessionTimeoutWarning({ timeoutMinutes = 15 }: SessionTimeoutWar
             <AlertTriangle className="h-5 w-5 flex-shrink-0" />
             <div>
               <p className="font-semibold text-sm">
-                {t("session.timeout.title") !== "session.timeout.title" 
-                  ? t("session.timeout.title") 
+                {t("session.timeout.title") !== "session.timeout.title"
+                  ? t("session.timeout.title")
                   : "Session läuft ab"}
               </p>
               <p className="text-xs opacity-90">
