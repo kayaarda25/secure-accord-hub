@@ -62,7 +62,7 @@ export default function Projects() {
         </div>
         <Button onClick={() => setCreateOpen(true)} className="glow-gold">
           <Plus className="h-4 w-4 mr-2" />
-          Neues Projekt
+          {t("projects.new")}
         </Button>
       </div>
 
