@@ -91,7 +91,7 @@ export default function Projects() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {KANBAN_COLUMNS.map((col) => {
+          {getKanbanColumns(t).map((col) => {
             const Icon = col.icon;
             const columnProjects = projects.filter((p) => p.status === col.key);
             return (
