@@ -723,6 +723,7 @@ export default function Opex() {
         <TabsContent value="expenses">
       {/* Action Bar */}
       <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
           <button className="px-4 py-2 bg-muted rounded-lg text-sm font-medium text-foreground hover:bg-muted/80 transition-colors flex items-center gap-2">
             <Filter size={16} />
             Filter
