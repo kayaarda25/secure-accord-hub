@@ -504,7 +504,7 @@ export default function Tasks() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Share2 className="h-4 w-4" />
-                  Share with
+                  {t("tasks.share")}
                 </Label>
                 <div className="max-h-32 overflow-y-auto border rounded-lg p-2 space-y-1">
                   {profiles
