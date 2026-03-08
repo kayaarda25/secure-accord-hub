@@ -126,50 +126,55 @@ export default function Settings() {
     }
   }, [profile]);
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({ title: "Fehler", description: "Bitte wählen Sie eine Bilddatei", variant: "destructive" });
       return;
     }
 
-    // Validate file size (max 1MB)
-    if (file.size > 1024 * 1024) {
-      toast({ title: "Fehler", description: "Die Datei darf maximal 1MB groß sein", variant: "destructive" });
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Fehler", description: "Die Datei darf maximal 5MB groß sein", variant: "destructive" });
       return;
     }
 
+    setSelectedFile(file);
+    setCropperOpen(true);
+    // Reset input so same file can be re-selected
+    event.target.value = "";
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!user) return;
+    setCropperOpen(false);
     setIsUploadingAvatar(true);
 
     try {
-      // Create unique file path
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar.png`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, croppedBlob, { upsert: true, contentType: "image/png" });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")
         .getPublicUrl(fileName);
 
-      // Update profile with new avatar URL
+      // Add cache-busting parameter
+      const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
+
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: urlWithCacheBust })
         .eq("user_id", user.id);
 
       if (updateError) throw updateError;
 
-      setAvatarUrl(publicUrl);
+      setAvatarUrl(urlWithCacheBust);
       toast({ title: "Erfolg", description: "Profilbild wurde aktualisiert" });
     } catch (error) {
       console.error("Avatar upload error:", error);
