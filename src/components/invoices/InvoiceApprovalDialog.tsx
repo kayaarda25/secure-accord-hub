@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBexio } from "@/hooks/useBexio";
+import { useMultiBexio } from "@/hooks/useMultiBexio";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
