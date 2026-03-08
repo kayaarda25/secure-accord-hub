@@ -66,11 +66,18 @@ export default function Security() {
       .eq("is_active", true)
       .order("last_active_at", { ascending: false });
     
-    if (sessionsData) {
-      // Mark the most recent session as current (the one created during this login)
-      const enriched = sessionsData.map((s, index) => ({
+    // Fetch ALL sessions (active + inactive) for history view
+    const { data: allSessionsData } = await supabase
+      .from("user_sessions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("last_active_at", { ascending: false })
+      .limit(50);
+
+    if (allSessionsData) {
+      const enriched = allSessionsData.map((s, index) => ({
         ...s,
-        is_current: index === 0,
+        is_current: s.is_active && index === 0,
       }));
       setSessions(enriched);
     }
