@@ -272,7 +272,7 @@ export function InvoiceApprovalDialog({
             notes: normalizedNotes,
             contact_partner_id: internalContactId,
             attachment_ids: bexioFileId ? [bexioFileId] : [],
-          });
+          }, bexioAccountId);
 
           // Fallback: ensure attachment is linked even if create endpoint ignored it
           if (bexioFileId && bexioInvoice?.id) {
