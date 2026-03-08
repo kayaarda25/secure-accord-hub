@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BexioConnectionCard } from "@/components/invoices/BexioConnectionCard";
 import { InvoiceApprovalDialog } from "@/components/invoices/InvoiceApprovalDialog";
+import { useMultiBexio } from "@/hooks/useMultiBexio";
 import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
