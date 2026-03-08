@@ -207,7 +207,7 @@ export default function Tasks() {
         .eq("id", taskId);
 
       if (error) throw error;
-      toast.success(`Task marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
+      toast.success(`Task marked as ${getStatusConfig(t)[newStatus as keyof ReturnType<typeof getStatusConfig>]?.label || newStatus}`);
       fetchTasks();
     } catch (error) {
       console.error("Error updating task:", error);
