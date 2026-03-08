@@ -446,7 +446,7 @@ export default function Tasks() {
               </div>
 
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t("tasks.desc")}</Label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
