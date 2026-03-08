@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ExportMenu } from "@/components/export/ExportMenu";
 import { ExpenseNotesDialog } from "@/components/opex/ExpenseNotesDialog";
 import { OpexOverviewChart } from "@/components/opex/OpexOverviewChart";
+import { OpexBudgetList } from "@/components/opex/OpexBudgetList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Receipt,
   Plus,
