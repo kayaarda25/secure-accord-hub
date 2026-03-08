@@ -150,28 +150,12 @@ async function stampSignature(
 
 export async function generateSignedPdf(options: SignedPdfOptions): Promise<void> {
   const { documentName, documentFilePath, signatures } = options;
-  const isPdf = documentFilePath.toLowerCase().endsWith(".pdf");
-  const isWord = /\.(docx?)$/i.test(documentFilePath);
-
-  let pdfDoc: PDFDocument;
-
-  if (isPdf) {
-    // Load existing PDF directly
-    const docBytes = await fetchDocumentBytes(documentFilePath);
-    pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
-  } else if (isWord) {
-    // Convert Word → PDF via ConvertAPI (pixel-perfect conversion)
-    const pdfBytes = await convertWordToPdf(documentFilePath);
-    pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  } else {
-    // Unsupported format fallback
-    pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]);
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    page.drawText(sanitize(`Dokument: ${documentName}`), { x: 40, y: 750, size: 14, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText("Dateiformat wird nicht direkt unterstuetzt.", { x: 40, y: 720, size: 10, font, color: rgb(0.4, 0.4, 0.4) });
+  if (!documentFilePath.toLowerCase().endsWith(".pdf")) {
+    throw new Error("Nur PDF-Dateien können signiert werden.");
   }
+
+  const docBytes = await fetchDocumentBytes(documentFilePath);
+  const pdfDoc = await PDFDocument.load(docBytes, { ignoreEncryption: true });
 
   const pages = pdfDoc.getPages();
   const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);

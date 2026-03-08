@@ -970,7 +970,7 @@ export default function Documents() {
                 <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 transition-colors cursor-pointer">
                   <input
                     type="file"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    accept=".pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
