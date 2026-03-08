@@ -187,6 +187,14 @@ const App = () => (
               }
             />
             <Route
+              path="/hr/expenses"
+              element={
+                <ProtectedRoute>
+                  <Expenses />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/partners"
               element={
                 <ProtectedRoute>

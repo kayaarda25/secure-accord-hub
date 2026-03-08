@@ -199,7 +199,7 @@ export function Sidebar({
 
         {/* HR Group */}
         {!collapsed ? <Collapsible open={openGroups.includes("hr")} onOpenChange={() => toggleGroup("hr")}>
-            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/employees", "/hr/vacations", "/hr/payroll", "/hr/social-insurance"]) ? "text-primary" : ""}`}>
+            <CollapsibleTrigger className={`nav-link w-full justify-between mt-1 ${isGroupActive(["/employees", "/hr/vacations", "/hr/payroll", "/hr/social-insurance", "/hr/expenses"]) ? "text-primary" : ""}`}>
               <div className="flex items-center gap-3">
                 <UserCog size={18} />
                 <span>{t("nav.hr")}</span>
@@ -218,6 +218,10 @@ export function Sidebar({
               <NavLink to="/hr/payroll" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/payroll") ? "nav-link-active" : ""}`}>
                 <BadgeEuro size={16} className={isActive("/hr/payroll") ? "text-primary" : ""} />
                 <span>{t("nav.payroll")}</span>
+              </NavLink>
+              <NavLink to="/hr/expenses" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/expenses") ? "nav-link-active" : ""}`}>
+                <Receipt size={16} className={isActive("/hr/expenses") ? "text-primary" : ""} />
+                <span>{t("nav.expenses")}</span>
               </NavLink>
               <NavLink to="/hr/social-insurance" onClick={handleNavClick} className={`nav-link text-[13px] py-1.5 ${isActive("/hr/social-insurance") ? "nav-link-active" : ""}`}>
                 <HeartHandshake size={16} className={isActive("/hr/social-insurance") ? "text-primary" : ""} />
