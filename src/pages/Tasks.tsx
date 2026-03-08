@@ -664,9 +664,9 @@ export default function Tasks() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="todo">To Do</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
+                            <SelectItem value="todo">{t("tasks.todo")}</SelectItem>
+                            <SelectItem value="in_progress">{t("tasks.inProgress")}</SelectItem>
+                            <SelectItem value="done">{t("tasks.completed")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
