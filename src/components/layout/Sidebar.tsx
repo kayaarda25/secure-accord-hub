@@ -269,7 +269,7 @@ export function Sidebar({
                 {profile?.first_name || "User"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {getRoleBadge()}
+                {getPermissionBadge()}
               </p>
             </div>
             <button onClick={handleSignOut} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" title={t("nav.signOut")}>
