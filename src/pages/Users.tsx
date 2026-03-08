@@ -766,6 +766,64 @@ export default function UsersPage() {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="four-eyes">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Vier-Augen-Prinzip
+                </CardTitle>
+                <CardDescription>
+                  Für jede Aktion können zwei definierte Mitarbeiter festgelegt werden, die gemeinsam freigeben müssen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {Object.entries(ACTION_TYPE_LABELS).map(([actionType, label]) => {
+                    const rule = rules.find((r) => r.action_type === actionType);
+                    return (
+                      <div key={actionType} className="flex items-center justify-between p-4 rounded-lg border">
+                        <div>
+                          <div className="font-medium text-sm">{label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {rule ? `${rule.approver_user_ids.length} Freigeber definiert` : "Nicht konfiguriert"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {rule ? (
+                            <Switch
+                              checked={rule.is_active}
+                              onCheckedChange={(checked) => toggleRule.mutate({ id: rule.id, is_active: checked })}
+                            />
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                // Create rule with all users who have this permission as approvers
+                                const approverIds = users
+                                  .filter((u) => u.permissions.includes(actionType) || u.permissions.includes("admin.full_access"))
+                                  .map((u) => u.user_id);
+                                createRule.mutate({
+                                  action_type: actionType,
+                                  approver_user_ids: approverIds,
+                                  organization_id: profile?.organization_id || undefined,
+                                });
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Aktivieren
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Edit Permissions Dialog */}
