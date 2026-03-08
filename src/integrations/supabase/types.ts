@@ -1610,17 +1610,21 @@ export type Database = {
           children_count: number | null
           created_at: string
           created_by: string
+          email: string | null
           emergency_contact: string | null
           employment_end: string | null
           employment_start: string | null
           employment_type: string | null
+          first_name: string | null
           id: string
           is_system_user: boolean
+          last_name: string | null
           marital_status: string | null
           monthly_salary: number | null
           nationality: string | null
           notes: string | null
           organization_id: string | null
+          position: string | null
           profile_id: string | null
           updated_at: string
         }
@@ -1632,17 +1636,21 @@ export type Database = {
           children_count?: number | null
           created_at?: string
           created_by: string
+          email?: string | null
           emergency_contact?: string | null
           employment_end?: string | null
           employment_start?: string | null
           employment_type?: string | null
+          first_name?: string | null
           id?: string
           is_system_user?: boolean
+          last_name?: string | null
           marital_status?: string | null
           monthly_salary?: number | null
           nationality?: string | null
           notes?: string | null
           organization_id?: string | null
+          position?: string | null
           profile_id?: string | null
           updated_at?: string
         }
@@ -1654,17 +1662,21 @@ export type Database = {
           children_count?: number | null
           created_at?: string
           created_by?: string
+          email?: string | null
           emergency_contact?: string | null
           employment_end?: string | null
           employment_start?: string | null
           employment_type?: string | null
+          first_name?: string | null
           id?: string
           is_system_user?: boolean
+          last_name?: string | null
           marital_status?: string | null
           monthly_salary?: number | null
           nationality?: string | null
           notes?: string | null
           organization_id?: string | null
+          position?: string | null
           profile_id?: string | null
           updated_at?: string
         }
