@@ -73,6 +73,7 @@ export default function UsersPage() {
   const { t } = useLanguage();
   const { logAction } = useAuditLog();
   const { allDefinitions } = useGranularPermissions();
+  const { rules, createRule, toggleRule, ACTION_TYPE_LABELS } = useFourEyes();
   const [users, setUsers] = useState<UserWithPermissions[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [adminOrganization, setAdminOrganization] = useState<Organization | null>(null);
