@@ -14,9 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Shield, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Send, Building2, RefreshCw, Link, Lock, Key } from "lucide-react";
+import { Shield, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Send, Building2, RefreshCw, Link, Lock, Key, Eye, Plus } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useGranularPermissions, type PermissionDefinition } from "@/hooks/useGranularPermissions";
+import { useFourEyes } from "@/hooks/useFourEyes";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
