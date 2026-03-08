@@ -100,8 +100,8 @@ export function ActiveSessions({
               return (
                 <div 
                   key={session.id} 
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
-                    isCurrent ? 'border-primary bg-primary/5' : ''
+                 className={`flex items-center justify-between p-4 rounded-lg border ${
+                    isCurrent ? 'border-primary bg-primary/5' : session.is_active ? '' : 'opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-4">
