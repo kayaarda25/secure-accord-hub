@@ -232,14 +232,15 @@ export default function Invoices() {
     });
   };
 
-  const filteredInvoices = invoices.filter((inv) => {
+  const filteredInvoices = invoices.filter((inv: any) => {
     const matchesSearch = 
       inv.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || inv.status === filterStatus;
-    // For now, all are "incoming" (creditor invoices)
-    const matchesTab = activeTab === "all" || activeTab === "incoming";
+    const matchesTab = activeTab === "all" || 
+      (activeTab === "incoming" && (inv.invoice_type === "creditor" || !inv.invoice_type)) ||
+      (activeTab === "outgoing" && inv.invoice_type === "debitor");
     return matchesSearch && matchesStatus && matchesTab;
   });
 
