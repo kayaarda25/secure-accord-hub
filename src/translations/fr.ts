@@ -153,6 +153,10 @@ export const fr: Record<string, string> = {
   // Header
   "header.secure": "Sécurisé",
   "header.search": "Rechercher...",
+  "search.placeholder": "Rechercher documents, tâches, utilisateurs...",
+  "search.noResults": "Aucun résultat trouvé.",
+  "search.results": "Résultats de recherche",
+  "search.quickAccess": "Accès rapide",
 
   // Dashboard
   "page.dashboard.title": "Tableau de bord",
