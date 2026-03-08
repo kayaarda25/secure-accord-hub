@@ -259,12 +259,34 @@ serve(async (req) => {
               console.error(`Upload error for ${attachment.name}:`, uploadError);
             }
 
-            // 5. Scan with AI
-            const extractedData = await scanInvoiceWithAI(
-              bytes,
-              attachment.contentType,
-              attachment.name
-            );
+            // 5.5 Match recipient to Bexio account
+            let matchedBexioAccountId: string | null = null;
+            const recipientName = (extractedData.recipient_name || "").toLowerCase().trim();
+
+            if (recipientName && bexioAccounts && bexioAccounts.length > 0) {
+              // Try exact substring match on account_name
+              for (const acc of bexioAccounts) {
+                const accName = acc.account_name.toLowerCase();
+                if (recipientName.includes(accName) || accName.includes(recipientName)) {
+                  matchedBexioAccountId = acc.id;
+                  console.log(`[ingest-email-invoices] Matched recipient "${extractedData.recipient_name}" → Bexio account "${acc.account_name}" (${acc.id})`);
+                  break;
+                }
+              }
+
+              // If no match, try matching individual words (at least 4 chars) against account names
+              if (!matchedBexioAccountId) {
+                const words = recipientName.split(/\s+/).filter((w: string) => w.length >= 4);
+                for (const acc of bexioAccounts) {
+                  const accLower = acc.account_name.toLowerCase();
+                  if (words.some((w: string) => accLower.includes(w))) {
+                    matchedBexioAccountId = acc.id;
+                    console.log(`[ingest-email-invoices] Fuzzy matched recipient "${extractedData.recipient_name}" → Bexio account "${acc.account_name}" (${acc.id})`);
+                    break;
+                  }
+                }
+              }
+            }
 
             // 6. Insert into creditor_invoices
             const { error: insertError } = await supabase
@@ -291,6 +313,7 @@ serve(async (req) => {
                 extraction_status: "completed",
                 ai_extracted_data: extractedData,
                 received_at: message.receivedDateTime,
+                bexio_account_id: matchedBexioAccountId,
               });
 
             if (insertError) {
