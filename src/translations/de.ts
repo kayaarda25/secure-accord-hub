@@ -266,7 +266,27 @@ export const de: Record<string, string> = {
   "invoices.status.rejected": "Abgelehnt",
   "invoices.status.paid": "Bezahlt",
 
-  // Declarations
+  // Bexio
+  "bexio.description": "Verbinden Sie Bexio für automatische Buchhaltung",
+  "bexio.checking": "Prüfe...",
+  "bexio.connected": "Verbunden",
+  "bexio.notConnected": "Nicht verbunden",
+  "bexio.connectedDesc": "Rechnungen werden nach Freigabe direkt als Zahlungsauftrag in Bexio erstellt.",
+  "bexio.entityAccount": "Entity / Konto",
+  "bexio.selectAccount": "Konto auswählen",
+  "bexio.addAccount": "Konto hinzufügen",
+  "bexio.addAccountTitle": "Bexio-Konto hinzufügen",
+  "bexio.addAccountDesc": "Fügen Sie ein weiteres Bexio-Konto für eine andere Entity hinzu.",
+  "bexio.accountName": "Kontoname",
+  "bexio.accountNamePlaceholder": "z.B. MGI Media GmbH",
+  "bexio.entityType": "Entity-Typ",
+  "bexio.entityDefault": "Standard",
+  "bexio.disconnect": "Trennen",
+  "bexio.openBexio": "Bexio öffnen",
+  "bexio.linkedAccounts": "Verknüpfte Konten",
+  "bexio.notConnectedDesc": "Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Zahlungsauftrag zu erfassen.",
+  "bexio.connect": "Mit Bexio verbinden",
+
   "page.declarations.title": "Deklarationen",
   "page.declarations.subtitle": "Verkehrsdeklarationen und regulatorische Meldungen",
   "page.declarations.accessDenied": "Zugriff verweigert",

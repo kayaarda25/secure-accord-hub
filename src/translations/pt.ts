@@ -266,7 +266,27 @@ export const pt: Record<string, string> = {
   "invoices.status.rejected": "Rejeitado",
   "invoices.status.paid": "Pago",
 
-  // Declarations
+  // Bexio
+  "bexio.description": "Conecte o Bexio para contabilidade automática",
+  "bexio.checking": "A verificar...",
+  "bexio.connected": "Conectado",
+  "bexio.notConnected": "Não conectado",
+  "bexio.connectedDesc": "As faturas são automaticamente criadas como ordens de pagamento no Bexio após aprovação.",
+  "bexio.entityAccount": "Entidade / Conta",
+  "bexio.selectAccount": "Selecionar conta",
+  "bexio.addAccount": "Adicionar conta",
+  "bexio.addAccountTitle": "Adicionar conta Bexio",
+  "bexio.addAccountDesc": "Adicione outra conta Bexio para uma entidade diferente.",
+  "bexio.accountName": "Nome da conta",
+  "bexio.accountNamePlaceholder": "ex. MGI Media GmbH",
+  "bexio.entityType": "Tipo de entidade",
+  "bexio.entityDefault": "Padrão",
+  "bexio.disconnect": "Desconectar",
+  "bexio.openBexio": "Abrir Bexio",
+  "bexio.linkedAccounts": "Contas vinculadas",
+  "bexio.notConnectedDesc": "Conecte a sua conta Bexio para criar automaticamente ordens de pagamento para faturas aprovadas.",
+  "bexio.connect": "Conectar com Bexio",
+
   "page.declarations.title": "Declarações",
   "page.declarations.subtitle": "Declarações de tráfego e registos regulatórios",
   "page.declarations.accessDenied": "Acesso negado",

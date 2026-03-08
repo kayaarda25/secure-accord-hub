@@ -266,7 +266,27 @@ export const en: Record<string, string> = {
   "invoices.status.rejected": "Rejected",
   "invoices.status.paid": "Paid",
 
-  // Declarations
+  // Bexio
+  "bexio.description": "Connect Bexio for automatic accounting",
+  "bexio.checking": "Checking...",
+  "bexio.connected": "Connected",
+  "bexio.notConnected": "Not connected",
+  "bexio.connectedDesc": "Invoices are automatically created as payment orders in Bexio after approval.",
+  "bexio.entityAccount": "Entity / Account",
+  "bexio.selectAccount": "Select account",
+  "bexio.addAccount": "Add account",
+  "bexio.addAccountTitle": "Add Bexio Account",
+  "bexio.addAccountDesc": "Add another Bexio account for a different entity.",
+  "bexio.accountName": "Account name",
+  "bexio.accountNamePlaceholder": "e.g. MGI Media GmbH",
+  "bexio.entityType": "Entity type",
+  "bexio.entityDefault": "Default",
+  "bexio.disconnect": "Disconnect",
+  "bexio.openBexio": "Open Bexio",
+  "bexio.linkedAccounts": "Linked accounts",
+  "bexio.notConnectedDesc": "Connect your Bexio account to automatically create payment orders for approved invoices.",
+  "bexio.connect": "Connect with Bexio",
+
   "page.declarations.title": "Declarations",
   "page.declarations.subtitle": "Traffic declarations and regulatory filings",
   "page.declarations.accessDenied": "Access Denied",
