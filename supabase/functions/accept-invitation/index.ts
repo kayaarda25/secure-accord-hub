@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { token, password, firstName, lastName } = await req.json();
+    const { token, password, firstName, lastName, notificationsConsent } = await req.json();
 
     if (!token || !password) {
       return new Response(
@@ -83,11 +83,43 @@ Deno.serve(async (req) => {
         organization_id: invitation.organization_id,
         first_name: firstName,
         last_name: lastName,
+        notifications_consent: notificationsConsent ?? false,
       })
       .eq("user_id", newUser.user.id);
 
     if (profileError) {
       console.error("Error updating profile:", profileError);
+    }
+
+    // Create default notification preferences based on consent
+    if (notificationsConsent) {
+      await supabaseAdmin
+        .from("notification_preferences")
+        .insert({
+          user_id: newUser.user.id,
+          email_enabled: true,
+          push_enabled: true,
+          task_notifications: true,
+          document_notifications: true,
+          expense_notifications: true,
+          calendar_notifications: true,
+          approval_notifications: true,
+          budget_notifications: true,
+        });
+    } else {
+      await supabaseAdmin
+        .from("notification_preferences")
+        .insert({
+          user_id: newUser.user.id,
+          email_enabled: false,
+          push_enabled: false,
+          task_notifications: true,
+          document_notifications: true,
+          expense_notifications: true,
+          calendar_notifications: true,
+          approval_notifications: true,
+          budget_notifications: true,
+        });
     }
 
     // Assign roles from invitation

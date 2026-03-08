@@ -2629,6 +2629,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_name: string | null
+          notifications_consent: boolean
           organization_id: string | null
           phone: string | null
           position: string | null
@@ -2648,6 +2649,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name?: string | null
+          notifications_consent?: boolean
           organization_id?: string | null
           phone?: string | null
           position?: string | null
@@ -2667,6 +2669,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name?: string | null
+          notifications_consent?: boolean
           organization_id?: string | null
           phone?: string | null
           position?: string | null
