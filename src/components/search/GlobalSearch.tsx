@@ -28,6 +28,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SearchResult {
   id: string;
@@ -37,20 +38,20 @@ interface SearchResult {
   link: string;
 }
 
-const baseQuickActions = [
-  { name: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { name: "Dokumente", icon: FileText, href: "/documents" },
-  { name: "Aufgaben", icon: CheckSquare, href: "/tasks" },
-  { name: "Kalender", icon: Calendar, href: "/calendar" },
-  { name: "OPEX", icon: Receipt, href: "/opex" },
-  { name: "Kommunikation", icon: MessageSquare, href: "/communication" },
-  { name: "Budget", icon: TrendingUp, href: "/budget" },
-  { name: "Reports", icon: BarChart, href: "/reports" },
-  { name: "Partner", icon: Building2, href: "/partners" },
-  { name: "Behörden", icon: Globe, href: "/authorities" },
-  { name: "Benutzer", icon: Users, href: "/users" },
-  { name: "Sicherheit", icon: Shield, href: "/security" },
-  { name: "Einstellungen", icon: Settings, href: "/settings" },
+const quickActionDefs = [
+  { nameKey: "nav.dashboard", icon: LayoutDashboard, href: "/" },
+  { nameKey: "nav.documents", icon: FileText, href: "/documents" },
+  { nameKey: "nav.tasks", icon: CheckSquare, href: "/tasks" },
+  { nameKey: "nav.calendar", icon: Calendar, href: "/calendar" },
+  { nameKey: "nav.opex", icon: Receipt, href: "/opex" },
+  { nameKey: "nav.communication", icon: MessageSquare, href: "/communication" },
+  { nameKey: "nav.budget", icon: TrendingUp, href: "/budget" },
+  { nameKey: "nav.reports", icon: BarChart, href: "/reports" },
+  { nameKey: "nav.partners", icon: Building2, href: "/partners" },
+  { nameKey: "nav.authorities", icon: Globe, href: "/authorities" },
+  { nameKey: "nav.users", icon: Users, href: "/users" },
+  { nameKey: "nav.security", icon: Shield, href: "/security" },
+  { nameKey: "nav.settings", icon: Settings, href: "/settings" },
 ];
 
 export function GlobalSearch() {
@@ -61,13 +62,14 @@ export function GlobalSearch() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { permissions, isLoading: permissionsLoading } = useOrganizationPermissions();
+  const { t } = useLanguage();
 
   const quickActions = useMemo(() => {
-    if (permissionsLoading) return baseQuickActions.filter((a) => a.href !== "/budget");
-
-    const canSeeBudget = permissions.canViewBudget || permissions.canCreateBudget;
-    return baseQuickActions.filter((a) => (a.href === "/budget" ? canSeeBudget : true));
-  }, [permissions, permissionsLoading]);
+    const filtered = permissionsLoading
+      ? quickActionDefs.filter((a) => a.href !== "/budget")
+      : quickActionDefs.filter((a) => (a.href === "/budget" ? permissions.canViewBudget || permissions.canCreateBudget : true));
+    return filtered.map((a) => ({ ...a, name: t(a.nameKey) }));
+  }, [permissions, permissionsLoading, t]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -234,17 +236,17 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Dokumente, Aufgaben, Benutzer suchen..."
+          placeholder={t("search.placeholder")}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
           <CommandEmpty>
-            {isSearching ? "Suche..." : "Keine Ergebnisse gefunden."}
+            {isSearching ? t("common.loading") : t("search.noResults")}
           </CommandEmpty>
           
           {results.length > 0 && (
-            <CommandGroup heading="Suchergebnisse">
+            <CommandGroup heading={t("search.results")}>
               {results.map((result) => {
                 const Icon = getIcon(result.type);
                 return (
@@ -270,7 +272,7 @@ export function GlobalSearch() {
           {query.length < 2 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Schnellzugriff">
+              <CommandGroup heading={t("search.quickAccess")}>
                 {quickActions.map((action) => (
                   <CommandItem
                     key={action.href}

@@ -90,12 +90,12 @@ export default function Settings() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Fehler", description: "Bitte wählen Sie eine Bilddatei", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.invalidImage"), variant: "destructive" });
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Fehler", description: "Die Datei darf maximal 5MB groß sein", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.fileTooLarge"), variant: "destructive" });
       return;
     }
 
@@ -134,10 +134,10 @@ export default function Settings() {
       if (updateError) throw updateError;
 
       setAvatarUrl(urlWithCacheBust);
-      toast({ title: "Erfolg", description: "Profilbild wurde aktualisiert" });
+      toast({ title: t("common.success"), description: t("settings.profile.avatarUpdated") });
     } catch (error) {
       console.error("Avatar upload error:", error);
-      toast({ title: "Fehler", description: "Profilbild konnte nicht hochgeladen werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.avatarError"), variant: "destructive" });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -205,9 +205,9 @@ export default function Settings() {
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Fehler", description: "Profil konnte nicht gespeichert werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.saveError"), variant: "destructive" });
     } else {
-      toast({ title: "Gespeichert", description: "Profil wurde aktualisiert" });
+      toast({ title: t("settings.profile.saved"), description: t("settings.profile.savedDesc") });
     }
 
     setIsSaving(false);
@@ -222,7 +222,7 @@ export default function Settings() {
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Fehler", description: "Einstellung konnte nicht gespeichert werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.notifications.saveError"), variant: "destructive" });
     } else {
       setNotificationPrefs({ ...notificationPrefs, [key]: value });
     }

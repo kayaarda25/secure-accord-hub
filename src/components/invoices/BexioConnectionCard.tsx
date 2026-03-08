@@ -9,18 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Link2, Link2Off, Loader2, ExternalLink, Plus, Trash2, Building2 } from "lucide-react";
 import { useBexio } from "@/hooks/useBexio";
 import { useMultiBexio } from "@/hooks/useMultiBexio";
+import { useLanguage } from "@/contexts/LanguageContext";
 import bexioLogo from "@/assets/bexio-logo.png";
 
 export function BexioConnectionCard() {
   const { isConnected, isLoading, connect, disconnect } = useBexio();
   const { accounts, selectedAccountId, setSelectedAccountId, removeAccount, isLoading: accountsLoading, refetch } = useMultiBexio();
+  const { t } = useLanguage();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newEntityType, setNewEntityType] = useState("default");
 
   const handleAddAccount = async () => {
     if (!newAccountName.trim()) return;
-    // Trigger Bexio OAuth with account metadata – user logs in with a different Bexio account
     await connect(newAccountName.trim(), newEntityType);
     setNewAccountName("");
     setNewEntityType("default");
@@ -37,23 +38,23 @@ export function BexioConnectionCard() {
               Integration
             </CardTitle>
             <CardDescription>
-              Verbinden Sie Bexio für automatische Buchhaltung
+              {t("bexio.description")}
             </CardDescription>
           </div>
           {isLoading ? (
             <Badge variant="secondary" className="flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Prüfe...
+              {t("bexio.checking")}
             </Badge>
           ) : isConnected ? (
             <Badge variant="default" className="flex items-center gap-1 bg-success">
               <Link2 className="h-3 w-3" />
-              Verbunden
+              {t("bexio.connected")}
             </Badge>
           ) : (
             <Badge variant="secondary" className="flex items-center gap-1">
               <Link2Off className="h-3 w-3" />
-              Nicht verbunden
+              {t("bexio.notConnected")}
             </Badge>
           )}
         </div>
@@ -62,19 +63,18 @@ export function BexioConnectionCard() {
         {isConnected ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Rechnungen werden nach Freigabe direkt als Zahlungsauftrag in Bexio erstellt.
+              {t("bexio.connectedDesc")}
             </p>
 
-            {/* Multi-Account Section */}
             {accounts.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">
                   <Building2 className="h-3 w-3" />
-                  Entity / Konto
+                  {t("bexio.entityAccount")}
                 </Label>
                 <Select value={selectedAccountId || ""} onValueChange={setSelectedAccountId}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Konto auswählen" />
+                    <SelectValue placeholder={t("bexio.selectAccount")} />
                   </SelectTrigger>
                   <SelectContent>
                     {accounts.map((acc) => (
@@ -92,33 +92,33 @@ export function BexioConnectionCard() {
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
                     <Plus className="mr-2 h-4 w-4" />
-                    Konto hinzufügen
+                    {t("bexio.addAccount")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Bexio-Konto hinzufügen</DialogTitle>
+                    <DialogTitle>{t("bexio.addAccountTitle")}</DialogTitle>
                     <DialogDescription>
-                      Fügen Sie ein weiteres Bexio-Konto für eine andere Entity hinzu.
+                      {t("bexio.addAccountDesc")}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Kontoname</Label>
+                      <Label>{t("bexio.accountName")}</Label>
                       <Input
-                        placeholder="z.B. MGI Media GmbH"
+                        placeholder={t("bexio.accountNamePlaceholder")}
                         value={newAccountName}
                         onChange={(e) => setNewAccountName(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Entity-Typ</Label>
+                      <Label>{t("bexio.entityType")}</Label>
                       <Select value={newEntityType} onValueChange={setNewEntityType}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="default">Standard</SelectItem>
+                          <SelectItem value="default">{t("bexio.entityDefault")}</SelectItem>
                           <SelectItem value="mgi_media">MGI Media</SelectItem>
                           <SelectItem value="mgi_communications">MGI Communications</SelectItem>
                           <SelectItem value="gateway">Gateway</SelectItem>
@@ -127,28 +127,27 @@ export function BexioConnectionCard() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Abbrechen</Button>
-                    <Button onClick={handleAddAccount} disabled={!newAccountName.trim()}>Hinzufügen</Button>
+                    <Button variant="outline" onClick={() => setAddDialogOpen(false)}>{t("common.cancel")}</Button>
+                    <Button onClick={handleAddAccount} disabled={!newAccountName.trim()}>{t("common.add")}</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
 
               <Button variant="outline" size="sm" onClick={disconnect}>
                 <Link2Off className="mr-2 h-4 w-4" />
-                Trennen
+                {t("bexio.disconnect")}
               </Button>
               <Button variant="ghost" size="sm" asChild>
                 <a href="https://office.bexio.com" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Bexio öffnen
+                  {t("bexio.openBexio")}
                 </a>
               </Button>
             </div>
 
-            {/* Account list */}
             {accounts.length > 1 && (
               <div className="space-y-1 pt-2 border-t">
-                <p className="text-xs text-muted-foreground mb-2">Verknüpfte Konten:</p>
+                <p className="text-xs text-muted-foreground mb-2">{t("bexio.linkedAccounts")}:</p>
                 {accounts.map((acc) => (
                   <div key={acc.id} className="flex items-center justify-between text-sm py-1">
                     <span className={acc.id === selectedAccountId ? "font-medium" : "text-muted-foreground"}>
@@ -170,11 +169,11 @@ export function BexioConnectionCard() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Verbinden Sie Ihr Bexio-Konto, um freigegebene Rechnungen automatisch als Zahlungsauftrag zu erfassen.
+              {t("bexio.notConnectedDesc")}
             </p>
             <Button onClick={() => connect()} disabled={isLoading}>
               <Link2 className="mr-2 h-4 w-4" />
-              Mit Bexio verbinden
+              {t("bexio.connect")}
             </Button>
           </div>
         )}
