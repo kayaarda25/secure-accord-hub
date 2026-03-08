@@ -111,6 +111,8 @@ export default function Settings() {
   const [department, setDepartment] = useState(profile?.department || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
