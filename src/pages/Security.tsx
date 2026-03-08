@@ -91,7 +91,7 @@ export default function Security() {
         .insert({
           user_id: user.id,
           two_factor_enabled: false,
-          session_timeout_minutes: 60
+          session_timeout_minutes: 15
         })
         .select()
         .single();
