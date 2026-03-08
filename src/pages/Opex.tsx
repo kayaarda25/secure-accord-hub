@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ExportMenu } from "@/components/export/ExportMenu";
 import { ExpenseNotesDialog } from "@/components/opex/ExpenseNotesDialog";
 import { OpexOverviewChart } from "@/components/opex/OpexOverviewChart";
+import { OpexBudgetList } from "@/components/opex/OpexBudgetList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Receipt,
   Plus,
@@ -712,6 +714,13 @@ export default function Opex() {
 
   return (
     <Layout title={t("page.opex.title")} subtitle={t("page.opex.subtitle")}>
+      <Tabs defaultValue="expenses" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="expenses">Ausgaben</TabsTrigger>
+          <TabsTrigger value="budgets">Budgets</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="expenses">
       {/* Action Bar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -1258,6 +1267,12 @@ export default function Opex() {
           expenseTitle={selectedExpenseForNotes.title}
         />
       )}
+        </TabsContent>
+
+        <TabsContent value="budgets">
+          <OpexBudgetList costCenters={costCenters} />
+        </TabsContent>
+      </Tabs>
     </Layout>
   );
 }
