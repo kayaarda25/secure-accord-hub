@@ -105,7 +105,7 @@ function headerCell(text: string, width?: number) {
   });
 }
 
-function valueCell(text: string, align: AlignmentType = AlignmentType.LEFT, width?: number) {
+function valueCell(text: string, align: (typeof AlignmentType)[keyof typeof AlignmentType] = AlignmentType.LEFT, width?: number) {
   return new TableCell({
     borders: thinBorder(),
     width: width ? { size: width, type: WidthType.DXA } : undefined,
