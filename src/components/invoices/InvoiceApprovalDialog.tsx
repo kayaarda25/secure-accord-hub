@@ -172,7 +172,7 @@ export function InvoiceApprovalDialog({
             const newContact = await callBexioApi("create_creditor", {
               name: invoice.vendor_name,
               address: invoice.vendor_address,
-            });
+            }, bexioAccountId);
             vendorId = newContact.id;
             console.log("Created new Bexio creditor:", vendorId);
           }
