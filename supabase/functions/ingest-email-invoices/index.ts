@@ -141,6 +141,7 @@ async function scanInvoiceWithAI(fileBytes: Uint8Array, mimeType: string, fileNa
 - IBAN: Suche im QR-Code-Bereich, in der Fusszeile, oder bei Zahlungsinformationen. Format: CH.. oder LI.. gefolgt von 19 Ziffern
 - UID/MwSt-Nr: Suche in der Kopfzeile, Fusszeile oder bei Firmenangaben. Format: CHE-XXX.XXX.XXX
 - Zahlungsreferenz: Suche die lange Nummer im QR-Einzahlungsschein (26-27 Ziffern)
+- EMPFÄNGER/ADRESSAT: Suche den Namen der Firma, AN DIE die Rechnung adressiert ist (nicht der Rechnungssteller). Das steht oft im Adressfeld oben rechts oder links, z.B. "Firma XY, z.Hd. ..."
 
 Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`,
         },
@@ -168,7 +169,8 @@ Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`,
   "vat_amount": "MwSt-Betrag als Zahl",
   "vat_rate": "MwSt-Satz als Zahl",
   "currency": "CHF/EUR/USD",
-  "notes": "Kurze Beschreibung der Leistungen"
+  "notes": "Kurze Beschreibung der Leistungen",
+  "recipient_name": "Name der Firma/Person AN DIE die Rechnung adressiert ist (der Empfänger/Kunde, NICHT der Rechnungssteller)"
 }
 
 Falls ein Feld nicht gefunden wird, setze null. Antworte NUR mit dem JSON-Objekt.`,
@@ -215,7 +217,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`[ingest-email-invoices] Starting email ingestion for ${mailbox}`);
+    // Load all active bexio accounts for recipient matching
+    const { data: bexioAccounts } = await supabase
+      .from("bexio_accounts")
+      .select("id, account_name, entity_type, organization_id")
+      .eq("is_active", true);
+
+    console.log(`[ingest-email-invoices] Starting email ingestion for ${mailbox}, ${bexioAccounts?.length || 0} Bexio accounts loaded`);
 
     // 1. Get Microsoft Graph access token
     const graphToken = await getGraphToken();
@@ -251,12 +259,34 @@ serve(async (req) => {
               console.error(`Upload error for ${attachment.name}:`, uploadError);
             }
 
-            // 5. Scan with AI
-            const extractedData = await scanInvoiceWithAI(
-              bytes,
-              attachment.contentType,
-              attachment.name
-            );
+            // 5.5 Match recipient to Bexio account
+            let matchedBexioAccountId: string | null = null;
+            const recipientName = (extractedData.recipient_name || "").toLowerCase().trim();
+
+            if (recipientName && bexioAccounts && bexioAccounts.length > 0) {
+              // Try exact substring match on account_name
+              for (const acc of bexioAccounts) {
+                const accName = acc.account_name.toLowerCase();
+                if (recipientName.includes(accName) || accName.includes(recipientName)) {
+                  matchedBexioAccountId = acc.id;
+                  console.log(`[ingest-email-invoices] Matched recipient "${extractedData.recipient_name}" → Bexio account "${acc.account_name}" (${acc.id})`);
+                  break;
+                }
+              }
+
+              // If no match, try matching individual words (at least 4 chars) against account names
+              if (!matchedBexioAccountId) {
+                const words = recipientName.split(/\s+/).filter((w: string) => w.length >= 4);
+                for (const acc of bexioAccounts) {
+                  const accLower = acc.account_name.toLowerCase();
+                  if (words.some((w: string) => accLower.includes(w))) {
+                    matchedBexioAccountId = acc.id;
+                    console.log(`[ingest-email-invoices] Fuzzy matched recipient "${extractedData.recipient_name}" → Bexio account "${acc.account_name}" (${acc.id})`);
+                    break;
+                  }
+                }
+              }
+            }
 
             // 6. Insert into creditor_invoices
             const { error: insertError } = await supabase
@@ -283,6 +313,7 @@ serve(async (req) => {
                 extraction_status: "completed",
                 ai_extracted_data: extractedData,
                 received_at: message.receivedDateTime,
+                bexio_account_id: matchedBexioAccountId,
               });
 
             if (insertError) {

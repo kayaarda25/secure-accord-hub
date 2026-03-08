@@ -50,10 +50,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Du bist ein Experte für die Extraktion von Schweizer Rechnungsdaten. Analysiere das Bild SEHR GENAU und extrahiere alle relevanten Informationen. Achte besonders auf:
+          content: `Du bist ein Experte für die Extraktion von Schweizer Rechnungsdaten. Analysiere das Bild SEHR GENAU und extrahiere alle relevanten Informationen. Achte besonders auf:
 - IBAN: Suche im QR-Code-Bereich, in der Fusszeile, oder bei Zahlungsinformationen. Format: CH.. oder LI.. gefolgt von 19 Ziffern (z.B. CH93 0076 2011 6238 5295 7)
 - UID/MwSt-Nr: Suche in der Kopfzeile, Fusszeile oder bei Firmenangaben. Format: CHE-XXX.XXX.XXX oder CHE-XXXXXXXXX
 - Zahlungsreferenz: Suche die lange Nummer im QR-Einzahlungsschein (26-27 Ziffern)
+- EMPFÄNGER/ADRESSAT: Suche den Namen der Firma, AN DIE die Rechnung adressiert ist (nicht der Rechnungssteller). Das steht oft im Adressfeld oben rechts oder links.
 
 Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`
           },
@@ -83,7 +84,8 @@ Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`
   "vat_amount": "MwSt-Betrag als Zahl",
   "vat_rate": "MwSt-Satz als Zahl (z.B. 7.7 oder 8.1)",
   "currency": "Währungscode (CHF, EUR, USD)",
-  "notes": "Kurze Beschreibung der Leistungen/Positionen"
+  "notes": "Kurze Beschreibung der Leistungen/Positionen",
+  "recipient_name": "Name der Firma/Person AN DIE die Rechnung adressiert ist (der Empfänger/Kunde, NICHT der Rechnungssteller)"
 }
 
 WICHTIG:
