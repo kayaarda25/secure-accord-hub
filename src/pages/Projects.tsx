@@ -69,11 +69,11 @@ export default function Projects() {
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Keine Projekte</h3>
-          <p className="text-sm text-muted-foreground mb-4">Erstellen Sie Ihr erstes Projekt</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("projects.noProjects")}</h3>
+          <p className="text-sm text-muted-foreground mb-4">{t("projects.createFirst")}</p>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Projekt erstellen
+            {t("projects.new")}
           </Button>
         </div>
       ) : view === "grid" ? (
