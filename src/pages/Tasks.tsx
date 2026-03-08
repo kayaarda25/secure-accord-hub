@@ -574,7 +574,7 @@ export default function Tasks() {
               </p>
               <Button onClick={() => setCreateDialogOpen(true)} className="glow-gold">
                 <Plus className="mr-2 h-4 w-4" />
-                New Task
+                {t("tasks.newTask")}
               </Button>
             </div>
           ) : (
