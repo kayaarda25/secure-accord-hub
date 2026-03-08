@@ -44,7 +44,7 @@ export default function Security() {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FADisable, setShow2FADisable] = useState(false);
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,19 +58,18 @@ export default function Security() {
     if (!user) return;
     setIsLoading(true);
 
-    // Fetch sessions
-    const { data: sessionsData } = await supabase
+    // Fetch ALL sessions (active + inactive) for history view
+    const { data: allSessionsData } = await supabase
       .from("user_sessions")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_active", true)
-      .order("last_active_at", { ascending: false });
-    
-    if (sessionsData) {
-      // Mark the most recent session as current (the one created during this login)
-      const enriched = sessionsData.map((s, index) => ({
+      .order("last_active_at", { ascending: false })
+      .limit(50);
+
+    if (allSessionsData) {
+      const enriched = allSessionsData.map((s, index) => ({
         ...s,
-        is_current: index === 0,
+        is_current: s.is_active && index === 0,
       }));
       setSessions(enriched);
     }
@@ -299,7 +298,7 @@ export default function Security() {
               </Card>
               <ActiveSessions sessions={sessions} isLoading={isLoading} onTerminateSession={handleTerminateSession} onTerminateAllSessions={handleTerminateAllSessions} />
               <IPWhitelist allowedIps={settings?.allowed_ips || null} onUpdate={handleUpdateAllowedIps} />
-              <LoginIPList />
+              {hasRole("admin") && <LoginIPList />}
             </div>
             <div className="space-y-6">
               <Card>

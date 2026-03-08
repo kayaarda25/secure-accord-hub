@@ -54,6 +54,7 @@ export default function Invoices() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<string>("creditor");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,6 +190,7 @@ export default function Invoices() {
           document_path: data.document_path || null,
           document_name: data.document_name || null,
           status: "pending_review",
+          invoice_type: invoiceType,
         })
         .select()
         .single();
@@ -231,14 +233,15 @@ export default function Invoices() {
     });
   };
 
-  const filteredInvoices = invoices.filter((inv) => {
+  const filteredInvoices = invoices.filter((inv: any) => {
     const matchesSearch = 
       inv.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || inv.status === filterStatus;
-    // For now, all are "incoming" (creditor invoices)
-    const matchesTab = activeTab === "all" || activeTab === "incoming";
+    const matchesTab = activeTab === "all" || 
+      (activeTab === "incoming" && (inv.invoice_type === "creditor" || !inv.invoice_type)) ||
+      (activeTab === "outgoing" && inv.invoice_type === "debitor");
     return matchesSearch && matchesStatus && matchesTab;
   });
 
@@ -373,11 +376,33 @@ export default function Invoices() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Neue Kreditorenrechnung</DialogTitle>
+                <DialogTitle>Neue {invoiceType === "creditor" ? "Kreditoren" : "Debitoren"}rechnung</DialogTitle>
                 <DialogDescription>
                   Laden Sie eine Rechnung hoch für automatische KI-Erkennung oder erfassen Sie manuell
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Invoice Type Selector */}
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant={invoiceType === "creditor" ? "default" : "outline"}
+                  size="sm"
+                  type="button"
+                  onClick={() => setInvoiceType("creditor")}
+                >
+                  <ArrowDownLeft className="h-4 w-4 mr-1" />
+                  Kreditor
+                </Button>
+                <Button
+                  variant={invoiceType === "debitor" ? "default" : "outline"}
+                  size="sm"
+                  type="button"
+                  onClick={() => setInvoiceType("debitor")}
+                >
+                  <ArrowUpRight className="h-4 w-4 mr-1" />
+                  Debitor
+                </Button>
+              </div>
               
               {/* AI Upload Section */}
               <div className="p-4 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5">

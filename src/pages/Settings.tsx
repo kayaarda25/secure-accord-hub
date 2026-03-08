@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,49 @@ import { SignaturePad } from "@/components/settings/SignaturePad";
 import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
 import { CarrierRatesSettings } from "@/components/settings/CarrierRatesSettings";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
+import { useTheme } from "@/components/theme/ThemeProvider";
+
+function AppearanceSettings() {
+  const { theme, setTheme } = useTheme();
+  const { t } = useLanguage();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.appearance.title")}</CardTitle>
+        <CardDescription>{t("settings.appearance.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <Label>{t("settings.appearance.colorScheme")}</Label>
+          <div className="grid grid-cols-3 gap-4 mt-2">
+            <Button
+              variant={theme === "light" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("light")}
+            >
+              ☀️ {t("settings.appearance.light")}
+            </Button>
+            <Button
+              variant={theme === "dark" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("dark")}
+            >
+              🌙 {t("settings.appearance.dark")}
+            </Button>
+            <Button
+              variant={theme === "system" ? "default" : "outline"}
+              className="justify-start"
+              onClick={() => setTheme("system")}
+            >
+              💻 {t("settings.appearance.system")}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface NotificationPreferences {
   id: string;
@@ -469,43 +512,8 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* Appearance Tab */}
         <TabsContent value="appearance">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("settings.appearance.title")}</CardTitle>
-              <CardDescription>
-                {t("settings.appearance.description")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label>{t("settings.appearance.colorScheme")}</Label>
-                <div className="grid grid-cols-3 gap-4 mt-2">
-                  <Button variant="outline" className="justify-start">
-                    ☀️ {t("settings.appearance.light")}
-                  </Button>
-                  <Button variant="default" className="justify-start">
-                    🌙 {t("settings.appearance.dark")}
-                  </Button>
-                  <Button variant="outline" className="justify-start">
-                    💻 {t("settings.appearance.system")}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label>{t("settings.appearance.accentColor")}</Label>
-                <div className="flex gap-2 mt-2">
-                  <button className="h-8 w-8 rounded-full bg-amber-500 ring-2 ring-offset-2 ring-amber-500" />
-                  <button className="h-8 w-8 rounded-full bg-blue-500" />
-                  <button className="h-8 w-8 rounded-full bg-green-500" />
-                  <button className="h-8 w-8 rounded-full bg-purple-500" />
-                  <button className="h-8 w-8 rounded-full bg-red-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <AppearanceSettings />
         </TabsContent>
 
         {/* Language Tab */}

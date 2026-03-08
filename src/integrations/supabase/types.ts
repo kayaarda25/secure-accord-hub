@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_rules: {
+        Row: {
+          action_type: string
+          approver_user_ids: string[]
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          organization_id: string | null
+          required_approvers: number
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          approver_user_ids?: string[]
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          required_approvers?: number
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approver_user_ids?: string[]
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          required_approvers?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -136,6 +180,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      bexio_accounts: {
+        Row: {
+          access_token: string | null
+          account_name: string
+          client_id: string | null
+          client_secret: string | null
+          created_at: string
+          created_by: string | null
+          entity_type: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          refresh_token: string | null
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          account_name?: string
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          account_name?: string
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bexio_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bexio_tokens: {
         Row: {
@@ -849,6 +952,7 @@ export type Database = {
           ai_confidence_score: number | null
           ai_extracted_data: Json | null
           amount: number
+          bexio_account_id: string | null
           bexio_creditor_id: string | null
           bexio_invoice_id: string | null
           bexio_synced_at: string | null
@@ -866,6 +970,7 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          invoice_type: string
           notes: string | null
           organization_id: string | null
           original_email_from: string | null
@@ -893,6 +998,7 @@ export type Database = {
           ai_confidence_score?: number | null
           ai_extracted_data?: Json | null
           amount: number
+          bexio_account_id?: string | null
           bexio_creditor_id?: string | null
           bexio_invoice_id?: string | null
           bexio_synced_at?: string | null
@@ -910,6 +1016,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          invoice_type?: string
           notes?: string | null
           organization_id?: string | null
           original_email_from?: string | null
@@ -937,6 +1044,7 @@ export type Database = {
           ai_confidence_score?: number | null
           ai_extracted_data?: Json | null
           amount?: number
+          bexio_account_id?: string | null
           bexio_creditor_id?: string | null
           bexio_invoice_id?: string | null
           bexio_synced_at?: string | null
@@ -954,6 +1062,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          invoice_type?: string
           notes?: string | null
           organization_id?: string | null
           original_email_from?: string | null
@@ -978,6 +1087,13 @@ export type Database = {
           vendor_vat_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "creditor_invoices_bexio_account_id_fkey"
+            columns: ["bexio_account_id"]
+            isOneToOne: false
+            referencedRelation: "bexio_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "creditor_invoices_cost_center_id_fkey"
             columns: ["cost_center_id"]
@@ -1485,6 +1601,90 @@ export type Database = {
           },
         ]
       }
+      employee_records: {
+        Row: {
+          address: string | null
+          ahv_number: string | null
+          bank_iban: string | null
+          birth_date: string | null
+          children_count: number | null
+          created_at: string
+          created_by: string
+          emergency_contact: string | null
+          employment_end: string | null
+          employment_start: string | null
+          employment_type: string | null
+          id: string
+          is_system_user: boolean
+          marital_status: string | null
+          monthly_salary: number | null
+          nationality: string | null
+          notes: string | null
+          organization_id: string | null
+          profile_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          ahv_number?: string | null
+          bank_iban?: string | null
+          birth_date?: string | null
+          children_count?: number | null
+          created_at?: string
+          created_by: string
+          emergency_contact?: string | null
+          employment_end?: string | null
+          employment_start?: string | null
+          employment_type?: string | null
+          id?: string
+          is_system_user?: boolean
+          marital_status?: string | null
+          monthly_salary?: number | null
+          nationality?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          profile_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          ahv_number?: string | null
+          bank_iban?: string | null
+          birth_date?: string | null
+          children_count?: number | null
+          created_at?: string
+          created_by?: string
+          emergency_contact?: string | null
+          employment_end?: string | null
+          employment_start?: string | null
+          employment_type?: string | null
+          id?: string
+          is_system_user?: boolean
+          marital_status?: string | null
+          monthly_salary?: number | null
+          nationality?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          profile_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_records_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       folder_shares: {
         Row: {
           created_at: string
@@ -1858,6 +2058,81 @@ export type Database = {
         }
         Relationships: []
       }
+      opex_budgets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cost_center_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          notes: string | null
+          organization_id: string | null
+          period: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          period: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          period?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opex_budgets_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opex_budgets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opex_expense_notes: {
         Row: {
           content: string
@@ -1975,6 +2250,44 @@ export type Database = {
             columns: ["cost_center_id"]
             isOneToOne: false
             referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opex_line_items: {
+        Row: {
+          amount: number
+          budget_id: string
+          category: string
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          budget_id: string
+          category: string
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          budget_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opex_line_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "opex_budgets"
             referencedColumns: ["id"]
           },
         ]
@@ -2104,6 +2417,33 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_definitions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          permission_key: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          permission_key: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          permission_key?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2117,6 +2457,7 @@ export type Database = {
           organization_id: string | null
           phone: string | null
           position: string | null
+          preferred_language: string | null
           signature_data: string | null
           signature_initials: string | null
           signature_type: string | null
@@ -2135,6 +2476,7 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           position?: string | null
+          preferred_language?: string | null
           signature_data?: string | null
           signature_initials?: string | null
           signature_type?: string | null
@@ -2153,6 +2495,7 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           position?: string | null
+          preferred_language?: string | null
           signature_data?: string | null
           signature_initials?: string | null
           signature_type?: string | null
@@ -2728,6 +3071,38 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          granted_at: string
+          granted_by: string
+          id: string
+          permission_key: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by: string
+          id?: string
+          permission_key: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          permission_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permission_definitions"
+            referencedColumns: ["permission_key"]
+          },
+        ]
+      }
       user_public_keys: {
         Row: {
           created_at: string
@@ -3005,6 +3380,10 @@ export type Database = {
           _user_agent?: string
         }
         Returns: undefined
+      }
+      user_has_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
       }
     }
     Enums: {

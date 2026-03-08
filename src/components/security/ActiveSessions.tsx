@@ -68,9 +68,9 @@ export function ActiveSessions({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Aktive Sessions</CardTitle>
+            <CardTitle>Sessions</CardTitle>
             <CardDescription>
-              Geräte, die derzeit in Ihrem Konto angemeldet sind
+              Alle Geräte-Sessions Ihres Kontos
             </CardDescription>
           </div>
           {sessions.length > 1 && (
@@ -100,8 +100,8 @@ export function ActiveSessions({
               return (
                 <div 
                   key={session.id} 
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
-                    isCurrent ? 'border-primary bg-primary/5' : ''
+                 className={`flex items-center justify-between p-4 rounded-lg border ${
+                    isCurrent ? 'border-primary bg-primary/5' : session.is_active ? '' : 'opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -119,6 +119,11 @@ export function ActiveSessions({
                           <Badge variant="default" className="text-xs">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Diese Session
+                          </Badge>
+                        )}
+                        {!session.is_active && (
+                          <Badge variant="secondary" className="text-xs">
+                            Beendet
                           </Badge>
                         )}
                       </div>
@@ -140,7 +145,7 @@ export function ActiveSessions({
                       </div>
                     </div>
                   </div>
-                  {!isCurrent && (
+                  {!isCurrent && session.is_active && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
