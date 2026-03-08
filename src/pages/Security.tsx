@@ -306,7 +306,7 @@ export default function Security() {
               </Card>
               <ActiveSessions sessions={sessions} isLoading={isLoading} onTerminateSession={handleTerminateSession} onTerminateAllSessions={handleTerminateAllSessions} />
               <IPWhitelist allowedIps={settings?.allowed_ips || null} onUpdate={handleUpdateAllowedIps} />
-              <LoginIPList />
+              {hasRole("admin") && <LoginIPList />}
             </div>
             <div className="space-y-6">
               <Card>

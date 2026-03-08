@@ -68,9 +68,9 @@ export function ActiveSessions({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Aktive Sessions</CardTitle>
+            <CardTitle>Sessions</CardTitle>
             <CardDescription>
-              Geräte, die derzeit in Ihrem Konto angemeldet sind
+              Alle Geräte-Sessions Ihres Kontos
             </CardDescription>
           </div>
           {sessions.length > 1 && (
