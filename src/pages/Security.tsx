@@ -58,13 +58,13 @@ export default function Security() {
     if (!user) return;
     setIsLoading(true);
 
-    // Fetch sessions
-    const { data: sessionsData } = await supabase
+    // Fetch ALL sessions (active + inactive) for history view
+    const { data: allSessionsData } = await supabase
       .from("user_sessions")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_active", true)
-      .order("last_active_at", { ascending: false });
+      .order("last_active_at", { ascending: false })
+      .limit(50);
     
     // Fetch ALL sessions (active + inactive) for history view
     const { data: allSessionsData } = await supabase
