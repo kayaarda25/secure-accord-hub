@@ -230,7 +230,7 @@ export function InvoiceApprovalDialog({
           try {
             const internalContactResult = await callBexioApi("search_contact", {
               name: "Hasan Arda Kaya"
-            });
+            }, bexioAccountId);
             if (internalContactResult && internalContactResult.length > 0) {
               internalContactId = internalContactResult[0].id;
               console.log("Found internal contact Hasan Arda Kaya:", internalContactId);
