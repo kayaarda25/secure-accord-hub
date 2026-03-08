@@ -38,16 +38,20 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
-  pending_review: { label: "Prüfung", variant: "secondary", icon: Clock },
-  first_approval: { label: "1. Freigabe", variant: "outline", icon: FileText },
-  approved: { label: "Freigegeben", variant: "default", icon: CheckCircle },
-  rejected: { label: "Abgelehnt", variant: "destructive", icon: AlertCircle },
-  paid: { label: "Bezahlt", variant: "default", icon: CheckCircle },
-};
+function useStatusConfig() {
+  const { t } = useLanguage();
+  return {
+    pending_review: { label: t("invoices.status.pendingReview"), variant: "secondary" as const, icon: Clock },
+    first_approval: { label: t("invoices.status.firstApproval"), variant: "outline" as const, icon: FileText },
+    approved: { label: t("invoices.status.approved"), variant: "default" as const, icon: CheckCircle },
+    rejected: { label: t("invoices.status.rejected"), variant: "destructive" as const, icon: AlertCircle },
+    paid: { label: t("invoices.status.paid"), variant: "default" as const, icon: CheckCircle },
+  };
+}
 
 export default function Invoices() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const statusConfig = useStatusConfig();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -131,15 +135,15 @@ export default function Invoices() {
         });
 
         toast({
-          title: "Rechnung erkannt",
-          description: "Die KI hat alle Daten extrahiert. Bitte überprüfen Sie die Angaben.",
+          title: t("invoices.scanSuccess"),
+          description: t("invoices.scanSuccessDesc"),
         });
       }
     } catch (error: any) {
       console.error("Scan error:", error);
       toast({
-        title: "Fehler beim Scannen",
-        description: error.message || "Die Rechnung konnte nicht analysiert werden.",
+        title: t("invoices.scanError"),
+        description: error.message || t("invoices.scanErrorDesc"),
         variant: "destructive",
       });
     } finally {
@@ -206,21 +210,23 @@ export default function Invoices() {
       setCreateDialogOpen(false);
       resetForm();
       toast({
-        title: "Rechnung erstellt",
-        description: "Die Kreditorenrechnung wurde erfolgreich angelegt.",
+        title: t("invoices.created"),
+        description: t("invoices.createdDesc"),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Rechnung konnte nicht erstellt werden.",
+        title: t("common.error"),
+        description: error.message || t("invoices.createError"),
         variant: "destructive",
       });
     },
   });
 
+  const localeMap: Record<string, string> = { de: "de-CH", en: "en-US", fr: "fr-FR", pt: "pt-PT" };
+
   const formatCurrency = (amount: number, currency: string = "CHF") => {
-    return new Intl.NumberFormat("de-CH", {
+    return new Intl.NumberFormat(localeMap[language] || "de-CH", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 2,
@@ -229,7 +235,7 @@ export default function Invoices() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("de-CH", {
+    return new Date(dateStr).toLocaleDateString(localeMap[language] || "de-CH", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -259,8 +265,8 @@ export default function Invoices() {
   const handleSubmit = () => {
     if (!formData.vendor_name || !formData.amount) {
       toast({
-        title: "Fehler",
-        description: "Bitte Lieferant und Betrag eingeben.",
+        title: t("common.error"),
+        description: t("invoices.validationError"),
         variant: "destructive",
       });
       return;
@@ -276,7 +282,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Anzahl</p>
+                <p className="text-sm text-muted-foreground">{t("invoices.count")}</p>
                 <p className="text-2xl font-bold">{invoices.length}</p>
               </div>
               <FileText className="h-8 w-8 text-muted-foreground" />
@@ -287,7 +293,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Gesamtbetrag</p>
+                <p className="text-sm text-muted-foreground">{t("invoices.totalAmount")}</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalIncoming)}</p>
               </div>
               <ArrowDownLeft className="h-8 w-8 text-muted-foreground" />
@@ -298,7 +304,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Offen</p>
+                <p className="text-sm text-muted-foreground">{t("invoices.open")}</p>
                 <p className="text-2xl font-bold text-warning">{formatCurrency(pendingAmount)}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
@@ -309,7 +315,7 @@ export default function Invoices() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Überfällig</p>
+                <p className="text-sm text-muted-foreground">{t("invoices.overdue")}</p>
                 <p className="text-2xl font-bold text-destructive">{overdueCount}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-destructive" />
@@ -326,14 +332,14 @@ export default function Invoices() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
-          <TabsTrigger value="all">Alle</TabsTrigger>
+          <TabsTrigger value="all">{t("common.all")}</TabsTrigger>
           <TabsTrigger value="incoming" className="flex items-center gap-2">
             <ArrowDownLeft className="h-4 w-4" />
-            Kreditoren
+            {t("invoices.creditors")}
           </TabsTrigger>
           <TabsTrigger value="outgoing" className="flex items-center gap-2">
             <ArrowUpRight className="h-4 w-4" />
-            Debitoren
+            {t("invoices.debitors")}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -344,7 +350,7 @@ export default function Invoices() {
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Suchen..."
+              placeholder={t("common.search") + "..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -353,35 +359,37 @@ export default function Invoices() {
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-full sm:w-40">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t("common.status")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Status</SelectItem>
-              <SelectItem value="pending_review">Prüfung</SelectItem>
-              <SelectItem value="first_approval">1. Freigabe</SelectItem>
-              <SelectItem value="approved">Freigegeben</SelectItem>
-              <SelectItem value="paid">Bezahlt</SelectItem>
-              <SelectItem value="rejected">Abgelehnt</SelectItem>
+              <SelectItem value="all">{t("invoices.allStatus")}</SelectItem>
+              <SelectItem value="pending_review">{t("invoices.status.pendingReview")}</SelectItem>
+              <SelectItem value="first_approval">{t("invoices.status.firstApproval")}</SelectItem>
+              <SelectItem value="approved">{t("invoices.status.approved")}</SelectItem>
+              <SelectItem value="paid">{t("invoices.status.paid")}</SelectItem>
+              <SelectItem value="rejected">{t("invoices.status.rejected")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
-            Export
+            {t("common.export")}
           </Button>
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Rechnung
+                {t("invoices.newInvoice")}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Neue {invoiceType === "creditor" ? "Kreditoren" : "Debitoren"}rechnung</DialogTitle>
+                <DialogTitle>
+                  {invoiceType === "creditor" ? t("invoices.newCreditorInvoice") : t("invoices.newDebitorInvoice")}
+                </DialogTitle>
                 <DialogDescription>
-                  Laden Sie eine Rechnung hoch für automatische KI-Erkennung oder erfassen Sie manuell
+                  {t("invoices.uploadOrManual")}
                 </DialogDescription>
               </DialogHeader>
 
@@ -394,7 +402,7 @@ export default function Invoices() {
                   onClick={() => setInvoiceType("creditor")}
                 >
                   <ArrowDownLeft className="h-4 w-4 mr-1" />
-                  Kreditor
+                  {t("invoices.creditor")}
                 </Button>
                 <Button
                   variant={invoiceType === "debitor" ? "default" : "outline"}
@@ -403,7 +411,7 @@ export default function Invoices() {
                   onClick={() => setInvoiceType("debitor")}
                 >
                   <ArrowUpRight className="h-4 w-4 mr-1" />
-                  Debitor
+                  {t("invoices.debitor")}
                 </Button>
               </div>
               
@@ -418,9 +426,9 @@ export default function Invoices() {
                 />
                 <div className="text-center">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <h4 className="font-medium mb-1">KI-Rechnungserkennung</h4>
+                  <h4 className="font-medium mb-1">{t("invoices.aiRecognition")}</h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Laden Sie ein Bild oder PDF hoch - die KI extrahiert alle Daten automatisch
+                    {t("invoices.aiRecognitionDesc")}
                   </p>
                   <Button
                     variant="outline"
@@ -430,12 +438,12 @@ export default function Invoices() {
                     {isScanning ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Wird analysiert...
+                        {t("invoices.analyzing")}
                       </>
                     ) : (
                       <>
                         <Upload className="mr-2 h-4 w-4" />
-                        Rechnung hochladen
+                        {t("invoices.uploadInvoice")}
                       </>
                     )}
                   </Button>
@@ -451,20 +459,20 @@ export default function Invoices() {
               <div className="space-y-4">
                 {/* Vendor Section */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-muted-foreground">Lieferant</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground">{t("invoices.vendor")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
-                      <Label>Firma *</Label>
+                      <Label>{t("invoices.company")} *</Label>
                       <Input 
-                        placeholder="Firmenname" 
+                        placeholder={t("invoices.companyName")}
                         value={formData.vendor_name}
                         onChange={(e) => setFormData({ ...formData, vendor_name: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2 col-span-2">
-                      <Label>Adresse</Label>
+                      <Label>{t("invoices.address")}</Label>
                       <Input 
-                        placeholder="Strasse, PLZ Ort" 
+                        placeholder={t("invoices.addressPlaceholder")}
                         value={formData.vendor_address}
                         onChange={(e) => setFormData({ ...formData, vendor_address: e.target.value })}
                       />
@@ -478,7 +486,7 @@ export default function Invoices() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>UID/MwSt-Nr.</Label>
+                      <Label>{t("invoices.vatNumber")}</Label>
                       <Input 
                         placeholder="CHE-..." 
                         value={formData.vendor_vat_number}
@@ -490,26 +498,26 @@ export default function Invoices() {
 
                 {/* Invoice Details */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-muted-foreground">Rechnungsdetails</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground">{t("invoices.details")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Rechnungsnummer</Label>
+                      <Label>{t("invoices.invoiceNumber")}</Label>
                       <Input 
-                        placeholder="z.B. INV-2025-001" 
+                        placeholder={t("invoices.invoiceNumberPlaceholder")}
                         value={formData.invoice_number}
                         onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Zahlungsreferenz</Label>
+                      <Label>{t("invoices.paymentReference")}</Label>
                       <Input 
-                        placeholder="ESR/QR-Referenz" 
+                        placeholder={t("invoices.paymentReferencePlaceholder")}
                         value={formData.payment_reference}
                         onChange={(e) => setFormData({ ...formData, payment_reference: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Rechnungsdatum</Label>
+                      <Label>{t("invoices.invoiceDate")}</Label>
                       <Input 
                         type="date" 
                         value={formData.invoice_date}
@@ -517,7 +525,7 @@ export default function Invoices() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Fälligkeitsdatum</Label>
+                      <Label>{t("invoices.dueDate")}</Label>
                       <Input 
                         type="date" 
                         value={formData.due_date}
@@ -529,10 +537,10 @@ export default function Invoices() {
 
                 {/* Amount Section */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-muted-foreground">Beträge</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground">{t("invoices.amounts")}</h4>
                   <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label>Betrag *</Label>
+                      <Label>{t("common.amount")} *</Label>
                       <Input 
                         type="number" 
                         step="0.01"
@@ -542,13 +550,13 @@ export default function Invoices() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Währung</Label>
+                      <Label>{t("common.currency")}</Label>
                       <Select 
                         value={formData.currency} 
                         onValueChange={(v) => setFormData({ ...formData, currency: v })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Währung" />
+                          <SelectValue placeholder={t("common.currency")} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="CHF">CHF</SelectItem>
@@ -558,7 +566,7 @@ export default function Invoices() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>MwSt-Betrag</Label>
+                      <Label>{t("invoices.vatAmount")}</Label>
                       <Input 
                         type="number" 
                         step="0.01"
@@ -568,7 +576,7 @@ export default function Invoices() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>MwSt-Satz %</Label>
+                      <Label>{t("invoices.vatRate")}</Label>
                       <Input 
                         type="number" 
                         step="0.1"
@@ -582,9 +590,9 @@ export default function Invoices() {
 
                 {/* Notes */}
                 <div className="space-y-2">
-                  <Label>Beschreibung</Label>
+                  <Label>{t("common.description")}</Label>
                   <Textarea 
-                    placeholder="Beschreibung der Rechnung/Leistungen..." 
+                    placeholder={t("invoices.descriptionPlaceholder")}
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={2}
@@ -594,11 +602,11 @@ export default function Invoices() {
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => { setCreateDialogOpen(false); resetForm(); }}>
-                  Abbrechen
+                  {t("common.cancel")}
                 </Button>
                 <Button onClick={handleSubmit} disabled={createInvoice.isPending || isScanning}>
                   {createInvoice.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Erstellen
+                  {t("common.create")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -611,10 +619,10 @@ export default function Invoices() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5" />
-            Rechnungen
+            {t("invoices.invoices")}
           </CardTitle>
           <CardDescription>
-            {filteredInvoices.length} Rechnungen gefunden
+            {filteredInvoices.length} {t("invoices.invoicesFound")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -625,32 +633,32 @@ export default function Invoices() {
           ) : filteredInvoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Keine Rechnungen vorhanden</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t("invoices.noInvoices")}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Erstellen Sie Ihre erste Rechnung.
+                {t("invoices.noInvoicesDesc")}
               </p>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Neue Rechnung
+                {t("invoices.newInvoice")}
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nummer</TableHead>
-                  <TableHead>Lieferant</TableHead>
-                  <TableHead>Beschreibung</TableHead>
-                  <TableHead>Fälligkeit</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
+                  <TableHead>{t("invoices.number")}</TableHead>
+                  <TableHead>{t("invoices.vendor")}</TableHead>
+                  <TableHead>{t("common.description")}</TableHead>
+                  <TableHead>{t("invoices.dueDate")}</TableHead>
+                  <TableHead>{t("common.status")}</TableHead>
+                  <TableHead className="text-right">{t("common.amount")}</TableHead>
+                  <TableHead className="text-right">{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvoices.map((inv) => {
-                  const statusConfig = STATUS_CONFIG[inv.status] || STATUS_CONFIG.pending_review;
-                  const StatusIcon = statusConfig.icon;
+                  const sc = statusConfig[inv.status as keyof typeof statusConfig] || statusConfig.pending_review;
+                  const StatusIcon = sc.icon;
                   const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid";
                   
                   return (
@@ -670,9 +678,9 @@ export default function Invoices() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusConfig.variant} className="flex items-center gap-1 w-fit">
+                        <Badge variant={sc.variant} className="flex items-center gap-1 w-fit">
                           <StatusIcon className="h-3 w-3" />
-                          {statusConfig.label}
+                          {sc.label}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
