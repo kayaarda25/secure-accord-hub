@@ -65,14 +65,6 @@ export default function Security() {
       .eq("user_id", user.id)
       .order("last_active_at", { ascending: false })
       .limit(50);
-    
-    // Fetch ALL sessions (active + inactive) for history view
-    const { data: allSessionsData } = await supabase
-      .from("user_sessions")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("last_active_at", { ascending: false })
-      .limit(50);
 
     if (allSessionsData) {
       const enriched = allSessionsData.map((s, index) => ({
