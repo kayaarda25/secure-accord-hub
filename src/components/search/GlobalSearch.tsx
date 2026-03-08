@@ -236,13 +236,13 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Dokumente, Aufgaben, Benutzer suchen..."
+          placeholder={t("search.placeholder")}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
           <CommandEmpty>
-            {isSearching ? "Suche..." : "Keine Ergebnisse gefunden."}
+            {isSearching ? t("common.loading") : t("search.noResults")}
           </CommandEmpty>
           
           {results.length > 0 && (
