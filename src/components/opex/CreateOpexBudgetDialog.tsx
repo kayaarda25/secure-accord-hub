@@ -1,16 +1,37 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
-interface LineItemInput {
-  category: string;
+interface SubItem {
   label: string;
   amount: string;
+}
+
+interface CategoryGroup {
+  category: string;
+  items: SubItem[];
+  isOpen: boolean;
 }
 
 interface CostCenter {
@@ -23,6 +44,7 @@ interface CreateOpexBudgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   costCenters: CostCenter[];
+  isGatewayUser: boolean;
   onSubmit: (
     costCenterId: string,
     organizationId: string | null,
@@ -52,6 +74,7 @@ export function CreateOpexBudgetDialog({
   open,
   onOpenChange,
   costCenters,
+  isGatewayUser,
   onSubmit,
 }: CreateOpexBudgetDialogProps) {
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
@@ -59,67 +82,113 @@ export function CreateOpexBudgetDialog({
   const [currency, setCurrency] = useState("CHF");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lineItems, setLineItems] = useState<LineItemInput[]>([
-    { category: "salaries", label: "Salaries & Wages", amount: "" },
-  ]);
 
-  const addLineItem = () => {
-    setLineItems([...lineItems, { category: "other", label: "", amount: "" }]);
+  const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>(
+    CATEGORIES.map((c) => ({
+      category: c.value,
+      items: [{ label: "", amount: "" }],
+      isOpen: false,
+    }))
+  );
+
+  const toggleCategory = (idx: number) => {
+    setCategoryGroups((prev) =>
+      prev.map((g, i) => (i === idx ? { ...g, isOpen: !g.isOpen } : g))
+    );
   };
 
-  const removeLineItem = (index: number) => {
-    if (lineItems.length <= 1) return;
-    setLineItems(lineItems.filter((_, i) => i !== index));
+  const addSubItem = (catIdx: number) => {
+    setCategoryGroups((prev) =>
+      prev.map((g, i) =>
+        i === catIdx ? { ...g, items: [...g.items, { label: "", amount: "" }] } : g
+      )
+    );
   };
 
-  const updateLineItem = (index: number, field: keyof LineItemInput, value: string) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-    if (field === "category") {
-      const cat = CATEGORIES.find((c) => c.value === value);
-      if (cat && !updated[index].label) {
-        updated[index].label = cat.label;
-      }
+  const removeSubItem = (catIdx: number, itemIdx: number) => {
+    setCategoryGroups((prev) =>
+      prev.map((g, i) =>
+        i === catIdx && g.items.length > 1
+          ? { ...g, items: g.items.filter((_, j) => j !== itemIdx) }
+          : g
+      )
+    );
+  };
+
+  const updateSubItem = (catIdx: number, itemIdx: number, field: keyof SubItem, value: string) => {
+    setCategoryGroups((prev) =>
+      prev.map((g, i) =>
+        i === catIdx
+          ? {
+              ...g,
+              items: g.items.map((item, j) =>
+                j === itemIdx ? { ...item, [field]: value } : item
+              ),
+            }
+          : g
+      )
+    );
+  };
+
+  const getCategoryTotal = (group: CategoryGroup) =>
+    group.items.reduce((s, item) => s + (parseFloat(item.amount) || 0), 0);
+
+  const grandTotal = categoryGroups.reduce((s, g) => s + getCategoryTotal(g), 0);
+
+  const getOrgLabel = (cc: CostCenter) => {
+    if (cc.code.startsWith("MGIM") || cc.code.startsWith("MGIC")) {
+      return isGatewayUser ? "MGI" : cc.code.startsWith("MGIM") ? "MGI Media" : "MGI Communications";
     }
-    setLineItems(updated);
+    return "Gateway";
   };
-
-  const total = lineItems.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!costCenterId) return;
 
-    const validItems = lineItems
-      .filter((li) => li.label && parseFloat(li.amount) > 0)
-      .map((li, idx) => ({
-        category: li.category,
-        label: li.label,
-        amount: parseFloat(li.amount),
-        sort_order: idx,
-      }));
+    let sortOrder = 0;
+    const lineItems: { category: string; label: string; amount: number; sort_order: number }[] = [];
 
-    if (validItems.length === 0) return;
+    for (const group of categoryGroups) {
+      for (const item of group.items) {
+        const amt = parseFloat(item.amount) || 0;
+        if (amt > 0 && item.label.trim()) {
+          lineItems.push({
+            category: group.category,
+            label: item.label.trim(),
+            amount: amt,
+            sort_order: sortOrder++,
+          });
+        }
+      }
+    }
+
+    if (lineItems.length === 0) return;
 
     setIsSubmitting(true);
-    const result = await onSubmit(costCenterId, null, period, currency, notes, validItems);
+    const result = await onSubmit(costCenterId, null, period, currency, notes, lineItems);
     setIsSubmitting(false);
 
     if (result) {
-      // Reset
       setPeriod(new Date().toISOString().slice(0, 7));
       setCostCenterId("");
       setNotes("");
-      setLineItems([{ category: "salaries", label: "Salaries & Wages", amount: "" }]);
+      setCategoryGroups(
+        CATEGORIES.map((c) => ({
+          category: c.value,
+          items: [{ label: "", amount: "" }],
+          isOpen: false,
+        }))
+      );
       onOpenChange(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Neues OPEX-Budget erstellen</DialogTitle>
+          <DialogTitle>Neue OPEX erstellen</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Meta */}
@@ -129,7 +198,7 @@ export function CreateOpexBudgetDialog({
               <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} required />
             </div>
             <div>
-              <Label>Kostenstelle *</Label>
+              <Label>Organisation *</Label>
               <Select value={costCenterId} onValueChange={setCostCenterId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Auswählen..." />
@@ -137,7 +206,7 @@ export function CreateOpexBudgetDialog({
                 <SelectContent>
                   {costCenters.map((cc) => (
                     <SelectItem key={cc.id} value={cc.id}>
-                      {cc.code} – {cc.name}
+                      {getOrgLabel(cc)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -159,60 +228,97 @@ export function CreateOpexBudgetDialog({
             </div>
           </div>
 
-          {/* Line Items */}
+          {/* Categories with sub-items */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-base">Budgetposten</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
-                <Plus className="h-4 w-4 mr-1" /> Posten hinzufügen
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {lineItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 p-3 bg-muted rounded-lg border border-border">
-                  <Select
-                    value={item.category}
-                    onValueChange={(v) => updateLineItem(idx, "category", v)}
+            <Label className="text-base mb-3 block">Ausgaben nach Kategorie</Label>
+            <div className="space-y-1">
+              {categoryGroups.map((group, catIdx) => {
+                const catLabel = CATEGORIES.find((c) => c.value === group.category)?.label || group.category;
+                const catTotal = getCategoryTotal(group);
+                const hasValues = catTotal > 0;
+
+                return (
+                  <div
+                    key={group.category}
+                    className={`rounded-lg border transition-colors ${
+                      hasValues ? "border-accent/30 bg-accent/5" : "border-border"
+                    }`}
                   >
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={item.label}
-                    onChange={(e) => updateLineItem(idx, "label", e.target.value)}
-                    placeholder="Bezeichnung"
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={item.amount}
-                    onChange={(e) => updateLineItem(idx, "amount", e.target.value)}
-                    placeholder="0.00"
-                    className="w-32 text-right"
-                  />
-                  <span className="text-xs text-muted-foreground w-10">{currency}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLineItem(idx)}
-                    disabled={lineItems.length <= 1}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                    <Collapsible open={group.isOpen} onOpenChange={() => toggleCategory(catIdx)}>
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors rounded-lg">
+                          <div className="flex items-center gap-2">
+                            {group.isOpen ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="text-sm font-medium text-foreground">{catLabel}</span>
+                            {group.items.length > 1 && (
+                              <span className="text-xs text-muted-foreground">
+                                ({group.items.length} Posten)
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`text-sm font-semibold ${
+                              hasValues ? "text-accent" : "text-muted-foreground"
+                            }`}
+                          >
+                            {new Intl.NumberFormat("de-CH", {
+                              style: "currency",
+                              currency,
+                            }).format(catTotal)}
+                          </span>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="px-3 pb-3 space-y-2">
+                          {group.items.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex items-center gap-2">
+                              <Input
+                                value={item.label}
+                                onChange={(e) => updateSubItem(catIdx, itemIdx, "label", e.target.value)}
+                                placeholder={`z.B. ${catLabel} Posten ${itemIdx + 1}`}
+                                className="flex-1"
+                              />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.amount}
+                                onChange={(e) => updateSubItem(catIdx, itemIdx, "amount", e.target.value)}
+                                placeholder="0.00"
+                                className="w-32 text-right"
+                              />
+                              <span className="text-xs text-muted-foreground w-8">{currency}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeSubItem(catIdx, itemIdx)}
+                                disabled={group.items.length <= 1}
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => addSubItem(catIdx)}
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Posten hinzufügen
+                          </Button>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -221,7 +327,7 @@ export function CreateOpexBudgetDialog({
             <div className="flex items-center justify-between">
               <span className="text-lg font-semibold text-foreground">Gesamt</span>
               <span className="text-xl font-bold text-accent">
-                {new Intl.NumberFormat("de-CH", { style: "currency", currency }).format(total)}
+                {new Intl.NumberFormat("de-CH", { style: "currency", currency }).format(grandTotal)}
               </span>
             </div>
           </div>
@@ -242,9 +348,9 @@ export function CreateOpexBudgetDialog({
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               Abbrechen
             </Button>
-            <Button type="submit" disabled={isSubmitting || !costCenterId} className="flex-1">
+            <Button type="submit" disabled={isSubmitting || !costCenterId || grandTotal === 0} className="flex-1">
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Budget erstellen
+              OPEX erstellen
             </Button>
           </div>
         </form>
