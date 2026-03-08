@@ -409,7 +409,7 @@ export default function Tasks() {
             
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div className="space-y-2">
-                <Label>Title *</Label>
+                <Label>{t("tasks.titleReq")}</Label>
                 <Input
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
