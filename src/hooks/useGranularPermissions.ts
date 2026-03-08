@@ -11,58 +11,36 @@ export interface PermissionDefinition {
 }
 
 export function useGranularPermissions() {
-  const { user, roles } = useAuth();
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const { user, permissions: userPermissions, hasPermission, hasAnyPermission } = useAuth();
   const [allDefinitions, setAllDefinitions] = useState<PermissionDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
-      setUserPermissions([]);
       setIsLoading(false);
       return;
     }
 
-    async function fetchPermissions() {
+    async function fetchDefinitions() {
       setIsLoading(true);
       try {
-        const [{ data: perms }, { data: defs }] = await Promise.all([
-          supabase
-            .from("user_permissions")
-            .select("permission_key")
-            .eq("user_id", user!.id),
-          supabase
-            .from("permission_definitions")
-            .select("*")
-            .order("category", { ascending: true }),
-        ]);
+        const { data: defs } = await supabase
+          .from("permission_definitions")
+          .select("*")
+          .order("category", { ascending: true });
 
-        if (perms) {
-          setUserPermissions(perms.map((p: any) => p.permission_key));
-        }
         if (defs) {
           setAllDefinitions(defs as PermissionDefinition[]);
         }
       } catch (error) {
-        console.error("Error fetching permissions:", error);
+        console.error("Error fetching permission definitions:", error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    fetchPermissions();
+    fetchDefinitions();
   }, [user]);
-
-  const hasPermission = (key: string): boolean => {
-    // Admins have all permissions
-    if (roles.includes("admin")) return true;
-    return userPermissions.includes(key);
-  };
-
-  const hasAnyPermission = (keys: string[]): boolean => {
-    if (roles.includes("admin")) return true;
-    return keys.some((k) => userPermissions.includes(k));
-  };
 
   return {
     hasPermission,

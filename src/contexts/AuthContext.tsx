@@ -2,8 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "state" | "management" | "finance" | "partner";
-
 interface Profile {
   id: string;
   user_id: string;
@@ -22,38 +20,48 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  roles: AppRole[];
+  permissions: string[];
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  hasRole: (role: AppRole) => boolean;
-  hasAnyRole: (roles: AppRole[]) => boolean;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  // Legacy compatibility - maps to permissions
+  hasRole: (role: string) => boolean;
+  hasAnyRole: (roles: string[]) => boolean;
+  roles: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Map old role names to permission keys for backward compatibility
+const ROLE_PERMISSION_MAP: Record<string, string[]> = {
+  admin: ["admin.full_access"],
+  management: ["employees.manage", "vacations.approve", "expenses.approve", "budget.manage", "documents.sign", "users.manage", "communication.manage"],
+  finance: ["invoices.approve", "opex.approve", "payments.confirm", "budget.manage", "payroll.view", "declarations.manage"],
+  state: ["audit.view", "declarations.view", "budget.view", "opex.view"],
+  partner: ["communication.view", "documents.view"],
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer profile/roles fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchProfileAndRoles(session.user.id);
+            fetchProfileAndPermissions(session.user.id);
           }, 0);
 
-          // Register session on sign in
           if (event === "SIGNED_IN") {
             setTimeout(() => {
               registerSession(session.user.id);
@@ -61,17 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           setProfile(null);
-          setRoles([]);
+          setPermissions([]);
         }
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfileAndRoles(session.user.id);
+        fetchProfileAndPermissions(session.user.id);
       }
       setIsLoading(false);
     });
@@ -79,9 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfileAndRoles = async (userId: string) => {
+  const fetchProfileAndPermissions = async (userId: string) => {
     try {
-      // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -92,28 +98,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as Profile);
       }
 
-      // Fetch roles
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("role")
+      // Fetch permissions instead of roles
+      const { data: permsData } = await supabase
+        .from("user_permissions")
+        .select("permission_key")
         .eq("user_id", userId);
       
-      if (rolesData) {
-        setRoles(rolesData.map((r) => r.role as AppRole));
+      if (permsData) {
+        setPermissions(permsData.map((p) => p.permission_key));
       }
     } catch (error) {
-      console.error("Error fetching profile/roles:", error);
+      console.error("Error fetching profile/permissions:", error);
     }
   };
 
   const registerSession = async (userId: string) => {
-    // Prevent duplicate session registration on token refresh / page reload
     const sessionKey = "mgi-session-registered";
     if (sessionStorage.getItem(sessionKey)) return;
     sessionStorage.setItem(sessionKey, "true");
 
     try {
-      // Deactivate any previous active sessions for this user first
       await supabase
         .from("user_sessions")
         .update({ is_active: false })
@@ -142,25 +146,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
+        data: { first_name: firstName, last_name: lastName },
       },
     });
     return { error };
@@ -169,11 +166,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
-    setRoles([]);
+    setPermissions([]);
   };
 
-  const hasRole = (role: AppRole) => roles.includes(role);
-  const hasAnyRole = (checkRoles: AppRole[]) => checkRoles.some((r) => roles.includes(r));
+  const hasPermission = (permission: string) => {
+    if (permissions.includes("admin.full_access")) return true;
+    return permissions.includes(permission);
+  };
+
+  const hasAnyPermission = (perms: string[]) => {
+    if (permissions.includes("admin.full_access")) return true;
+    return perms.some((p) => permissions.includes(p));
+  };
+
+  // Legacy compatibility: hasRole checks if user has any permission that maps to that role
+  const hasRole = (role: string) => {
+    if (permissions.includes("admin.full_access")) return true;
+    const mappedPerms = ROLE_PERMISSION_MAP[role] || [];
+    return mappedPerms.some((p) => permissions.includes(p));
+  };
+
+  const hasAnyRole = (roles: string[]) => roles.some((r) => hasRole(r));
+
+  // Derive legacy roles from permissions for backward compatibility
+  const derivedRoles = Object.entries(ROLE_PERMISSION_MAP)
+    .filter(([, perms]) => perms.some((p) => permissions.includes(p)))
+    .map(([role]) => role);
 
   return (
     <AuthContext.Provider
@@ -181,13 +199,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         profile,
-        roles,
+        permissions,
         isLoading,
         signIn,
         signUp,
         signOut,
+        hasPermission,
+        hasAnyPermission,
         hasRole,
         hasAnyRole,
+        roles: derivedRoles,
       }}
     >
       {children}

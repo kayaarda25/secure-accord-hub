@@ -4,11 +4,11 @@ import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRoles?: ("admin" | "state" | "management" | "finance" | "partner")[];
+  requiredPermissions?: string[];
 }
 
-export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
-  const { user, isLoading, hasAnyRole } = useAuth();
+export function ProtectedRoute({ children, requiredPermissions }: ProtectedRouteProps) {
+  const { user, isLoading, hasAnyPermission } = useAuth();
 
   if (isLoading) {
     return (
@@ -25,8 +25,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
     return <Navigate to="/auth" replace />;
   }
 
-  // If specific roles are required, check them
-  if (requiredRoles && requiredRoles.length > 0 && !hasAnyRole(requiredRoles)) {
+  if (requiredPermissions && requiredPermissions.length > 0 && !hasAnyPermission(requiredPermissions)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="card-state p-8 max-w-md text-center">
