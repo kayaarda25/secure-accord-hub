@@ -44,7 +44,7 @@ export default function Security() {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FADisable, setShow2FADisable] = useState(false);
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
-  const { user, hasRole } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
