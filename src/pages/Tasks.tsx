@@ -489,7 +489,7 @@ export default function Tasks() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Until</Label>
+                      <Label>{t("tasks.until")}</Label>
                       <Input
                         type="date"
                         value={formData.recurrence_end_date}
