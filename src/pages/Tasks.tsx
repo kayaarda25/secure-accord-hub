@@ -396,7 +396,7 @@ export default function Tasks() {
           <DialogTrigger asChild>
             <Button className="glow-gold">
               <Plus size={16} className="mr-2" />
-              New Task
+              {t("tasks.newTask")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
