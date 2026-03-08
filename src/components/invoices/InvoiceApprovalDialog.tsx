@@ -160,7 +160,7 @@ export function InvoiceApprovalDialog({
           // Step 1: Search for existing supplier contact
           const contactResult = await callBexioApi("search_contact", { 
             name: invoice.vendor_name 
-          });
+          }, bexioAccountId);
           
           let vendorId: number;
           if (contactResult && contactResult.length > 0) {
