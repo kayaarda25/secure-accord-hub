@@ -222,7 +222,7 @@ export default function Settings() {
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Fehler", description: "Einstellung konnte nicht gespeichert werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.notifications.saveError"), variant: "destructive" });
     } else {
       setNotificationPrefs({ ...notificationPrefs, [key]: value });
     }
