@@ -419,7 +419,7 @@ export default function Tasks() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
+                  <Label>{t("tasks.dueDate")}</Label>
                   <Input
                     type="date"
                     value={formData.due_date}
