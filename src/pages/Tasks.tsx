@@ -473,7 +473,7 @@ export default function Tasks() {
                 {formData.is_recurring && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Repeat</Label>
+                      <Label>{t("tasks.repeat")}</Label>
                       <Select 
                         value={formData.recurrence_type} 
                         onValueChange={(v) => setFormData(prev => ({ ...prev, recurrence_type: v }))}
