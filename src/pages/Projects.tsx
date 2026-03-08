@@ -31,7 +31,7 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <Layout title="Projekte" subtitle="Projektverwaltung">
+      <Layout title={t("page.projects.title")} subtitle={t("page.projects.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
