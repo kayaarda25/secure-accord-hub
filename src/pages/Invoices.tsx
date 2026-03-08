@@ -54,6 +54,7 @@ export default function Invoices() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<string>("creditor");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
