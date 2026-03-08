@@ -376,11 +376,33 @@ export default function Invoices() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Neue Kreditorenrechnung</DialogTitle>
+                <DialogTitle>Neue {invoiceType === "creditor" ? "Kreditoren" : "Debitoren"}rechnung</DialogTitle>
                 <DialogDescription>
                   Laden Sie eine Rechnung hoch für automatische KI-Erkennung oder erfassen Sie manuell
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Invoice Type Selector */}
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant={invoiceType === "creditor" ? "default" : "outline"}
+                  size="sm"
+                  type="button"
+                  onClick={() => setInvoiceType("creditor")}
+                >
+                  <ArrowDownLeft className="h-4 w-4 mr-1" />
+                  Kreditor
+                </Button>
+                <Button
+                  variant={invoiceType === "debitor" ? "default" : "outline"}
+                  size="sm"
+                  type="button"
+                  onClick={() => setInvoiceType("debitor")}
+                >
+                  <ArrowUpRight className="h-4 w-4 mr-1" />
+                  Debitor
+                </Button>
+              </div>
               
               {/* AI Upload Section */}
               <div className="p-4 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5">
