@@ -205,7 +205,7 @@ export function InvoiceApprovalDialog({
                   file_base64: base64,
                   filename: filename,
                   mime_type: "application/pdf",
-                });
+                }, bexioAccountId);
 
                  // Bexio returns an array: [{ id: number, uuid: string, ... }]
                  const uploadedUuid = Array.isArray(uploadResult)
