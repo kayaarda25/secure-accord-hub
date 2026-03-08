@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Download, FileType, BookUser, Save, Trash2 } from "lucide-react";
+import { FileText, Download, FileType, BookUser, Save, Trash2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +37,15 @@ import {
   type PaymentInstructionData,
   type EmptyDocumentData,
 } from "@/lib/documentGenerator";
+import {
+  CONTRACT_TYPES,
+  LANGUAGE_OPTIONS,
+  LABELS,
+  getDefaultTerms,
+  getContractPreamble,
+  type DocLanguage,
+  type ContractType,
+} from "@/lib/legalTermsLibrary";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,15 +66,9 @@ interface LetterheadPreset {
   is_default: boolean | null;
 }
 
-const CONTRACT_TEMPLATES = [
-  { id: "standard", name: "Standard-Vertrag", description: "Allgemeiner Geschäftsvertrag" },
-  { id: "service", name: "Dienstleistungsvertrag", description: "Für Dienstleistungen und Beratung" },
-  { id: "partnership", name: "Partnerschaftsvertrag", description: "Für Kooperationen und Joint Ventures" },
-  { id: "nda", name: "Vertraulichkeitsvereinbarung", description: "NDA / Geheimhaltungsvertrag" },
-];
-
 export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps) {
   const [activeTab, setActiveTab] = useState("contract");
+  const [docLanguage, setDocLanguage] = useState<DocLanguage>("de");
   const [letterheadPresets, setLetterheadPresets] = useState<LetterheadPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [savedAddresses, setSavedAddresses] = useState<Array<{ id: string; label: string; full_address: string }>>([]);
@@ -74,7 +77,6 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
   const [showSaveAddress, setShowSaveAddress] = useState(false);
   const { user } = useAuth();
 
-  // Load letterhead presets when dialog opens
   useEffect(() => {
     if (open && user) {
       loadLetterheadPresets();
@@ -139,16 +141,13 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
 
   const loadLetterheadPresets = async () => {
     if (!user) return;
-    
     const { data } = await supabase
       .from("letterhead_settings")
       .select("*")
       .eq("user_id", user.id)
       .order("preset_name");
-
     if (data && data.length > 0) {
       setLetterheadPresets(data);
-      // Select default preset
       const defaultPreset = data.find(p => p.is_default) || data[0];
       setSelectedPresetId(defaultPreset.id);
       applyPreset(defaultPreset);
@@ -160,7 +159,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
       companyName: preset.company_name,
       subtitle: preset.subtitle || "",
       address: preset.address || "",
-      primaryColor: preset.primary_color || "#c97c5d",
+      primaryColor: "000000",
       footerText: preset.footer_text || "Confidential",
     });
   };
@@ -168,29 +167,56 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
   const handlePresetChange = (presetId: string) => {
     setSelectedPresetId(presetId);
     const preset = letterheadPresets.find(p => p.id === presetId);
-    if (preset) {
-      applyPreset(preset);
-    }
+    if (preset) applyPreset(preset);
   };
   
   // Contract state
-  const [contractTemplate, setContractTemplate] = useState("standard");
+  const [contractType, setContractType] = useState<ContractType>("service");
   const [contractData, setContractData] = useState<ContractData>({
-    title: "Kooperationsvertrag",
+    title: LABELS.de.contractTitle.service,
     contractNumber: "",
     date: new Date().toLocaleDateString("de-CH"),
+    language: "de",
+    contractType: "service",
     partyA: { name: "", address: "", representative: "" },
     partyB: { name: "", address: "", representative: "" },
-    terms: [
-      "Die Parteien vereinbaren eine Zusammenarbeit im Bereich der staatlichen Kooperation.",
-      "Die Vertragslaufzeit beginnt mit Unterzeichnung und endet nach 12 Monaten.",
-      "Beide Parteien verpflichten sich zur Vertraulichkeit bezüglich aller ausgetauschten Informationen.",
-    ],
+    preamble: getContractPreamble("service", "de"),
+    terms: getDefaultTerms("service", "de"),
     value: "",
     currency: "CHF",
     duration: "12 Monate",
     specialClauses: [],
   });
+
+  // When contract type or language changes, update terms
+  const handleContractTypeChange = (type: ContractType) => {
+    setContractType(type);
+    const terms = getDefaultTerms(type, docLanguage);
+    const preamble = getContractPreamble(type, docLanguage);
+    const title = LABELS[docLanguage].contractTitle[type];
+    setContractData(prev => ({
+      ...prev,
+      contractType: type,
+      language: docLanguage,
+      terms,
+      preamble,
+      title,
+    }));
+  };
+
+  const handleDocLanguageChange = (lang: DocLanguage) => {
+    setDocLanguage(lang);
+    const terms = getDefaultTerms(contractType, lang);
+    const preamble = getContractPreamble(contractType, lang);
+    const title = LABELS[lang].contractTitle[contractType];
+    setContractData(prev => ({
+      ...prev,
+      language: lang,
+      terms,
+      preamble,
+      title,
+    }));
+  };
 
   // Payment instruction state
   const [paymentData, setPaymentData] = useState<PaymentInstructionData>({
@@ -219,12 +245,12 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
       toast.error("Bitte füllen Sie die Partei-Informationen aus");
       return;
     }
-
     try {
+      const dataWithLang = { ...contractData, language: docLanguage, contractType };
       if (format === "pdf") {
-        generateContractPdf(contractData);
+        generateContractPdf(dataWithLang);
       } else {
-        generateContractDocx(contractData);
+        generateContractDocx(dataWithLang);
       }
       toast.success(`Vertrag als ${format.toUpperCase()} generiert`);
     } catch (error) {
@@ -238,12 +264,12 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
       toast.error("Bitte füllen Sie alle Pflichtfelder aus");
       return;
     }
-
     try {
+      const dataWithLang = { ...paymentData, language: docLanguage };
       if (format === "pdf") {
-        generatePaymentInstructionPdf(paymentData);
+        generatePaymentInstructionPdf(dataWithLang);
       } else {
-        generatePaymentInstructionDocx(paymentData);
+        generatePaymentInstructionDocx(dataWithLang);
       }
       toast.success(`Zahlungsanweisung als ${format.toUpperCase()} generiert`);
     } catch (error) {
@@ -257,12 +283,12 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
       toast.error("Bitte geben Sie Titel und Inhalt ein");
       return;
     }
-
     try {
+      const dataWithLang = { ...emptyDocData, language: docLanguage };
       if (format === "pdf") {
-        generateEmptyDocumentPdf(emptyDocData);
+        generateEmptyDocumentPdf(dataWithLang);
       } else {
-        generateEmptyDocumentDocx(emptyDocData);
+        generateEmptyDocumentDocx(dataWithLang);
       }
       toast.success(`Dokument als ${format.toUpperCase()} generiert`);
     } catch (error) {
@@ -299,35 +325,63 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
     }));
   };
 
+  const l = LABELS[docLanguage];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText size={20} className="text-accent" />
-            Dokument-Vorlage generieren
+            <FileText size={20} />
+            Dokumentvorlage generieren
           </DialogTitle>
         </DialogHeader>
 
-        {/* Letterhead Preset Selection */}
-        {letterheadPresets.length > 0 && (
-          <div className="space-y-2 pb-2 border-b">
-            <Label className="text-xs text-muted-foreground">Briefkopf-Preset</Label>
-            <Select value={selectedPresetId} onValueChange={handlePresetChange}>
+        {/* Language + Letterhead Selection */}
+        <div className="flex gap-3 pb-3 border-b">
+          {/* Document Language */}
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Globe size={12} />
+              Dokumentsprache
+            </Label>
+            <Select value={docLanguage} onValueChange={(v) => handleDocLanguageChange(v as DocLanguage)}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Briefkopf wählen..." />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {letterheadPresets.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.preset_name}
-                    {preset.is_default && " (Standard)"}
+                {LANGUAGE_OPTIONS.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    <span className="flex items-center gap-2">
+                      <span>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
+
+          {/* Letterhead Preset */}
+          {letterheadPresets.length > 0 && (
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-muted-foreground">Briefkopf-Preset</Label>
+              <Select value={selectedPresetId} onValueChange={handlePresetChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Briefkopf wählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {letterheadPresets.map((preset) => (
+                    <SelectItem key={preset.id} value={preset.id}>
+                      {preset.preset_name}
+                      {preset.is_default && " (Standard)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
@@ -338,19 +392,19 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
 
           <div className="flex-1 overflow-y-auto mt-4">
             <TabsContent value="contract" className="m-0 space-y-4">
-              {/* Template Selection */}
+              {/* Contract Type Selection */}
               <div className="space-y-2">
-                <Label>Vorlage</Label>
-                <Select value={contractTemplate} onValueChange={setContractTemplate}>
+                <Label>Vertragsart</Label>
+                <Select value={contractType} onValueChange={(v) => handleContractTypeChange(v as ContractType)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CONTRACT_TEMPLATES.map(t => (
+                    {CONTRACT_TYPES.map(t => (
                       <SelectItem key={t.id} value={t.id}>
                         <div>
-                          <div className="font-medium">{t.name}</div>
-                          <div className="text-xs text-muted-foreground">{t.description}</div>
+                          <div className="font-medium">{t.names[docLanguage]}</div>
+                          <div className="text-xs text-muted-foreground">{t.descriptions[docLanguage]}</div>
                         </div>
                       </SelectItem>
                     ))}
@@ -379,8 +433,8 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
               </div>
 
               {/* Party A */}
-              <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <h4 className="font-semibold text-sm">Partei A (Auftraggeber)</h4>
+              <div className="space-y-3 p-4 rounded-lg border border-border">
+                <h4 className="font-semibold text-sm">{l.partyA}</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-xs">Name / Firma</Label>
@@ -391,7 +445,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Vertreter</Label>
+                    <Label className="text-xs">{l.representative}</Label>
                     <Input
                       value={contractData.partyA.representative || ""}
                       onChange={(e) => updateContractParty("partyA", "representative", e.target.value)}
@@ -400,7 +454,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Adresse</Label>
+                  <Label className="text-xs">{l.address}</Label>
                   <Input
                     value={contractData.partyA.address}
                     onChange={(e) => updateContractParty("partyA", "address", e.target.value)}
@@ -410,8 +464,8 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
               </div>
 
               {/* Party B */}
-              <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <h4 className="font-semibold text-sm">Partei B (Auftragnehmer)</h4>
+              <div className="space-y-3 p-4 rounded-lg border border-border">
+                <h4 className="font-semibold text-sm">{l.partyB}</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-xs">Name / Firma</Label>
@@ -422,7 +476,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Vertreter</Label>
+                    <Label className="text-xs">{l.representative}</Label>
                     <Input
                       value={contractData.partyB.representative || ""}
                       onChange={(e) => updateContractParty("partyB", "representative", e.target.value)}
@@ -431,7 +485,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Adresse</Label>
+                  <Label className="text-xs">{l.address}</Label>
                   <Input
                     value={contractData.partyB.address}
                     onChange={(e) => updateContractParty("partyB", "address", e.target.value)}
@@ -440,37 +494,54 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                 </div>
               </div>
 
-              {/* Contract Terms */}
+              {/* Preamble */}
+              <div className="space-y-2">
+                <Label>{l.preamble}</Label>
+                <Textarea
+                  value={contractData.preamble || ""}
+                  onChange={(e) => setContractData(prev => ({ ...prev, preamble: e.target.value }))}
+                  className="min-h-[80px] font-serif text-sm"
+                  placeholder="Präambel / Einleitung..."
+                />
+              </div>
+
+              {/* Contract Terms (Articles) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Vertragsbedingungen</Label>
+                  <Label>{l.terms}</Label>
                   <Button variant="outline" size="sm" onClick={addContractTerm}>
-                    Bedingung hinzufügen
+                    Artikel hinzufügen
                   </Button>
                 </div>
-                {contractData.terms.map((term, index) => (
-                  <div key={index} className="flex gap-2">
-                    <span className="text-sm font-medium text-muted-foreground w-6 pt-2">
-                      {index + 1}.
-                    </span>
-                    <Textarea
-                      value={term}
-                      onChange={(e) => updateContractTerm(index, e.target.value)}
-                      className="flex-1 min-h-[60px]"
-                      placeholder="Vertragsbedingung..."
-                    />
-                    {contractData.terms.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive"
-                        onClick={() => removeContractTerm(index)}
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                {contractData.terms.map((term, index) => {
+                  const parts = term.split("\n");
+                  const title = parts[0];
+                  return (
+                    <div key={index} className="space-y-1 p-3 rounded border border-border/50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Artikel {index + 1}
+                        </span>
+                        {contractData.terms.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-destructive text-xs"
+                            onClick={() => removeContractTerm(index)}
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                      <Textarea
+                        value={term}
+                        onChange={(e) => updateContractTerm(index, e.target.value)}
+                        className="min-h-[100px] text-sm font-serif"
+                        placeholder="Titel&#10;Artikeltext..."
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Value & Duration */}
@@ -512,7 +583,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
 
             <TabsContent value="payment" className="m-0 space-y-4">
               {/* Recipient Info */}
-              <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <div className="space-y-3 p-4 rounded-lg border border-border">
                 <h4 className="font-semibold text-sm">Empfänger</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2 col-span-2">
@@ -551,7 +622,7 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
               </div>
 
               {/* Payment Details */}
-              <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <div className="space-y-3 p-4 rounded-lg border border-border">
                 <h4 className="font-semibold text-sm">Zahlungsdetails</h4>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
@@ -617,7 +688,6 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
             </TabsContent>
 
             <TabsContent value="empty" className="m-0 space-y-4">
-              {/* Empty Document - Title, Recipient & Content */}
               <div className="space-y-4">
                 {/* Recipient Address with saved addresses */}
                 <div className="space-y-2">
@@ -662,7 +732,6 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                     placeholder="Name&#10;Strasse und Hausnummer&#10;PLZ Ort&#10;Land"
                     className="min-h-[100px] font-normal"
                   />
-                  {/* Save address option */}
                   {emptyDocData.recipient && selectedAddressId === "new" && (
                     <>
                       {!showSaveAddress ? (
@@ -704,7 +773,6 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                   )}
                 </div>
 
-                {/* Title */}
                 <div className="space-y-2">
                   <Label>Titel *</Label>
                   <Input
@@ -714,7 +782,6 @@ export function TemplateGenerator({ open, onOpenChange }: TemplateGeneratorProps
                   />
                 </div>
 
-                {/* Location and Date */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Ort</Label>
