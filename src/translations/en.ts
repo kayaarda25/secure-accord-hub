@@ -418,4 +418,5 @@ export const en: Record<string, string> = {
   "session.timeout.title": "Session expiring",
   "session.timeout.description": "You will be automatically logged out due to inactivity.",
   "session.timeout.stayActive": "I'm still here",
+  "auth.notificationsConsent": "I would like to receive notifications (email and desktop notifications). This setting can be changed later.",
 };

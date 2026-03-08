@@ -418,4 +418,5 @@ export const de: Record<string, string> = {
   "session.timeout.title": "Session läuft ab",
   "session.timeout.description": "Sie werden wegen Inaktivität automatisch abgemeldet.",
   "session.timeout.stayActive": "Ich bin noch aktiv",
+  "auth.notificationsConsent": "Ich möchte Benachrichtigungen erhalten (E-Mail und Desktop-Benachrichtigungen). Diese Einstellung kann später geändert werden.",
 };

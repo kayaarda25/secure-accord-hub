@@ -418,4 +418,5 @@ export const pt: Record<string, string> = {
   "session.timeout.title": "Sessão a expirar",
   "session.timeout.description": "Será automaticamente desconectado devido a inatividade.",
   "session.timeout.stayActive": "Ainda estou aqui",
+  "auth.notificationsConsent": "Gostaria de receber notificações (e-mail e notificações de ambiente de trabalho). Esta definição pode ser alterada posteriormente.",
 };
