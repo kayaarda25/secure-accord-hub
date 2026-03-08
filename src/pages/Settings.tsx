@@ -205,9 +205,9 @@ export default function Settings() {
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Fehler", description: "Profil konnte nicht gespeichert werden", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.saveError"), variant: "destructive" });
     } else {
-      toast({ title: "Gespeichert", description: "Profil wurde aktualisiert" });
+      toast({ title: t("settings.profile.saved"), description: t("settings.profile.savedDesc") });
     }
 
     setIsSaving(false);
