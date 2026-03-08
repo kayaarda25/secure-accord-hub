@@ -58,18 +58,18 @@ interface Profile {
   email: string;
 }
 
-const PRIORITY_CONFIG: Record<string, { label: string; color: string; icon: typeof AlertTriangle }> = {
-  low: { label: "Low", color: "text-muted-foreground", icon: Circle },
-  normal: { label: "Normal", color: "text-primary", icon: Circle },
-  high: { label: "High", color: "text-warning", icon: AlertTriangle },
-  critical: { label: "Critical", color: "text-destructive", icon: AlertTriangle },
-};
+const getPriorityConfig = (t: (key: string) => string) => ({
+  low: { label: t("tasks.low"), color: "text-muted-foreground", icon: Circle },
+  normal: { label: t("tasks.normal"), color: "text-primary", icon: Circle },
+  high: { label: t("tasks.high"), color: "text-warning", icon: AlertTriangle },
+  critical: { label: t("tasks.critical"), color: "text-destructive", icon: AlertTriangle },
+});
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof Circle }> = {
-  todo: { label: "To Do", icon: Circle },
-  in_progress: { label: "In Progress", icon: PlayCircle },
-  done: { label: "Done", icon: CheckCircle2 },
-};
+const getStatusConfig = (t: (key: string) => string) => ({
+  todo: { label: t("tasks.todo"), icon: Circle },
+  in_progress: { label: t("tasks.inProgress"), icon: PlayCircle },
+  done: { label: t("tasks.completed"), icon: CheckCircle2 },
+});
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -207,7 +207,7 @@ export default function Tasks() {
         .eq("id", taskId);
 
       if (error) throw error;
-      toast.success(`Task marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
+      toast.success(`Task marked as ${getStatusConfig(t)[newStatus as keyof ReturnType<typeof getStatusConfig>]?.label || newStatus}`);
       fetchTasks();
     } catch (error) {
       console.error("Error updating task:", error);
@@ -334,7 +334,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Tasks</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.total")}</p>
                 <p className="text-2xl font-bold">{tasks.length}</p>
               </div>
               <CheckSquare className="h-8 w-8 text-muted-foreground" />
@@ -345,7 +345,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">To Do</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.todo")}</p>
                 <p className="text-2xl font-bold text-primary">{todoCount}</p>
               </div>
               <Circle className="h-8 w-8 text-primary" />
@@ -356,7 +356,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">In Progress</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.inProgress")}</p>
                 <p className="text-2xl font-bold text-warning">{inProgressCount}</p>
               </div>
               <PlayCircle className="h-8 w-8 text-warning" />
@@ -367,7 +367,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.completed")}</p>
                 <p className="text-2xl font-bold text-success">{doneCount}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-success" />
@@ -381,13 +381,13 @@ export default function Tasks() {
         <div className="flex items-center gap-3">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filter" />
+              <SelectValue placeholder={t("tasks.filter")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tasks</SelectItem>
-              <SelectItem value="todo">To Do</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="done">Done</SelectItem>
+              <SelectItem value="all">{t("tasks.allTasks")}</SelectItem>
+              <SelectItem value="todo">{t("tasks.todo")}</SelectItem>
+              <SelectItem value="in_progress">{t("tasks.inProgress")}</SelectItem>
+              <SelectItem value="done">{t("tasks.completed")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -396,20 +396,20 @@ export default function Tasks() {
           <DialogTrigger asChild>
             <Button className="glow-gold">
               <Plus size={16} className="mr-2" />
-              New Task
+              {t("tasks.newTask")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
+              <DialogTitle>{t("tasks.create")}</DialogTitle>
               <DialogDescription>
-                Add a new task to your list
+                {t("tasks.createDesc")}
               </DialogDescription>
             </DialogHeader>
             
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div className="space-y-2">
-                <Label>Title *</Label>
+                <Label>{t("tasks.titleReq")}</Label>
                 <Input
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
@@ -419,7 +419,7 @@ export default function Tasks() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
+                  <Label>{t("tasks.dueDate")}</Label>
                   <Input
                     type="date"
                     value={formData.due_date}
@@ -427,7 +427,7 @@ export default function Tasks() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label>{t("tasks.priority")}</Label>
                   <Select 
                     value={formData.priority} 
                     onValueChange={(v) => setFormData(prev => ({ ...prev, priority: v }))}
@@ -436,17 +436,17 @@ export default function Tasks() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="low">{t("tasks.low")}</SelectItem>
+                      <SelectItem value="normal">{t("tasks.normal")}</SelectItem>
+                      <SelectItem value="high">{t("tasks.high")}</SelectItem>
+                      <SelectItem value="critical">{t("tasks.critical")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t("tasks.desc")}</Label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -466,14 +466,14 @@ export default function Tasks() {
                   />
                   <Label htmlFor="recurring" className="flex items-center gap-2">
                     <Repeat className="h-4 w-4" />
-                    Recurring Task
+                    {t("tasks.recurring")}
                   </Label>
                 </div>
 
                 {formData.is_recurring && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Repeat</Label>
+                      <Label>{t("tasks.repeat")}</Label>
                       <Select 
                         value={formData.recurrence_type} 
                         onValueChange={(v) => setFormData(prev => ({ ...prev, recurrence_type: v }))}
@@ -482,14 +482,14 @@ export default function Tasks() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="daily">{t("tasks.daily")}</SelectItem>
+                          <SelectItem value="weekly">{t("tasks.weekly")}</SelectItem>
+                          <SelectItem value="monthly">{t("tasks.monthly")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Until</Label>
+                      <Label>{t("tasks.until")}</Label>
                       <Input
                         type="date"
                         value={formData.recurrence_end_date}
@@ -504,7 +504,7 @@ export default function Tasks() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Share2 className="h-4 w-4" />
-                  Share with
+                  {t("tasks.share")}
                 </Label>
                 <div className="max-h-32 overflow-y-auto border rounded-lg p-2 space-y-1">
                   {profiles
@@ -540,7 +540,7 @@ export default function Tasks() {
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
+                  {t("tasks.cancel")}
                 </Button>
                 <Button type="submit" disabled={isSubmitting} className="glow-gold">
                   {isSubmitting ? (
@@ -548,7 +548,7 @@ export default function Tasks() {
                   ) : (
                     <Plus className="mr-2 h-4 w-4" />
                   )}
-                  Create Task
+                  {t("tasks.createBtn")}
                 </Button>
               </DialogFooter>
             </form>
@@ -568,20 +568,20 @@ export default function Tasks() {
           {filteredTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No tasks found</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t("tasks.noTasks")}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Create your first task to get started.
+                {t("tasks.noTasksDesc")}
               </p>
               <Button onClick={() => setCreateDialogOpen(true)} className="glow-gold">
                 <Plus className="mr-2 h-4 w-4" />
-                New Task
+                {t("tasks.newTask")}
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredTasks.map((task) => {
-                const priorityConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.normal;
-                const statusConfig = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
+                const priorityConfig = getPriorityConfig(t)[task.priority as keyof ReturnType<typeof getPriorityConfig>] || getPriorityConfig(t).normal;
+                const statusConfig = getStatusConfig(t)[task.status as keyof ReturnType<typeof getStatusConfig>] || getStatusConfig(t).todo;
                 const StatusIcon = statusConfig.icon;
                 const overdue = isOverdue(task.due_date, task.status);
 
@@ -637,7 +637,7 @@ export default function Tasks() {
                               <span className={`flex items-center gap-1 ${overdue ? "text-destructive font-medium" : ""}`}>
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(task.due_date)}
-                                {overdue && " (Overdue)"}
+                                {overdue && ` (${t("tasks.overdue")})`}
                               </span>
                             )}
                             {task.participants && task.participants.length > 0 && (
@@ -664,9 +664,9 @@ export default function Tasks() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="todo">To Do</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
+                            <SelectItem value="todo">{t("tasks.todo")}</SelectItem>
+                            <SelectItem value="in_progress">{t("tasks.inProgress")}</SelectItem>
+                            <SelectItem value="done">{t("tasks.completed")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

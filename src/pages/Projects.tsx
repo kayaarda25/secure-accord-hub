@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProjects, Project } from "@/hooks/useProjects";
@@ -17,13 +18,14 @@ import {
   PlayCircle,
 } from "lucide-react";
 
-const KANBAN_COLUMNS = [
-  { key: "planning", label: "Planung", icon: Circle },
-  { key: "active", label: "Aktiv", icon: PlayCircle },
-  { key: "completed", label: "Abgeschlossen", icon: CheckCircle2 },
+const getKanbanColumns = (t: (key: string) => string) => [
+  { key: "planning", label: t("projects.planning"), icon: Circle },
+  { key: "active", label: t("projects.active"), icon: PlayCircle },
+  { key: "completed", label: t("projects.completed"), icon: CheckCircle2 },
 ];
 
 export default function Projects() {
+  const { t } = useLanguage();
   const { projects, loading, createProject, updateProject, deleteProject, assignTaskToProject, refetch } = useProjects();
   const [view, setView] = useState<"grid" | "kanban">("grid");
   const [createOpen, setCreateOpen] = useState(false);
@@ -31,7 +33,7 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <Layout title="Projekte" subtitle="Projektverwaltung">
+      <Layout title={t("page.projects.title")} subtitle={t("page.projects.subtitle")}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
@@ -50,7 +52,7 @@ export default function Projects() {
   }
 
   return (
-    <Layout title="Projekte" subtitle="Projektverwaltung">
+    <Layout title={t("page.projects.title")} subtitle={t("page.projects.subtitle")}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Button variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
@@ -62,18 +64,18 @@ export default function Projects() {
         </div>
         <Button onClick={() => setCreateOpen(true)} className="glow-gold">
           <Plus className="h-4 w-4 mr-2" />
-          Neues Projekt
+          {t("projects.new")}
         </Button>
       </div>
 
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Keine Projekte</h3>
-          <p className="text-sm text-muted-foreground mb-4">Erstellen Sie Ihr erstes Projekt</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("projects.noProjects")}</h3>
+          <p className="text-sm text-muted-foreground mb-4">{t("projects.createFirst")}</p>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Projekt erstellen
+            {t("projects.new")}
           </Button>
         </div>
       ) : view === "grid" ? (
@@ -90,7 +92,7 @@ export default function Projects() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {KANBAN_COLUMNS.map((col) => {
+          {getKanbanColumns(t).map((col) => {
             const Icon = col.icon;
             const columnProjects = projects.filter((p) => p.status === col.key);
             return (
