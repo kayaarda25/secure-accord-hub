@@ -69,40 +69,6 @@ function sanitize(text: string): string {
     .replace(/\u00A0/g, " ");
 }
 
-/**
- * Convert a Word document to PDF via the backend edge function (ConvertAPI).
- */
-async function convertWordToPdf(filePath: string): Promise<ArrayBuffer> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not authenticated");
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/convert-docx-to-pdf`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({ filePath }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(`Conversion failed: ${err.error || response.statusText}`);
-  }
-
-  const result = await response.json();
-  if (!result.pdfBase64) throw new Error("No PDF data returned");
-
-  // Decode base64 to ArrayBuffer
-  const binaryString = atob(result.pdfBase64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
 
 async function stampSignature(
   pdfDoc: PDFDocument,
