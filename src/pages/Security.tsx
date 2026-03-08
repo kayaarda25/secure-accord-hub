@@ -44,7 +44,7 @@ export default function Security() {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FADisable, setShow2FADisable] = useState(false);
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
-  const { user, hasRole } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -298,7 +298,7 @@ export default function Security() {
               </Card>
               <ActiveSessions sessions={sessions} isLoading={isLoading} onTerminateSession={handleTerminateSession} onTerminateAllSessions={handleTerminateAllSessions} />
               <IPWhitelist allowedIps={settings?.allowed_ips || null} onUpdate={handleUpdateAllowedIps} />
-              {hasRole("admin") && <LoginIPList />}
+              {hasPermission("admin.full_access") && <LoginIPList />}
             </div>
             <div className="space-y-6">
               <Card>

@@ -70,7 +70,7 @@ export function ActiveSessions({
           <div>
             <CardTitle>Sessions</CardTitle>
             <CardDescription>
-              Alle Geräte-Sessions Ihres Kontos
+              Aktive und vergangene Sessions Ihres Kontos
             </CardDescription>
           </div>
           {sessions.length > 1 && (
