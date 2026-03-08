@@ -73,6 +73,7 @@ export function InvoiceApprovalDialog({
 }: InvoiceApprovalDialogProps) {
   const { user } = useAuth();
   const { isConnected: bexioConnected, callApi: callBexioApi } = useBexio();
+  const { selectedAccountId: bexioAccountId } = useMultiBexio();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");
