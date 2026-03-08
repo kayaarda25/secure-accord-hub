@@ -524,6 +524,24 @@ export default function Auth() {
                 </div>
               )}
 
+              {/* Notification consent checkbox for registration */}
+              {invitationData && (
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="notifications-consent"
+                    checked={notificationsConsent}
+                    onChange={(e) => setNotificationsConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-accent"
+                  />
+                  <label htmlFor="notifications-consent" className="text-sm text-gray-600 leading-tight">
+                    {t("auth.notificationsConsent") !== "auth.notificationsConsent"
+                      ? t("auth.notificationsConsent")
+                      : "Ich möchte Benachrichtigungen erhalten (E-Mail und Desktop-Benachrichtigungen). Diese Einstellung kann später geändert werden."}
+                  </label>
+                </div>
+              )}
+
               {!invitationData && (
                 <div className="flex justify-end">
                   <button
