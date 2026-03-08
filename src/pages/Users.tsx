@@ -14,14 +14,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { UserPlus, Shield, Trash2, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Copy, Send, Building2, RefreshCw, Link, Lock, Eye, PenSquare } from "lucide-react";
+import { Shield, Edit, Users as UsersIcon, Mail, Clock, CheckCircle, XCircle, Send, Building2, RefreshCw, Link, Lock, Key, Eye, Plus } from "lucide-react";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useGranularPermissions, type PermissionDefinition } from "@/hooks/useGranularPermissions";
+import { useFourEyes } from "@/hooks/useFourEyes";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
-type AppRole = "admin" | "state" | "management" | "finance" | "partner";
-
-interface UserWithRoles {
+interface UserWithPermissions {
   id: string;
   user_id: string;
   email: string;
@@ -31,7 +32,7 @@ interface UserWithRoles {
   position: string | null;
   organization_id: string | null;
   is_active: boolean;
-  roles: AppRole[];
+  permissions: string[];
 }
 
 interface Organization {
@@ -45,73 +46,70 @@ interface Invitation {
   department: string | null;
   position: string | null;
   organization_id: string | null;
-  roles: AppRole[];
+  roles: string[];
   status: string;
   expires_at: string;
   created_at: string;
 }
 
-const ROLE_LABELS: Record<AppRole, string> = {
-  admin: "Administrator",
-  state: "State",
-  management: "Management",
-  finance: "Finance",
-  partner: "Partner",
+const CATEGORY_LABELS: Record<string, string> = {
+  administration: "Administration",
+  finance: "Finanzen",
+  documents: "Dokumente",
+  hr: "HR",
+  communication: "Kommunikation",
 };
 
-const ROLE_COLORS: Record<AppRole, string> = {
-  admin: "bg-destructive text-destructive-foreground",
-  state: "bg-blue-500 text-white",
-  management: "bg-purple-500 text-white",
-  finance: "bg-green-500 text-white",
-  partner: "bg-orange-500 text-white",
+const CATEGORY_COLORS: Record<string, string> = {
+  administration: "bg-destructive/10 text-destructive border-destructive/20",
+  finance: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  documents: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  hr: "bg-purple-500/10 text-purple-700 border-purple-500/20",
+  communication: "bg-amber-500/10 text-amber-700 border-amber-500/20",
 };
 
 export default function UsersPage() {
-  const { hasRole, user, profile } = useAuth();
+  const { hasPermission, user, profile } = useAuth();
   const { t } = useLanguage();
   const { logAction } = useAuditLog();
-  const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const { allDefinitions } = useGranularPermissions();
+  const { rules, createRule, toggleRule, ACTION_TYPE_LABELS } = useFourEyes();
+  const [users, setUsers] = useState<UserWithPermissions[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [adminOrganization, setAdminOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserWithPermissions | null>(null);
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [isInviting, setIsInviting] = useState(false);
   
   const [newInvite, setNewInvite] = useState({
     email: "",
     department: "",
     position: "",
-    roles: [] as AppRole[],
+    permissions: [] as string[],
   });
 
-  const isAdmin = hasRole("admin");
+  const canManage = hasPermission("users.manage") || hasPermission("permissions.manage") || hasPermission("admin.full_access");
 
   useEffect(() => {
-    if (isAdmin && profile?.organization_id) {
+    if (canManage && profile?.organization_id) {
       fetchAdminOrganization();
       fetchUsers();
       fetchInvitations();
-      fetchOrganizations();
     }
-  }, [isAdmin, profile?.organization_id]);
+  }, [canManage, profile?.organization_id]);
 
   const fetchAdminOrganization = async () => {
     if (!profile?.organization_id) return;
-    
     try {
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name")
         .eq("id", profile.organization_id)
         .single();
-      
-      if (!error && data) {
-        setAdminOrganization(data);
-      }
+      if (!error && data) setAdminOrganization(data);
     } catch (error) {
       console.error("Error fetching admin organization:", error);
     }
@@ -119,43 +117,35 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     if (!profile?.organization_id) return;
-    
     try {
-      // Only fetch users from the admin's organization
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false });
-
       if (profilesError) throw profilesError;
 
-      const { data: allRoles, error: rolesError } = await supabase
-        .from("user_roles")
+      const { data: allPerms, error: permsError } = await supabase
+        .from("user_permissions")
         .select("*");
+      if (permsError) throw permsError;
 
-      if (rolesError) throw rolesError;
+      const usersWithPerms: UserWithPermissions[] = (profiles || []).map((p) => ({
+        id: p.id,
+        user_id: p.user_id,
+        email: p.email,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        department: p.department,
+        position: p.position,
+        organization_id: p.organization_id,
+        is_active: p.is_active ?? true,
+        permissions: (allPerms || [])
+          .filter((perm) => perm.user_id === p.user_id)
+          .map((perm) => perm.permission_key),
+      }));
 
-      const usersWithRoles: UserWithRoles[] = (profiles || []).map((profile) => {
-        const userRoles = (allRoles || [])
-          .filter((r) => r.user_id === profile.user_id)
-          .map((r) => r.role as AppRole);
-
-        return {
-          id: profile.id,
-          user_id: profile.user_id,
-          email: profile.email,
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          department: profile.department,
-          position: profile.position,
-          organization_id: profile.organization_id,
-          is_active: profile.is_active ?? true,
-          roles: userRoles,
-        };
-      });
-
-      setUsers(usersWithRoles);
+      setUsers(usersWithPerms);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Fehler beim Laden der Benutzer");
@@ -166,29 +156,16 @@ export default function UsersPage() {
 
   const fetchInvitations = async () => {
     if (!profile?.organization_id) return;
-    
     try {
-      // Only fetch invitations for the admin's organization
       const { data, error } = await supabase
         .from("user_invitations")
         .select("*")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       setInvitations(data || []);
     } catch (error) {
       console.error("Error fetching invitations:", error);
-    }
-  };
-
-  const fetchOrganizations = async () => {
-    try {
-      const { data, error } = await supabase.from("organizations").select("id, name").order("name");
-      if (error) throw error;
-      setOrganizations(data || []);
-    } catch (error) {
-      console.error("Error fetching organizations:", error);
     }
   };
 
@@ -197,40 +174,34 @@ export default function UsersPage() {
       toast.error("E-Mail-Adresse ist erforderlich");
       return;
     }
-
     if (!profile?.organization_id) {
       toast.error("Keine Organisation zugewiesen");
       return;
     }
 
     setIsInviting(true);
-
     try {
-      // Always use the admin's organization
       const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
           email: newInvite.email,
           department: newInvite.department || null,
           position: newInvite.position || null,
           organizationId: profile.organization_id,
-          roles: newInvite.roles,
+          roles: [], // No longer using roles
+          permissions: newInvite.permissions,
         },
       });
-
       if (error) throw error;
-
       if (data?.error) {
         toast.error(data.error);
         return;
       }
 
-      await logAction("CREATE", "user_invitations", data.invitationId, null, { email: newInvite.email, roles: newInvite.roles });
-
+      await logAction("CREATE", "user_invitations", data.invitationId, null, { email: newInvite.email, permissions: newInvite.permissions });
       toast.success("Einladung erfolgreich gesendet!", {
         description: `Eine E-Mail wurde an ${newInvite.email} gesendet.`,
       });
 
-      // Show invitation link in case email fails
       if (data?.invitationUrl) {
         toast.info("Einladungslink", {
           description: "Der Link kann auch manuell geteilt werden.",
@@ -246,7 +217,7 @@ export default function UsersPage() {
       }
 
       setInviteDialogOpen(false);
-      setNewInvite({ email: "", department: "", position: "", roles: [] });
+      setNewInvite({ email: "", department: "", position: "", permissions: [] });
       fetchInvitations();
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -262,9 +233,7 @@ export default function UsersPage() {
         .from("user_invitations")
         .update({ status: "cancelled" })
         .eq("id", invitationId);
-
       if (error) throw error;
-
       toast.success("Einladung abgebrochen");
       fetchInvitations();
     } catch (error) {
@@ -276,34 +245,26 @@ export default function UsersPage() {
   const handleResendInvitation = async (invitation: Invitation) => {
     setIsInviting(true);
     try {
-      // First cancel the old invitation
       await supabase
         .from("user_invitations")
         .update({ status: "cancelled" })
         .eq("id", invitation.id);
 
-      // Create new invitation via edge function
       const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
           email: invitation.email,
           department: invitation.department,
           position: invitation.position,
           organizationId: invitation.organization_id,
-          roles: invitation.roles || [],
+          roles: [],
         },
       });
-
       if (error) throw error;
-
       if (data?.error) {
         toast.error(data.error);
         return;
       }
-
-      toast.success("Einladung erneut gesendet!", {
-        description: `Eine neue E-Mail wurde an ${invitation.email} gesendet.`,
-      });
-
+      toast.success("Einladung erneut gesendet!");
       fetchInvitations();
     } catch (error: any) {
       console.error("Error resending invitation:", error);
@@ -315,46 +276,51 @@ export default function UsersPage() {
 
   const handleCopyInvitationLink = async (invitationId: string) => {
     try {
-      // Get the invitation token
       const { data, error } = await supabase
         .from("user_invitations")
         .select("token")
         .eq("id", invitationId)
         .single();
-
       if (error) throw error;
-
       const invitationUrl = `${window.location.origin}/auth?invitation=${data.token}`;
       await navigator.clipboard.writeText(invitationUrl);
-      
-      toast.success("Einladungslink kopiert!", {
-        description: "Der Link wurde in die Zwischenablage kopiert.",
-      });
+      toast.success("Einladungslink kopiert!");
     } catch (error) {
       console.error("Error copying invitation link:", error);
       toast.error("Fehler beim Kopieren des Links");
     }
   };
 
-  const handleUpdateRoles = async (userId: string, roles: AppRole[]) => {
+  const handleUpdatePermissions = async (userId: string, newPerms: string[]) => {
     try {
-      const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
+      // Delete existing permissions
+      const { error: deleteError } = await supabase
+        .from("user_permissions")
+        .delete()
+        .eq("user_id", userId);
       if (deleteError) throw deleteError;
 
-      if (roles.length > 0) {
-        const roleInserts = roles.map((role) => ({ user_id: userId, role: role, granted_by: user?.id }));
-        const { error: insertError } = await supabase.from("user_roles").insert(roleInserts);
+      // Insert new permissions
+      if (newPerms.length > 0) {
+        const inserts = newPerms.map((key) => ({
+          user_id: userId,
+          permission_key: key,
+          granted_by: user!.id,
+        }));
+        const { error: insertError } = await supabase
+          .from("user_permissions")
+          .insert(inserts);
         if (insertError) throw insertError;
       }
 
-      await logAction("UPDATE", "user_roles", userId, null, { roles });
-      toast.success("Rollen erfolgreich aktualisiert");
+      await logAction("UPDATE", "user_permissions", userId, null, { permissions: newPerms });
+      toast.success("Berechtigungen erfolgreich aktualisiert");
       setEditDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error) {
-      console.error("Error updating roles:", error);
-      toast.error("Fehler beim Aktualisieren der Rollen");
+      console.error("Error updating permissions:", error);
+      toast.error("Fehler beim Aktualisieren der Berechtigungen");
     }
   };
 
@@ -371,37 +337,83 @@ export default function UsersPage() {
     }
   };
 
-  const toggleRole = (role: AppRole) => {
-    setNewInvite((prev) => ({
-      ...prev,
-      roles: prev.roles.includes(role) ? prev.roles.filter((r) => r !== role) : [...prev.roles, role],
-    }));
+  const openEditDialog = (u: UserWithPermissions) => {
+    setSelectedUser(u);
+    setEditPermissions([...u.permissions]);
+    setEditDialogOpen(true);
   };
 
-  const toggleEditRole = (role: AppRole) => {
-    if (!selectedUser) return;
-    setSelectedUser((prev) => {
-      if (!prev) return prev;
-      return { ...prev, roles: prev.roles.includes(role) ? prev.roles.filter((r) => r !== role) : [...prev.roles, role] };
-    });
+  const toggleEditPermission = (key: string) => {
+    setEditPermissions((prev) =>
+      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
+    );
+  };
+
+  const toggleInvitePermission = (key: string) => {
+    setNewInvite((prev) => ({
+      ...prev,
+      permissions: prev.permissions.includes(key)
+        ? prev.permissions.filter((p) => p !== key)
+        : [...prev.permissions, key],
+    }));
   };
 
   const getStatusBadge = (status: string, expiresAt: string) => {
     const isExpired = new Date(expiresAt) < new Date();
-    
-    if (status === "accepted") {
-      return <Badge className="bg-green-500 text-white"><CheckCircle className="h-3 w-3 mr-1" />Akzeptiert</Badge>;
-    }
-    if (status === "cancelled") {
-      return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" />Abgebrochen</Badge>;
-    }
-    if (status === "expired" || isExpired) {
-      return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Abgelaufen</Badge>;
-    }
-    return <Badge className="bg-amber-500 text-white"><Mail className="h-3 w-3 mr-1" />Ausstehend</Badge>;
+    if (status === "accepted") return <Badge variant="default"><CheckCircle className="h-3 w-3 mr-1" />Akzeptiert</Badge>;
+    if (status === "cancelled") return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" />Abgebrochen</Badge>;
+    if (status === "expired" || isExpired) return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Abgelaufen</Badge>;
+    return <Badge variant="outline"><Mail className="h-3 w-3 mr-1" />Ausstehend</Badge>;
   };
 
-  if (!isAdmin || !profile?.organization_id) {
+  // Group definitions by category
+  const groupedDefinitions = allDefinitions.reduce<Record<string, PermissionDefinition[]>>((acc, def) => {
+    if (!acc[def.category]) acc[def.category] = [];
+    acc[def.category].push(def);
+    return acc;
+  }, {});
+
+  const PermissionCheckboxGrid = ({
+    selected,
+    onToggle,
+  }: {
+    selected: string[];
+    onToggle: (key: string) => void;
+  }) => (
+    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+      {Object.entries(groupedDefinitions).map(([category, defs]) => (
+        <div key={category}>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="outline" className={CATEGORY_COLORS[category] || ""}>
+              {CATEGORY_LABELS[category] || category}
+            </Badge>
+          </div>
+          <div className="grid gap-2">
+            {defs.map((def) => (
+              <label
+                key={def.permission_key}
+                className="flex items-start gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+              >
+                <Checkbox
+                  checked={selected.includes(def.permission_key)}
+                  onCheckedChange={() => onToggle(def.permission_key)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="text-sm font-medium">{def.label}</div>
+                  {def.description && (
+                    <div className="text-xs text-muted-foreground">{def.description}</div>
+                  )}
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (!canManage || !profile?.organization_id) {
     return (
       <Layout title={t("common.accessDenied")}>
         <div className="flex items-center justify-center h-[60vh]">
@@ -411,7 +423,7 @@ export default function UsersPage() {
                 <Shield className="h-6 w-6" />
                 Zugriff verweigert
               </CardTitle>
-              <CardDescription>Sie benötigen Administrator-Rechte, um auf diese Seite zuzugreifen.</CardDescription>
+              <CardDescription>Sie benötigen die entsprechenden Berechtigungen, um auf diese Seite zuzugreifen.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -420,12 +432,8 @@ export default function UsersPage() {
   }
 
   return (
-    <Layout 
-      title={t("page.users.title")} 
-      subtitle={t("page.users.subtitle")}
-    >
+    <Layout title={t("page.users.title")} subtitle={t("page.users.subtitle")}>
       <div className="space-y-6">
-        {/* Organization Badge */}
         {adminOrganization && (
           <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20 w-fit">
             <Building2 className="h-4 w-4 text-accent" />
@@ -437,23 +445,22 @@ export default function UsersPage() {
             <DialogTrigger asChild>
               <Button><Mail className="mr-2 h-4 w-4" />Benutzer einladen</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Neuen Benutzer einladen</DialogTitle>
-                <DialogDescription>Senden Sie eine Einladung per E-Mail. Der Benutzer kann dann sein eigenes Passwort und Namen festlegen.</DialogDescription>
+                <DialogDescription>Senden Sie eine Einladung per E-Mail mit den gewünschten Berechtigungen.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-Mail-Adresse *</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
+                  <Input
+                    id="email"
+                    type="email"
                     placeholder="name@example.com"
-                    value={newInvite.email} 
-                    onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })} 
+                    value={newInvite.email}
+                    onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
                   />
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Abteilung</Label>
@@ -472,23 +479,15 @@ export default function UsersPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Position</Label>
-                    <Select value={newInvite.position} onValueChange={(value) => setNewInvite({ ...newInvite, position: value })}>
-                      <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CEO">CEO</SelectItem>
-                        <SelectItem value="Department Head">Abteilungsleiter</SelectItem>
-                        <SelectItem value="Project Manager">Projektmanager</SelectItem>
-                        <SelectItem value="Specialist">Spezialist</SelectItem>
-                        <SelectItem value="Consultant">Berater</SelectItem>
-                        <SelectItem value="Assistant">Assistent</SelectItem>
-                        <SelectItem value="Intern">Praktikant</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Position (nur informativ)</Label>
+                    <Input
+                      value={newInvite.position}
+                      onChange={(e) => setNewInvite({ ...newInvite, position: e.target.value })}
+                      placeholder="z.B. Projektmanager"
+                    />
                   </div>
                 </div>
 
-                {/* Show the organization (read-only) */}
                 {adminOrganization && (
                   <div className="space-y-2">
                     <Label>Organisation</Label>
@@ -496,36 +495,21 @@ export default function UsersPage() {
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{adminOrganization.name}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">Neue Benutzer werden automatisch Ihrer Organisation zugewiesen.</p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label>Rollen</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                      <div key={role} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`role-${role}`} 
-                          checked={newInvite.roles.includes(role)} 
-                          onCheckedChange={() => toggleRole(role)} 
-                        />
-                        <label htmlFor={`role-${role}`} className="text-sm font-medium cursor-pointer">
-                          {ROLE_LABELS[role]}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <Label>Berechtigungen</Label>
+                  <PermissionCheckboxGrid
+                    selected={newInvite.permissions}
+                    onToggle={toggleInvitePermission}
+                  />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Abbrechen</Button>
                 <Button onClick={handleInviteUser} disabled={isInviting}>
-                  {isInviting ? (
-                    <>Wird gesendet...</>
-                  ) : (
-                    <><Send className="mr-2 h-4 w-4" />Einladung senden</>
-                  )}
+                  {isInviting ? "Wird gesendet..." : <><Send className="mr-2 h-4 w-4" />Einladung senden</>}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -543,8 +527,12 @@ export default function UsersPage() {
               Einladungen ({invitations.filter(i => i.status === "pending").length})
             </TabsTrigger>
             <TabsTrigger value="permissions" className="flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              Berechtigungen
+              <Key className="h-4 w-4" />
+              Berechtigungsübersicht
+            </TabsTrigger>
+            <TabsTrigger value="four-eyes" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Vier-Augen-Prinzip
             </TabsTrigger>
           </TabsList>
 
@@ -566,8 +554,8 @@ export default function UsersPage() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>E-Mail</TableHead>
-                        <TableHead>Abteilung</TableHead>
-                        <TableHead>Rollen</TableHead>
+                        <TableHead>Position</TableHead>
+                        <TableHead>Berechtigungen</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Aktionen</TableHead>
                       </TableRow>
@@ -579,13 +567,15 @@ export default function UsersPage() {
                             {u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : "-"}
                           </TableCell>
                           <TableCell>{u.email}</TableCell>
-                          <TableCell>{u.department || "-"}</TableCell>
+                          <TableCell className="text-muted-foreground">{u.position || "-"}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {u.roles.length > 0 ? u.roles.map((role) => (
-                                <Badge key={role} className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>
-                              )) : (
-                                <span className="text-muted-foreground text-sm">Keine Rollen</span>
+                              {u.permissions.includes("admin.full_access") ? (
+                                <Badge variant="destructive">Vollzugriff</Badge>
+                              ) : u.permissions.length > 0 ? (
+                                <Badge variant="secondary">{u.permissions.length} Rechte</Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">Keine</span>
                               )}
                             </div>
                           </TableCell>
@@ -596,14 +586,14 @@ export default function UsersPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}>
-                                <Edit className="h-4 w-4" />
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(u)} title="Berechtigungen bearbeiten">
+                                <Key className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleToggleActive(u.user_id, u.is_active)}>
                                 {u.is_active ? (
-                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                  <XCircle className="h-4 w-4 text-destructive" />
                                 ) : (
-                                  <Shield className="h-4 w-4 text-green-500" />
+                                  <Shield className="h-4 w-4 text-emerald-500" />
                                 )}
                               </Button>
                             </div>
@@ -636,7 +626,6 @@ export default function UsersPage() {
                         <TableHead>E-Mail</TableHead>
                         <TableHead>Abteilung</TableHead>
                         <TableHead>Position</TableHead>
-                        <TableHead>Rollen</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Erstellt am</TableHead>
                         <TableHead className="text-right">Aktionen</TableHead>
@@ -648,17 +637,6 @@ export default function UsersPage() {
                           <TableCell className="font-medium">{inv.email}</TableCell>
                           <TableCell>{inv.department || "-"}</TableCell>
                           <TableCell>{inv.position || "-"}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {inv.roles && inv.roles.length > 0 ? inv.roles.map((role) => (
-                                <Badge key={role} className={ROLE_COLORS[role]} variant="secondary">
-                                  {ROLE_LABELS[role]}
-                                </Badge>
-                              )) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </div>
-                          </TableCell>
                           <TableCell>{getStatusBadge(inv.status, inv.expires_at)}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {format(new Date(inv.created_at), "dd.MM.yyyy HH:mm", { locale: de })}
@@ -667,34 +645,16 @@ export default function UsersPage() {
                             <div className="flex items-center justify-end gap-1">
                               {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
                                 <>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => handleCopyInvitationLink(inv.id)}
-                                    title="Link kopieren"
-                                  >
+                                  <Button variant="ghost" size="sm" onClick={() => handleCopyInvitationLink(inv.id)} title="Link kopieren">
                                     <Link className="h-4 w-4" />
                                   </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => handleCancelInvitation(inv.id)}
-                                    className="text-destructive hover:text-destructive"
-                                    title="Abbrechen"
-                                  >
+                                  <Button variant="ghost" size="sm" onClick={() => handleCancelInvitation(inv.id)} className="text-destructive hover:text-destructive" title="Abbrechen">
                                     <XCircle className="h-4 w-4" />
                                   </Button>
                                 </>
                               )}
                               {(inv.status === "expired" || (inv.status === "pending" && new Date(inv.expires_at) <= new Date())) && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleResendInvitation(inv)}
-                                  disabled={isInviting}
-                                  title="Erneut senden"
-                                  className="text-accent hover:text-accent"
-                                >
+                                <Button variant="ghost" size="sm" onClick={() => handleResendInvitation(inv)} disabled={isInviting} title="Erneut senden">
                                   <RefreshCw className={`h-4 w-4 ${isInviting ? "animate-spin" : ""}`} />
                                 </Button>
                               )}
@@ -708,122 +668,182 @@ export default function UsersPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
           <TabsContent value="permissions">
             <div className="space-y-6">
-              {/* Role descriptions */}
+              {/* Permission categories overview */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Rollenbeschreibungen
+                    <Key className="h-5 w-5" />
+                    Verfügbare Berechtigungen
                   </CardTitle>
-                  <CardDescription>Übersicht der verfügbaren Rollen und deren Berechtigungen im System</CardDescription>
+                  <CardDescription>Alle granularen Berechtigungen, die einzelnen Benutzern zugewiesen werden können</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {[
-                      { role: "admin" as AppRole, desc: "Vollzugriff auf alle Module. Kann Benutzer verwalten, Rollen zuweisen und Systemeinstellungen ändern." },
-                      { role: "management" as AppRole, desc: "Zugriff auf Berichte, Budgetplanung, Projekte und Mitarbeiterverwaltung. Kann Genehmigungen erteilen." },
-                      { role: "finance" as AppRole, desc: "Zugriff auf Finanzen, Rechnungen, OPEX, Budgetplanung und Sozialversicherung. Kann finanzielle Genehmigungen erteilen." },
-                      { role: "state" as AppRole, desc: "Zugriff auf Berichte, Audit-Logs und Compliance-Übersichten. Lesender Zugriff auf die meisten Module." },
-                      { role: "partner" as AppRole, desc: "Eingeschränkter Zugriff auf Partner-relevante Kommunikation und freigegebene Dokumente." },
-                    ].map(({ role, desc }) => (
-                      <div key={role} className="rounded-lg border p-4 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Badge className={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Badge>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {Object.entries(groupedDefinitions).map(([category, defs]) => (
+                      <div key={category} className="rounded-lg border p-4 space-y-3">
+                        <Badge variant="outline" className={CATEGORY_COLORS[category] || ""}>
+                          {CATEGORY_LABELS[category] || category}
+                        </Badge>
+                        <div className="space-y-2">
+                          {defs.map((def) => (
+                            <div key={def.permission_key} className="flex items-start gap-2">
+                              <Lock className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                              <div>
+                                <div className="text-sm font-medium">{def.label}</div>
+                                <div className="text-xs text-muted-foreground">{def.description}</div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-sm text-muted-foreground">{desc}</p>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Per-user role overview */}
+              {/* Per-user permission matrix */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <UsersIcon className="h-5 w-5" />
-                    Benutzer-Rollen-Übersicht
+                    Benutzer-Berechtigungsmatrix
                   </CardTitle>
-                  <CardDescription>Alle Benutzer und ihre zugewiesenen Rollen</CardDescription>
+                  <CardDescription>Übersicht welcher Benutzer welche Berechtigungen hat</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Benutzer</TableHead>
-                        {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                          <TableHead key={role} className="text-center">{ROLE_LABELS[role]}</TableHead>
-                        ))}
-                        <TableHead className="text-right">Bearbeiten</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((u) => (
-                        <TableRow key={u.id}>
-                          <TableCell className="font-medium">
-                            <div>
-                              <div>{u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : u.email}</div>
-                              {(u.first_name || u.last_name) && (
-                                <div className="text-xs text-muted-foreground">{u.email}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                            <TableCell key={role} className="text-center">
-                              {u.roles.includes(role) ? (
-                                <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="sticky left-0 bg-background min-w-[150px]">Benutzer</TableHead>
+                          {Object.entries(CATEGORY_LABELS).map(([cat, label]) => (
+                            <TableHead key={cat} className="text-center min-w-[100px]">{label}</TableHead>
                           ))}
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(u); setEditDialogOpen(true); }}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                          <TableHead className="text-right">Bearbeiten</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((u) => (
+                          <TableRow key={u.id}>
+                            <TableCell className="sticky left-0 bg-background font-medium">
+                              <div>
+                                <div>{u.first_name || u.last_name ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : u.email}</div>
+                                {(u.first_name || u.last_name) && (
+                                  <div className="text-xs text-muted-foreground">{u.email}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            {Object.keys(CATEGORY_LABELS).map((cat) => {
+                              const catPerms = groupedDefinitions[cat] || [];
+                              const userCatPerms = catPerms.filter((d) => u.permissions.includes(d.permission_key));
+                              const hasAll = u.permissions.includes("admin.full_access");
+                              return (
+                                <TableCell key={cat} className="text-center">
+                                  {hasAll ? (
+                                    <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" />
+                                  ) : userCatPerms.length > 0 ? (
+                                    <Badge variant="secondary" className="text-xs">{userCatPerms.length}/{catPerms.length}</Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              );
+                            })}
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(u)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="four-eyes">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Vier-Augen-Prinzip
+                </CardTitle>
+                <CardDescription>
+                  Für jede Aktion können zwei definierte Mitarbeiter festgelegt werden, die gemeinsam freigeben müssen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {Object.entries(ACTION_TYPE_LABELS).map(([actionType, label]) => {
+                    const rule = rules.find((r) => r.action_type === actionType);
+                    return (
+                      <div key={actionType} className="flex items-center justify-between p-4 rounded-lg border">
+                        <div>
+                          <div className="font-medium text-sm">{label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {rule ? `${rule.approver_user_ids.length} Freigeber definiert` : "Nicht konfiguriert"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {rule ? (
+                            <Switch
+                              checked={rule.is_active}
+                              onCheckedChange={(checked) => toggleRule.mutate({ id: rule.id, is_active: checked })}
+                            />
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                // Create rule with all users who have this permission as approvers
+                                const approverIds = users
+                                  .filter((u) => u.permissions.includes(actionType) || u.permissions.includes("admin.full_access"))
+                                  .map((u) => u.user_id);
+                                createRule.mutate({
+                                  action_type: actionType,
+                                  approver_user_ids: approverIds,
+                                  organization_id: profile?.organization_id || undefined,
+                                });
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Aktivieren
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
+        {/* Edit Permissions Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Rollen bearbeiten</DialogTitle>
-              <DialogDescription>{selectedUser?.email}</DialogDescription>
+              <DialogTitle>Berechtigungen bearbeiten</DialogTitle>
+              <DialogDescription>
+                {selectedUser?.first_name} {selectedUser?.last_name} ({selectedUser?.email})
+              </DialogDescription>
             </DialogHeader>
-            {selectedUser && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Rollen</Label>
-                  <div className="flex flex-wrap gap-4">
-                    {(Object.keys(ROLE_LABELS) as AppRole[]).map((role) => (
-                      <div key={role} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`edit-role-${role}`} 
-                          checked={selectedUser.roles.includes(role)} 
-                          onCheckedChange={() => toggleEditRole(role)} 
-                        />
-                        <label htmlFor={`edit-role-${role}`} className="text-sm font-medium cursor-pointer">
-                          {ROLE_LABELS[role]}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <PermissionCheckboxGrid
+              selected={editPermissions}
+              onToggle={toggleEditPermission}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Abbrechen</Button>
-              <Button onClick={() => selectedUser && handleUpdateRoles(selectedUser.user_id, selectedUser.roles)}>Speichern</Button>
+              <Button onClick={() => selectedUser && handleUpdatePermissions(selectedUser.user_id, editPermissions)}>
+                Speichern
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

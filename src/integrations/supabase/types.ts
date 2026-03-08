@@ -1736,6 +1736,88 @@ export type Database = {
           },
         ]
       }
+      four_eyes_approvals: {
+        Row: {
+          approved_at: string
+          approver_id: string
+          comment: string | null
+          id: string
+          rule_id: string
+          target_record_id: string
+          target_table: string
+        }
+        Insert: {
+          approved_at?: string
+          approver_id: string
+          comment?: string | null
+          id?: string
+          rule_id: string
+          target_record_id: string
+          target_table: string
+        }
+        Update: {
+          approved_at?: string
+          approver_id?: string
+          comment?: string | null
+          id?: string
+          rule_id?: string
+          target_record_id?: string
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "four_eyes_approvals_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "four_eyes_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      four_eyes_rules: {
+        Row: {
+          action_type: string
+          approver_user_ids: string[]
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          organization_id: string | null
+          required_approvals: number
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          approver_user_ids?: string[]
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          required_approvals?: number
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approver_user_ids?: string[]
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          required_approvals?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "four_eyes_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_expenses: {
         Row: {
           amount: number
@@ -3409,11 +3491,19 @@ export type Database = {
       }
       get_user_organization: { Args: { _user_id: string }; Returns: string }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      has_any_permission: {
+        Args: { _permissions: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
       has_role: {

@@ -23,7 +23,7 @@ export function Sidebar({
   const navigate = useNavigate();
   const {
     profile,
-    roles,
+    permissions: userPermissions,
     signOut
   } = useAuth();
   const { permissions } = useOrganizationPermissions();
@@ -43,13 +43,12 @@ export function Sidebar({
       onMobileClose();
     }
   };
-  const getRoleBadge = () => {
-    if (roles.includes("admin")) return "Admin";
-    if (roles.includes("state")) return "State";
-    if (roles.includes("management")) return "Management";
-    if (roles.includes("finance")) return "Finance";
-    if (roles.includes("partner")) return "Partner";
-    return "User";
+  const getPermissionBadge = () => {
+    if (userPermissions.includes("admin.full_access")) return "Admin";
+    const count = userPermissions.length;
+    if (count > 10) return "Erweitert";
+    if (count > 0) return `${count} Rechte`;
+    return "Basis";
   };
   const isActive = (path: string) => location.pathname === path;
   const isGroupActive = (paths: string[]) => paths.some(p => location.pathname === p);
@@ -270,7 +269,7 @@ export function Sidebar({
                 {profile?.first_name || "User"} {profile?.last_name || ""}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {getRoleBadge()}
+                {getPermissionBadge()}
               </p>
             </div>
             <button onClick={handleSignOut} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" title={t("nav.signOut")}>
