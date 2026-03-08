@@ -530,6 +530,10 @@ export default function UsersPage() {
               <Key className="h-4 w-4" />
               Berechtigungsübersicht
             </TabsTrigger>
+            <TabsTrigger value="four-eyes" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Vier-Augen-Prinzip
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
