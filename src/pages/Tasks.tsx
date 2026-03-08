@@ -580,8 +580,8 @@ export default function Tasks() {
           ) : (
             <div className="space-y-3">
               {filteredTasks.map((task) => {
-                const priorityConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.normal;
-                const statusConfig = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
+                const priorityConfig = getPriorityConfig(t)[task.priority as keyof ReturnType<typeof getPriorityConfig>] || getPriorityConfig(t).normal;
+                const statusConfig = getStatusConfig(t)[task.status as keyof ReturnType<typeof getStatusConfig>] || getStatusConfig(t).todo;
                 const StatusIcon = statusConfig.icon;
                 const overdue = isOverdue(task.due_date, task.status);
 
