@@ -84,7 +84,8 @@ Antworte NUR mit einem JSON-Objekt ohne Markdown-Formatierung.`
   "vat_amount": "MwSt-Betrag als Zahl",
   "vat_rate": "MwSt-Satz als Zahl (z.B. 7.7 oder 8.1)",
   "currency": "Währungscode (CHF, EUR, USD)",
-  "notes": "Kurze Beschreibung der Leistungen/Positionen"
+  "notes": "Kurze Beschreibung der Leistungen/Positionen",
+  "recipient_name": "Name der Firma/Person AN DIE die Rechnung adressiert ist (der Empfänger/Kunde, NICHT der Rechnungssteller)"
 }
 
 WICHTIG:
