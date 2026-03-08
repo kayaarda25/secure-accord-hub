@@ -280,7 +280,7 @@ export function InvoiceApprovalDialog({
               await callBexioApi("attach_file_to_bill", {
                 bill_id: bexioInvoice.id,
                 attachment_ids: [bexioFileId],
-              });
+              }, bexioAccountId);
             } catch (e) {
               console.warn("Bexio attach_file_to_bill failed (non-blocking):", e);
             }
