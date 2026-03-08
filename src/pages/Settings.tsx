@@ -35,9 +35,6 @@ import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
 import { CarrierRatesSettings } from "@/components/settings/CarrierRatesSettings";
 import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import { LetterheadSettings } from "@/components/settings/LetterheadSettings";
-import { CarrierRatesSettings } from "@/components/settings/CarrierRatesSettings";
-import { useOrganizationPermissions } from "@/hooks/useOrganizationPermissions";
 
 interface NotificationPreferences {
   id: string;
