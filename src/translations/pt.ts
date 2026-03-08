@@ -414,4 +414,7 @@ export const pt: Record<string, string> = {
   "auth.sendResetLink": "Enviar link",
   "auth.resetEmailSent": "Um e-mail de redefinição foi enviado. Verifique a sua caixa de entrada.",
   "auth.backToLogin": "Voltar ao login",
+  "session.timeout.title": "Sessão a expirar",
+  "session.timeout.description": "Será automaticamente desconectado devido a inatividade.",
+  "session.timeout.stayActive": "Ainda estou aqui",
 };

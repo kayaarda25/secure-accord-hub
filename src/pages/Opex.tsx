@@ -803,7 +803,7 @@ export default function Opex() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isGatewayUser ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-4 mb-6`}>
         <MetricCard
           title="Pending"
           value={formatCurrency(totalPending)}
@@ -818,19 +818,20 @@ export default function Opex() {
           icon={<CheckCircle size={20} className="text-success" />}
           variant="success"
         />
-        <MetricCard
-          title="Organizations"
-          value={isGatewayUser ? "2" : "3"}
-          changeLabel="Active organizations"
-          icon={<Receipt size={20} className="text-muted-foreground" />}
-        />
-        <MetricCard
-          title="Budget Used"
-          value="68%"
-          changeLabel="YTD"
-          icon={<Receipt size={20} className="text-accent" />}
-          variant="accent"
-        />
+        {isGatewayUser && (
+          <MetricCard
+            title="Budget Used"
+            value={(() => {
+              const gwCenters = costCenters.filter(cc => cc.code.startsWith('GW'));
+              const totalBudget = gwCenters.reduce((s, cc) => s + (cc.budget_annual || 0), 0);
+              const usedBudget = gwCenters.reduce((s, cc) => s + (cc.budget_used || 0), 0);
+              return totalBudget > 0 ? `${Math.round((usedBudget / totalBudget) * 100)}%` : "0%";
+            })()}
+            changeLabel="YTD"
+            icon={<Receipt size={20} className="text-accent" />}
+            variant="accent"
+          />
+        )}
       </div>
 
       {/* Organization Overview */}

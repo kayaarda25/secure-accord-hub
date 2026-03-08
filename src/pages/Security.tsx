@@ -17,7 +17,6 @@ import { ActiveSessions } from "@/components/security/ActiveSessions";
 import { LoginProtectionInfo } from "@/components/security/LoginProtectionInfo";
 import { LoginIPList } from "@/components/security/LoginIPList";
 import { BackupPanel } from "@/components/security/BackupPanel";
-import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 
 interface UserSession {
   id: string;
@@ -47,8 +46,6 @@ export default function Security() {
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  // Session timeout hook
-  useSessionTimeout(settings?.session_timeout_minutes || 60);
 
   useEffect(() => {
     if (user) {
@@ -94,7 +91,7 @@ export default function Security() {
         .insert({
           user_id: user.id,
           two_factor_enabled: false,
-          session_timeout_minutes: 60
+          session_timeout_minutes: 15
         })
         .select()
         .single();

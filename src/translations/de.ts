@@ -414,4 +414,7 @@ export const de: Record<string, string> = {
   "auth.sendResetLink": "Link senden",
   "auth.resetEmailSent": "Eine E-Mail zum Zurücksetzen wurde gesendet. Bitte prüfen Sie Ihr Postfach.",
   "auth.backToLogin": "Zurück zur Anmeldung",
+  "session.timeout.title": "Session läuft ab",
+  "session.timeout.description": "Sie werden wegen Inaktivität automatisch abgemeldet.",
+  "session.timeout.stayActive": "Ich bin noch aktiv",
 };

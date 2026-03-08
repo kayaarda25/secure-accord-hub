@@ -323,7 +323,11 @@ export default function Invoices() {
           <TabsTrigger value="all">Alle</TabsTrigger>
           <TabsTrigger value="incoming" className="flex items-center gap-2">
             <ArrowDownLeft className="h-4 w-4" />
-            Eingehend
+            Kreditoren
+          </TabsTrigger>
+          <TabsTrigger value="outgoing" className="flex items-center gap-2">
+            <ArrowUpRight className="h-4 w-4" />
+            Debitoren
           </TabsTrigger>
         </TabsList>
       </Tabs>

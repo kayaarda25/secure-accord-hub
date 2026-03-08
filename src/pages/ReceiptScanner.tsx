@@ -232,7 +232,33 @@ export default function ReceiptScanner() {
 
       if (error) throw error;
 
-      toast.success("Expense created successfully!");
+      // Upload receipt image and link to the expense
+      if (imageFile && data) {
+        try {
+          const fileExt = imageFile.name.split(".").pop() || "jpg";
+          const filePath = `${user.id}/${data.id}/receipt.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("receipts")
+            .upload(filePath, imageFile, { contentType: imageFile.type });
+
+          if (!uploadError) {
+            await supabase.from("opex_receipts").insert({
+              expense_id: data.id,
+              file_name: imageFile.name,
+              file_path: filePath,
+              file_size: imageFile.size,
+              mime_type: imageFile.type,
+              uploaded_by: user.id,
+            });
+          }
+        } catch (receiptErr) {
+          console.error("Error uploading receipt:", receiptErr);
+          // Don't fail the whole operation if receipt upload fails
+        }
+      }
+
+      toast.success("Ausgabe mit Beleg erfolgreich erstellt!");
       
       setFormData({
         title: "",

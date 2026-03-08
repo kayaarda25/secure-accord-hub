@@ -414,4 +414,7 @@ export const fr: Record<string, string> = {
   "auth.sendResetLink": "Envoyer le lien",
   "auth.resetEmailSent": "Un e-mail de réinitialisation a été envoyé. Veuillez vérifier votre boîte de réception.",
   "auth.backToLogin": "Retour à la connexion",
+  "session.timeout.title": "La session expire",
+  "session.timeout.description": "Vous serez automatiquement déconnecté en raison de l'inactivité.",
+  "session.timeout.stayActive": "Je suis encore là",
 };
