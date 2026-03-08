@@ -643,6 +643,13 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AvatarCropper
+        open={cropperOpen}
+        onOpenChange={setCropperOpen}
+        imageFile={selectedFile}
+        onCropComplete={handleCropComplete}
+      />
     </Layout>
   );
 }
