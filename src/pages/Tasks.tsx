@@ -548,7 +548,7 @@ export default function Tasks() {
                   ) : (
                     <Plus className="mr-2 h-4 w-4" />
                   )}
-                  Create Task
+                  {t("tasks.createBtn")}
                 </Button>
               </DialogFooter>
             </form>
