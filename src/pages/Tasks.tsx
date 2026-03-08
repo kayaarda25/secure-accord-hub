@@ -466,7 +466,7 @@ export default function Tasks() {
                   />
                   <Label htmlFor="recurring" className="flex items-center gap-2">
                     <Repeat className="h-4 w-4" />
-                    Recurring Task
+                    {t("tasks.recurring")}
                   </Label>
                 </div>
 
