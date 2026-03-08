@@ -23,7 +23,7 @@ export function Sidebar({
   const navigate = useNavigate();
   const {
     profile,
-    permissions,
+    permissions: userPermissions,
     signOut
   } = useAuth();
   const { permissions } = useOrganizationPermissions();
