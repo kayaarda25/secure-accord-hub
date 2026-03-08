@@ -890,8 +890,9 @@ export default function Documents() {
                         const myPending = (doc.signatures || []).find(
                           (s) => s.signer_id === user?.id && s.status === "pending"
                         );
+                        const isPdf = doc.file_path?.toLowerCase().endsWith(".pdf");
                         const canSelfSign =
-                          doc.uploaded_by === user?.id && (!doc.signatures || doc.signatures.length === 0);
+                          isPdf && doc.uploaded_by === user?.id && (!doc.signatures || doc.signatures.length === 0);
 
                         if (myPending) {
                           return (
