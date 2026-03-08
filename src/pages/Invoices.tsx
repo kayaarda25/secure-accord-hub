@@ -193,6 +193,7 @@ export default function Invoices() {
           document_name: data.document_name || null,
           status: "pending_review",
           invoice_type: invoiceType,
+          bexio_account_id: selectedAccountId || null,
         })
         .select()
         .single();
