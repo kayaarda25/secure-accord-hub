@@ -44,8 +44,8 @@ export function Sidebar({
     }
   };
   const getPermissionBadge = () => {
-    if (permissions.includes("admin.full_access")) return "Admin";
-    const count = permissions.length;
+    if (userPermissions.includes("admin.full_access")) return "Admin";
+    const count = userPermissions.length;
     if (count > 10) return "Erweitert";
     if (count > 0) return `${count} Rechte`;
     return "Basis";
