@@ -51,6 +51,14 @@ export function useMultiBexio() {
     fetchAccounts();
   }, [profile?.organization_id]);
 
+  // Re-fetch accounts when returning from Bexio OAuth (new account added)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("bexio") === "connected") {
+      fetchAccounts();
+    }
+  }, []);
+
   const addAccount = async (name: string, entityType: string = "default") => {
     if (!user || !profile?.organization_id) return;
 
