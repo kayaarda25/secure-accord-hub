@@ -381,7 +381,7 @@ export default function Tasks() {
         <div className="flex items-center gap-3">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filter" />
+              <SelectValue placeholder={t("tasks.filter")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Tasks</SelectItem>
