@@ -59,6 +59,7 @@ export default function Invoices() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { accounts, selectedAccountId } = useMultiBexio();
 
   // Form state - extended for AI extraction
   const [formData, setFormData] = useState({
