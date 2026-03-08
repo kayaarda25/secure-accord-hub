@@ -43,12 +43,12 @@ export function useOpexBudgets() {
       const { data, error } = await supabase
         .from("opex_budgets")
         .select("*")
-        .order("submitted_at", { ascending: false });
+        .order("period", { ascending: false });
 
       if (error) throw error;
       setBudgets((data as OpexBudget[]) || []);
     } catch (error) {
-      console.error("Error fetching OPEX budgets:", error);
+      console.error("Error fetching OPEX:", error);
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +98,6 @@ export function useOpexBudgets() {
 
       if (error) throw error;
 
-      // Insert line items
       if (budget && lineItems.length > 0) {
         const items = lineItems.map((li, idx) => ({
           budget_id: budget.id,
@@ -108,14 +107,11 @@ export function useOpexBudgets() {
           sort_order: li.sort_order ?? idx,
         }));
 
-        const { error: liError } = await supabase
-          .from("opex_line_items")
-          .insert(items);
-
+        const { error: liError } = await supabase.from("opex_line_items").insert(items);
         if (liError) throw liError;
       }
 
-      toast({ title: "OPEX-Budget erstellt", description: `Budget für ${period} wurde angelegt.` });
+      toast({ title: "OPEX erstellt", description: `OPEX für ${period} wurde angelegt.` });
       fetchBudgets();
       return budget;
     } catch (error: any) {
@@ -124,9 +120,56 @@ export function useOpexBudgets() {
     }
   };
 
+  const updateBudgetItems = async (
+    budgetId: string,
+    lineItems: Omit<OpexLineItem, "id" | "budget_id">[]
+  ) => {
+    if (!user) return false;
+
+    try {
+      // Delete existing items
+      await supabase.from("opex_line_items").delete().eq("budget_id", budgetId);
+
+      // Insert new items
+      const totalAmount = lineItems.reduce((s, li) => s + li.amount, 0);
+      const items = lineItems.map((li, idx) => ({
+        budget_id: budgetId,
+        category: li.category,
+        label: li.label,
+        amount: li.amount,
+        sort_order: li.sort_order ?? idx,
+      }));
+
+      const { error: liError } = await supabase.from("opex_line_items").insert(items);
+      if (liError) throw liError;
+
+      // Update total and reset status to pending (re-approval needed)
+      const { error } = await supabase
+        .from("opex_budgets")
+        .update({
+          total_amount: totalAmount,
+          status: "pending",
+          approved_by: null,
+          approved_at: null,
+          rejected_by: null,
+          rejected_at: null,
+          rejection_reason: null,
+        })
+        .eq("id", budgetId);
+
+      if (error) throw error;
+
+      toast({ title: "OPEX aktualisiert", description: "Änderungen erfordern eine erneute Genehmigung." });
+      fetchBudgets();
+      return true;
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+      return false;
+    }
+  };
+
   const approveBudget = async (budgetId: string) => {
     if (!user) return;
-
     try {
       const { error } = await supabase
         .from("opex_budgets")
@@ -138,7 +181,6 @@ export function useOpexBudgets() {
         .eq("id", budgetId);
 
       if (error) throw error;
-
       toast({ title: "OPEX genehmigt" });
       fetchBudgets();
     } catch (error: any) {
@@ -148,7 +190,6 @@ export function useOpexBudgets() {
 
   const rejectBudget = async (budgetId: string, reason: string) => {
     if (!user) return;
-
     try {
       const { error } = await supabase
         .from("opex_budgets")
@@ -161,7 +202,6 @@ export function useOpexBudgets() {
         .eq("id", budgetId);
 
       if (error) throw error;
-
       toast({ title: "OPEX abgelehnt" });
       fetchBudgets();
     } catch (error: any) {
@@ -177,8 +217,7 @@ export function useOpexBudgets() {
         .eq("id", budgetId);
 
       if (error) throw error;
-
-      toast({ title: "OPEX eingereicht", description: "Das Budget wurde zur Genehmigung eingereicht." });
+      toast({ title: "OPEX eingereicht", description: "Die OPEX wurde zur Genehmigung eingereicht." });
       fetchBudgets();
     } catch (error: any) {
       toast({ title: "Fehler", description: error.message, variant: "destructive" });
@@ -195,6 +234,7 @@ export function useOpexBudgets() {
     fetchBudgets,
     fetchLineItems,
     createBudget,
+    updateBudgetItems,
     approveBudget,
     rejectBudget,
     submitBudget,
