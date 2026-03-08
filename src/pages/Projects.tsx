@@ -24,6 +24,7 @@ const KANBAN_COLUMNS = [
 ];
 
 export default function Projects() {
+  const { t } = useLanguage();
   const { projects, loading, createProject, updateProject, deleteProject, assignTaskToProject, refetch } = useProjects();
   const [view, setView] = useState<"grid" | "kanban">("grid");
   const [createOpen, setCreateOpen] = useState(false);
