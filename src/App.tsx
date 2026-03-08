@@ -229,7 +229,7 @@ const App = () => (
             <Route
               path="/users"
               element={
-                <ProtectedRoute requiredRoles={["admin"]}>
+                <ProtectedRoute requiredPermissions={["users.manage", "permissions.manage"]}>
                   <UsersPage />
                 </ProtectedRoute>
               }
