@@ -90,12 +90,12 @@ export default function Settings() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Fehler", description: "Bitte wählen Sie eine Bilddatei", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.invalidImage"), variant: "destructive" });
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Fehler", description: "Die Datei darf maximal 5MB groß sein", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("settings.profile.fileTooLarge"), variant: "destructive" });
       return;
     }
 
