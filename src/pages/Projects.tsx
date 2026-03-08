@@ -50,7 +50,7 @@ export default function Projects() {
   }
 
   return (
-    <Layout title="Projekte" subtitle="Projektverwaltung">
+    <Layout title={t("page.projects.title")} subtitle={t("page.projects.subtitle")}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Button variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
