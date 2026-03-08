@@ -179,7 +179,7 @@ export default function Auth() {
       }
 
       const { data, error: fnError } = await supabase.functions.invoke("accept-invitation", {
-        body: { token: invitationToken, password, firstName, lastName }
+        body: { token: invitationToken, password, firstName, lastName, notificationsConsent }
       });
 
       if (fnError) { setError(fnError.message || t("auth.invitationAcceptError")); return; }
