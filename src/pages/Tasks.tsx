@@ -334,7 +334,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Tasks</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.total")}</p>
                 <p className="text-2xl font-bold">{tasks.length}</p>
               </div>
               <CheckSquare className="h-8 w-8 text-muted-foreground" />
