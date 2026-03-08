@@ -12,8 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationItem } from "./NotificationItem";
-import { formatDistanceToNow } from "date-fns";
-import { de } from "date-fns/locale";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface Notification {
   id: string;
@@ -31,8 +30,27 @@ export function NotificationCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { showDesktopNotification, requestPermission } = usePushNotifications();
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  // Request push permission on mount (if user consented)
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkConsent = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("notifications_consent")
+        .eq("user_id", user.id)
+        .single();
+
+      if (data?.notifications_consent) {
+        requestPermission();
+      }
+    };
+    checkConsent();
+  }, [user, requestPermission]);
 
   useEffect(() => {
     if (user) {
@@ -50,11 +68,21 @@ export function NotificationCenter() {
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            setNotifications((prev) => [payload.new as Notification, ...prev]);
+            const newNotification = payload.new as Notification;
+            setNotifications((prev) => [newNotification, ...prev]);
+            
+            // In-app toast
             toast({
-              title: (payload.new as Notification).title,
-              description: (payload.new as Notification).message,
+              title: newNotification.title,
+              description: newNotification.message,
             });
+
+            // Desktop push notification
+            showDesktopNotification(
+              newNotification.title,
+              newNotification.message,
+              newNotification.link
+            );
           }
         )
         .subscribe();
