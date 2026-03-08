@@ -145,7 +145,7 @@ export function ActiveSessions({
                       </div>
                     </div>
                   </div>
-                  {!isCurrent && (
+                  {!isCurrent && session.is_active && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
