@@ -293,7 +293,7 @@ export function InvoiceApprovalDialog({
           if (invoice.vendor_iban) {
             try {
               // Get bank accounts to find "Valiant" CHF account
-              const bankAccounts = await callBexioApi("get_bank_accounts", {});
+              const bankAccounts = await callBexioApi("get_bank_accounts", {}, bexioAccountId);
               console.log("Available bank accounts:", bankAccounts?.length);
 
               // Find Valiant CHF account (case-insensitive match on name containing "valiant" and currency CHF)
