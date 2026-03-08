@@ -46,8 +46,6 @@ export default function Security() {
   const [hasMfaFactor, setHasMfaFactor] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  // Session timeout hook
-  useSessionTimeout(settings?.session_timeout_minutes || 60);
 
   useEffect(() => {
     if (user) {
