@@ -13,14 +13,15 @@ import bexioLogo from "@/assets/bexio-logo.png";
 
 export function BexioConnectionCard() {
   const { isConnected, isLoading, connect, disconnect } = useBexio();
-  const { accounts, selectedAccountId, setSelectedAccountId, addAccount, removeAccount, isLoading: accountsLoading } = useMultiBexio();
+  const { accounts, selectedAccountId, setSelectedAccountId, removeAccount, isLoading: accountsLoading, refetch } = useMultiBexio();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newEntityType, setNewEntityType] = useState("default");
 
   const handleAddAccount = async () => {
     if (!newAccountName.trim()) return;
-    await addAccount(newAccountName.trim(), newEntityType);
+    // Trigger Bexio OAuth with account metadata – user logs in with a different Bexio account
+    await connect(newAccountName.trim(), newEntityType);
     setNewAccountName("");
     setNewEntityType("default");
     setAddDialogOpen(false);
