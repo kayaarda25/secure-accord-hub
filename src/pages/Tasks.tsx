@@ -384,10 +384,10 @@ export default function Tasks() {
               <SelectValue placeholder={t("tasks.filter")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tasks</SelectItem>
-              <SelectItem value="todo">To Do</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="done">Done</SelectItem>
+              <SelectItem value="all">{t("tasks.allTasks")}</SelectItem>
+              <SelectItem value="todo">{t("tasks.todo")}</SelectItem>
+              <SelectItem value="in_progress">{t("tasks.inProgress")}</SelectItem>
+              <SelectItem value="done">{t("tasks.completed")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
