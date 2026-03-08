@@ -246,7 +246,7 @@ export function GlobalSearch() {
           </CommandEmpty>
           
           {results.length > 0 && (
-            <CommandGroup heading="Suchergebnisse">
+            <CommandGroup heading={t("search.results")}>
               {results.map((result) => {
                 const Icon = getIcon(result.type);
                 return (
