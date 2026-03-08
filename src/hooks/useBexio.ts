@@ -72,10 +72,16 @@ export function useBexio() {
       // Redirect to Bexio OAuth
       if (response.data?.authUrl) {
         const url = response.data.authUrl;
-        const w = window.open(url, "_blank");
-        if (!w) {
-          // Popup blocked (e.g. iframe) – navigate directly
-          window.location.href = url;
+
+        if (accountName) {
+          // Add-account flow: always hard-redirect in same tab (reliable in iframe/popup-blocked environments)
+          window.location.assign(url);
+        } else {
+          const w = window.open(url, "_blank");
+          if (!w) {
+            // Popup blocked (e.g. iframe) – navigate directly
+            window.location.href = url;
+          }
         }
       }
     } catch (error: any) {
