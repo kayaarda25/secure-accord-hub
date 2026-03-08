@@ -367,7 +367,7 @@ export default function Tasks() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-sm text-muted-foreground">{t("tasks.completed")}</p>
                 <p className="text-2xl font-bold text-success">{doneCount}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-success" />
